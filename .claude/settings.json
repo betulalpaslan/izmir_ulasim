@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:acikveri.bizizmir.com)",
+      "Bash(node -e \"const p=require\\('./package.json'\\); console.log\\('expo:', p.dependencies?.expo || p.devDependencies?.expo\\)\")",
+      "Bash(npx ngrok *)",
+      "Bash(Test-Path \"d:\\\\izmir_backend\\\\.git\")",
+      "Bash(curl -s --max-time 10 \"https://izmirbackend-production.up.railway.app/bisim/stations\")",
+      "Bash(curl -s --max-time 10 -o /dev/null -w \"%{http_code}\" \"https://openapi.izmir.bel.tr/api/izulas/bisim/istasyonlar\")",
+      "Bash(curl -s --max-time 15 \"https://overpass-api.de/api/interpreter?data=[out:json];node[amenity=bicycle_rental]\\(38.2,26.8,38.6,27.5\\);out;\")",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(f'Toplam: {len\\(d[\\\\\"elements\\\\\"]\\)}'\\); [print\\(e[\\\\\"id\\\\\"], e.get\\(\\\\\"tags\\\\\",{}\\).get\\(\\\\\"name\\\\\",\\\\\"-\\\\\"\\), e.get\\(\\\\\"tags\\\\\",{}\\).get\\(\\\\\"operator\\\\\",\\\\\"-\\\\\"\\)\\) for e in d[\\\\\"elements\\\\\"][:10]]\")",
+      "Bash(curl -v --max-time 15 \"https://overpass-api.de/api/interpreter?data=[out:json];node[amenity=bicycle_rental]\\(38.2,26.8,38.6,27.5\\);out;\")",
+      "Bash(curl -s --max-time 15 -G \"https://overpass-api.de/api/interpreter\" --data-urlencode \"data=[out:json];node[amenity=bicycle_rental]\\(38.2,26.8,38.6,27.5\\);out;\")",
+      "Bash(curl -s --max-time 15 \"https://overpass-api.de/api/interpreter?data=%5Bout%3Ajson%5D%3Bnode%5Bamenity%3Dbicycle_rental%5D%2838.2%2C26.8%2C38.6%2C27.5%29%3Bout%3B\")",
+      "Bash(curl -s --max-time 5 \"https://izmirbackend-production.up.railway.app/bisim/stations\")",
+      "Bash(curl -s --max-time 15 -X POST \"https://izmirbackend-production.up.railway.app/get-route\" -H \"Content-Type: application/json\" -d \"{\\\\\"from\\\\\":{\\\\\"lat\\\\\":38.4189,\\\\\"lon\\\\\":27.1287},\\\\\"to\\\\\":{\\\\\"lat\\\\\":38.4360,\\\\\"lon\\\\\":27.1490},\\\\\"profile\\\\\":\\\\\"bicycle\\\\\",\\\\\"bikeType\\\\\":\\\\\"RENT\\\\\",\\\\\"numItineraries\\\\\":2}\")",
+      "Bash(curl -s --max-time 15 \"https://overpass.kumi.systems/api/interpreter?data=%5Bout%3Ajson%5D%3Bnode%5Bamenity%3Dbicycle_rental%5D%2838.2%2C26.8%2C38.6%2C27.5%29%3Bout%3B\")",
+      "Bash(curl -s --max-time 20 -X POST \"https://izmirbackend-production.up.railway.app/get-route\" -H \"Content-Type: application/json\" -d \"{\\\\\"from\\\\\":{\\\\\"lat\\\\\":38.4189,\\\\\"lon\\\\\":27.1287},\\\\\"to\\\\\":{\\\\\"lat\\\\\":38.4360,\\\\\"lon\\\\\":27.1490},\\\\\"profile\\\\\":\\\\\"bicycle\\\\\",\\\\\"bikeType\\\\\":\\\\\"RENT\\\\\",\\\\\"numItineraries\\\\\":2}\")",
+      "Bash(curl -s --max-time 20 -X POST \"https://izmirbackend-production.up.railway.app/get-route\" -H \"Content-Type: application/json\" -d \"{\\\\\"from\\\\\":{\\\\\"lat\\\\\":38.4189,\\\\\"lon\\\\\":27.1287},\\\\\"to\\\\\":{\\\\\"lat\\\\\":38.4360,\\\\\"lon\\\\\":27.1490},\\\\\"profile\\\\\":\\\\\"bicycle\\\\\",\\\\\"bikeType\\\\\":\\\\\"RENT\\\\\",\\\\\"numItineraries\\\\\":3}\")",
+      "Bash(node -e \"let d=''; process.stdin.on\\('data',c=>d+=c\\); process.stdin.on\\('end',\\(\\)=>{ const j=JSON.parse\\(d\\); j.itineraries?.forEach\\(\\(it,i\\)=>{ console.log\\('Rota',i+1,':',it.legs.map\\(l=>l.mode\\).join\\(' → '\\)\\); }\\); console.log\\('routingErrors:', JSON.stringify\\(j.routingErrors\\)\\); }\\);\")"
+    ]
+  }
+}

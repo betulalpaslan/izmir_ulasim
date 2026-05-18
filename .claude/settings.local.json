@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-ChildItem -Path \"d:\\\\izmir_ulasim\" -Force)",
+      "Bash(Select-Object Name, PSIsContainer)",
+      "Bash(Format-Table -AutoSize)",
+      "Bash(New-Item -Path \"d:\\\\izmir_ulasim\\\\CLAUDE.md\" -ItemType File -Force)",
+      "Bash(Out-Null)",
+      "Bash(Get-Content \"d:\\\\izmir_ulasim\\\\CLAUDE.md\")",
+      "PowerShell(New-Item -Path \"d:\\\\izmir_ulasim\\\\CLAUDE.md\" -ItemType File)",
+      "Bash(Get-ChildItem -Path \"d:\\\\izmir_backend\" -Force)",
+      "Bash(Select-Object Name, FullName)",
+      "PowerShell(eas --help 2>&1)",
+      "PowerShell(head -5)",
+      "Bash(curl -s --max-time 20 -G \"https://overpass-api.de/api/interpreter\" --data-urlencode \"data=[out:json];node[amenity=bicycle_rental]\\(38.2,26.8,38.6,27.5\\);out;\")",
+      "Read(//tmp/**)",
+      "Bash(gh api *)",
+      "Bash(git remote *)"
+    ]
+  }
+}

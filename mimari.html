@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<title>İzmir Ulaşım — Sistem Mimarisi</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&family=Montserrat:wght@800;900&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #F0F4FF; display: flex; justify-content: center; padding: 20px; }
+</style>
+</head>
+<body>
+<svg viewBox="0 0 900 1260" width="900" xmlns="http://www.w3.org/2000/svg" font-family="Inter, sans-serif">
+<defs>
+  <!-- ok başları -->
+  <marker id="ab"   markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><polygon points="0 0,9 3.5,0 7" fill="#1560D4"/></marker>
+  <marker id="abup" markerWidth="9" markerHeight="7" refX="1" refY="3.5" orient="auto"><polygon points="9 0,0 3.5,9 7" fill="#1560D4"/></marker>
+  <marker id="ag"   markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><polygon points="0 0,9 3.5,0 7" fill="#0A7A50"/></marker>
+  <marker id="agup" markerWidth="9" markerHeight="7" refX="1" refY="3.5" orient="auto"><polygon points="9 0,0 3.5,9 7" fill="#0A7A50"/></marker>
+  <marker id="aa"   markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><polygon points="0 0,9 3.5,0 7" fill="#B07000"/></marker>
+  <marker id="aaL"  markerWidth="9" markerHeight="7" refX="1" refY="3.5" orient="auto"><polygon points="9 0,0 3.5,9 7" fill="#B07000"/></marker>
+  <marker id="ap"   markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><polygon points="0 0,9 3.5,0 7" fill="#6B3DB5"/></marker>
+  <marker id="apL"  markerWidth="9" markerHeight="7" refX="1" refY="3.5" orient="auto"><polygon points="9 0,0 3.5,9 7" fill="#6B3DB5"/></marker>
+  <marker id="agr"  markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><polygon points="0 0,9 3.5,0 7" fill="#6A7A9A"/></marker>
+  <filter id="sh"><feDropShadow dx="0" dy="2" stdDeviation="4" flood-opacity="0.10"/></filter>
+  <linearGradient id="g-hdr" x1="0" y1="0" x2="1" y2="0">
+    <stop offset="0%" stop-color="#0A3D8F"/><stop offset="50%" stop-color="#1560D4"/><stop offset="100%" stop-color="#00A8E0"/>
+  </linearGradient>
+  <linearGradient id="g-mob" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%" stop-color="#1560D4"/><stop offset="100%" stop-color="#0A4FA6"/>
+  </linearGradient>
+  <linearGradient id="g-exp" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%" stop-color="#0D9060"/><stop offset="100%" stop-color="#0A7240"/>
+  </linearGradient>
+  <linearGradient id="g-otp" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%" stop-color="#1668BB"/><stop offset="100%" stop-color="#0D55A0"/>
+  </linearGradient>
+  <linearGradient id="g-bisim" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%" stop-color="#B07000"/><stop offset="100%" stop-color="#8A5600"/>
+  </linearGradient>
+  <linearGradient id="g-izelm" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%" stop-color="#B84A00"/><stop offset="100%" stop-color="#923A00"/>
+  </linearGradient>
+  <linearGradient id="g-gtfs" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%" stop-color="#6B3DB5"/><stop offset="100%" stop-color="#522E8E"/>
+  </linearGradient>
+</defs>
+
+<!-- ─── BAŞLIK ─── -->
+<rect x="0" y="0" width="900" height="50" rx="10" fill="url(#g-hdr)"/>
+<text x="450" y="22" text-anchor="middle" font-size="19" font-weight="900" fill="white" font-family="Montserrat,sans-serif">İzmir Ulaşım — Sistem Mimarisi</text>
+<text x="450" y="41" text-anchor="middle" font-size="9.5" fill="rgba(255,255,255,0.85)">Çok Modlu Rota Planlama · React Native · Express · OpenTripPlanner 2.8.1 · Railway</text>
+
+<!-- bölge etiketleri -->
+<text x="264" y="60" text-anchor="middle" font-size="8" font-weight="700" fill="#5577AA" letter-spacing="1.2">KULLANICI CİHAZI</text>
+<text x="716" y="60" text-anchor="middle" font-size="8" font-weight="700" fill="#AA7700" letter-spacing="1.2">HARİCİ VERİ KAYNAKLARI</text>
+<text x="264" y="420" text-anchor="middle" font-size="7.5" font-weight="700" fill="#338855" letter-spacing="1">▼  RAILWAY · DOCKER CONTAINER  ▼</text>
+
+<!-- ═══════════════════════════════
+     SOL SÜTUN  x=8–522  cx=265
+═══════════════════════════════ -->
+
+<!-- ① MOBİL UYGULAMA  y=66–390 -->
+<rect x="8" y="66" width="514" height="324" rx="12" fill="#EEF4FF" stroke="#B8CCFF" stroke-width="2" filter="url(#sh)"/>
+<rect x="8" y="66" width="514" height="42" rx="12" fill="url(#g-mob)"/>
+<rect x="8"  y="92"  width="514" height="16" fill="url(#g-mob)"/>
+<text x="265" y="87" text-anchor="middle" font-size="14" font-weight="800" fill="white">📱  Mobil Uygulama  —  React Native · Expo SDK 52</text>
+<text x="265" y="102" text-anchor="middle" font-size="9" fill="rgba(255,255,255,0.88)">HomeScreen.js · RoutePanel · SearchBar · Services/api.js · ThemeContext</text>
+
+<rect x="22" y="116" width="486" height="24" rx="6" fill="#1560D4"/>
+<text x="265" y="132" text-anchor="middle" font-size="10.5" font-weight="700" fill="white">HomeScreen.js — Harita, Rota Planlama, Simülasyon</text>
+
+<rect x="22" y="146" width="232" height="20" rx="5" fill="white" stroke="#C7D8FF" stroke-width="1.2"/>
+<text x="138" y="160" text-anchor="middle" font-size="9" fill="#1A1A2E" font-weight="600">RoutePanel — Rota Detayı</text>
+<rect x="260" y="146" width="248" height="20" rx="5" fill="white" stroke="#C7D8FF" stroke-width="1.2"/>
+<text x="384" y="160" text-anchor="middle" font-size="9" fill="#1A1A2E" font-weight="600">SearchBar — Adres Arama</text>
+
+<rect x="22" y="172" width="486" height="20" rx="5" fill="white" stroke="#C7D8FF" stroke-width="1.2"/>
+<text x="265" y="186" text-anchor="middle" font-size="9" fill="#1560D4" font-weight="700">Services / api.js — Backend + Geocoding Çağrıları</text>
+
+<rect x="22" y="198" width="232" height="32" rx="6" fill="#FFF8E7" stroke="#FDD99A" stroke-width="1.2"/>
+<text x="138" y="212" text-anchor="middle" font-size="9" fill="#92620A" font-weight="700">react-native-maps</text>
+<text x="138" y="224" text-anchor="middle" font-size="7.5" fill="#B07020">Polyline · Marker · BİSİM / P+R katmanları</text>
+<rect x="260" y="198" width="248" height="32" rx="6" fill="#F5F0FF" stroke="#D0B0FF" stroke-width="1.2"/>
+<text x="384" y="212" text-anchor="middle" font-size="9" fill="#6B3DB5" font-weight="700">Ücret Hesaplama</text>
+<text x="384" y="224" text-anchor="middle" font-size="7.5" fill="#8B5DD5">Öğrenci ×0.7 · Yetişkin ×1.0 · 65+ ücretsiz</text>
+
+<rect x="22" y="236" width="486" height="30" rx="6" fill="white" stroke="#C7D8FF" stroke-width="1.2"/>
+<text x="265" y="250" text-anchor="middle" font-size="9" fill="#1A1A2E" font-weight="700">Tercihler &amp; Geçmiş  —  AsyncStorage</text>
+<text x="265" y="261" text-anchor="middle" font-size="8" fill="#5A6A8A">Kayıtlı yerler · Son 20 rota · Zaman bağlamı · Rush hour uyarıları</text>
+
+<rect x="22" y="272" width="232" height="28" rx="6" fill="#F5F7FF" stroke="#C7D8FF" stroke-width="1.2"/>
+<text x="138" y="285" text-anchor="middle" font-size="8.5" fill="#1560D4" font-weight="700">Seçilen Ulaşım Modu</text>
+<text x="138" y="295" text-anchor="middle" font-size="7.5" fill="#5A6A8A">transit · bicycle · park · car</text>
+<rect x="260" y="272" width="248" height="28" rx="6" fill="white" stroke="#C7D8FF" stroke-width="1.2"/>
+<text x="384" y="285" text-anchor="middle" font-size="8.5" fill="#1A1A2E" font-weight="700">Alt Nav: Harita / Favoriler / Ayarlar</text>
+<text x="384" y="295" text-anchor="middle" font-size="7.5" fill="#5A6A8A">OnBoardingScreen (ilk açılış)</text>
+
+<rect x="22" y="306" width="486" height="24" rx="5" fill="#F0FFF8" stroke="#B2EDD6" stroke-width="1.2"/>
+<text x="265" y="322" text-anchor="middle" font-size="8.5" fill="#0A7A50" font-weight="600">🌍 Photon · Nominatim — Adres geocoding (doğrudan frontend, backend bypass, 3 karakter debounce)</text>
+
+<rect x="22" y="336" width="486" height="20" rx="5" fill="#FFF8E7" stroke="#FDD99A" stroke-width="1.2"/>
+<text x="265" y="350" text-anchor="middle" font-size="8.5" fill="#92620A" font-weight="600">utils/polyline.js · ThemeContext (gece/gündüz tema) · Harita simülasyon modu</text>
+
+<!-- ─── OK ① : Mobil ↔ Express ─── -->
+<!-- istek aşağı -->
+<line x1="248" y1="390" x2="248" y2="432" stroke="#1560D4" stroke-width="2.5" marker-end="url(#ab)"/>
+<!-- yanıt yukarı (dashed) -->
+<line x1="270" y1="432" x2="270" y2="390" stroke="#1560D4" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#abup)"/>
+<!-- etiket -->
+<rect x="278" y="396" width="160" height="38" rx="6" fill="white" stroke="#C7D8FF" stroke-width="1.2"/>
+<text x="358" y="411" text-anchor="middle" font-size="8.5" fill="#1560D4" font-weight="700">① POST /get-route</text>
+<text x="358" y="423" text-anchor="middle" font-size="8" fill="#5A6A8A">{ from, to, profile, modes }</text>
+<text x="358" y="434" text-anchor="middle" font-size="8" fill="#1560D4">② itineraries[ ] dön</text>
+
+<!-- ② EXPRESS API  y=440–764 -->
+
+<!-- Railway dashed border: Express + OTP -->
+<rect x="4" y="428" width="524" height="800" rx="14" fill="none" stroke="#00AA66" stroke-width="2" stroke-dasharray="10 5"/>
+
+<rect x="8" y="440" width="514" height="318" rx="12" fill="#E8F8F2" stroke="#90D4B0" stroke-width="2" filter="url(#sh)"/>
+<rect x="8" y="440" width="514" height="40" rx="12" fill="url(#g-exp)"/>
+<rect x="8" y="466" width="514" height="14" fill="url(#g-exp)"/>
+<text x="265" y="459" text-anchor="middle" font-size="14" font-weight="800" fill="white">⚙️  Express API — server.js  (:3000 public)</text>
+<text x="265" y="471" text-anchor="middle" font-size="9" fill="rgba(255,255,255,0.9)">Node.js · Railway · OTP köprüsü · GBFS + P+R beslemesi</text>
+
+<rect x="22" y="484" width="486" height="34" rx="7" fill="#0A7A50"/>
+<text x="265" y="499" text-anchor="middle" font-size="12" font-weight="800" fill="white">POST  /get-route</text>
+<text x="265" y="511" text-anchor="middle" font-size="8.5" fill="rgba(255,255,255,0.85)">OTP'ye GraphQL sorgusu · Rota sıralama (>2km yürüyüş ceza) · İtinerar listesi</text>
+
+<rect x="22" y="524" width="232" height="88" rx="7" fill="white" stroke="#90D4B0" stroke-width="1.2"/>
+<rect x="22" y="524" width="232" height="22" rx="7" fill="#0A7A50" opacity="0.15"/>
+<text x="138" y="539" text-anchor="middle" font-size="9.5" fill="#0A5A38" font-weight="700">🚲 BİSİM GBFS Beslemesi</text>
+<text x="138" y="553" text-anchor="middle" font-size="8" fill="#444">GET /bisim/gbfs (discovery)</text>
+<text x="138" y="565" text-anchor="middle" font-size="8" fill="#444">system_info · station_info · station_status</text>
+<text x="138" y="577" text-anchor="middle" font-size="8" fill="#444">GET /bisim/stations (frontend)</text>
+<text x="138" y="590" text-anchor="middle" font-size="7.5" fill="#0A7A50" font-weight="600">GBFS 2.3 · 60s cache · 8s timeout · lazy</text>
+<text x="138" y="602" text-anchor="middle" font-size="7.5" fill="#5A6A8A">parseCoord() string→float</text>
+
+<rect x="260" y="524" width="248" height="88" rx="7" fill="white" stroke="#90D4B0" stroke-width="1.2"/>
+<rect x="260" y="524" width="248" height="22" rx="7" fill="#0A7A50" opacity="0.15"/>
+<text x="384" y="539" text-anchor="middle" font-size="9.5" fill="#0A5A38" font-weight="700">🅿️ Otopark Feed</text>
+<text x="384" y="553" text-anchor="middle" font-size="8" fill="#444">GET /parking/feed (PARK_API → OTP)</text>
+<text x="384" y="565" text-anchor="middle" font-size="8" fill="#444">GET /parking/stations (frontend)</text>
+<text x="384" y="577" text-anchor="middle" font-size="8" fill="#444">isParkAndRide() · toOtpParking()</text>
+<text x="384" y="590" text-anchor="middle" font-size="7.5" fill="#0A7A50" font-weight="600">60s cache · 30s timeout · eager yükleme</text>
+<text x="384" y="602" text-anchor="middle" font-size="7.5" fill="#5A6A8A">tags: park_and_ride + bike_and_ride</text>
+
+<rect x="22" y="618" width="486" height="44" rx="6" fill="white" stroke="#90D4B0" stroke-width="1.2"/>
+<text x="265" y="633" text-anchor="middle" font-size="9" fill="#0A5A38" font-weight="700">Profil → OTP Mod Eşleşmesi</text>
+<rect x="28" y="639" width="474" height="12" rx="3" fill="#0A7A50"/>
+<text x="160" y="649" text-anchor="middle" font-size="7" fill="white" font-weight="700">Profil</text>
+<text x="420" y="649" text-anchor="middle" font-size="7" fill="white" font-weight="700">OTP Modu</text>
+<rect x="28" y="651" width="474" height="11" fill="#F5F8FF"/>
+<text x="160" y="660" text-anchor="middle" font-size="7" fill="#1A1A2E">transit · bicycle · car</text>
+<text x="420" y="660" text-anchor="middle" font-size="7" fill="#1A1A2E">WALK+BUS/TRAM/RAIL/SUBWAY · BICYCLE · CAR (direct)</text>
+
+<rect x="22" y="668" width="486" height="22" rx="5" fill="white" stroke="#90D4B0" stroke-width="1.2"/>
+<text x="160" y="683" text-anchor="middle" font-size="7" fill="#1A1A2E">bicycle/PARK · park_and_ride</text>
+<text x="420" y="683" text-anchor="middle" font-size="7" fill="#1A1A2E">access: BICYCLE_PARKING · access: CAR_PARKING + egress: WALK</text>
+
+<rect x="22" y="696" width="486" height="22" rx="5" fill="#FFF0F5" stroke="#FFB0CC" stroke-width="1.2"/>
+<text x="265" y="711" text-anchor="middle" font-size="8" fill="#B52060" font-weight="600">🐳 start.sh: OTP başlat → 40s bekle → node server.js  ·  JAR + graph.obj GitHub Releases'tan indirilir</text>
+
+<!-- ─── OK ③ : Express → OTP (GraphQL) ─── -->
+<line x1="248" y1="758" x2="248" y2="800" stroke="#0A7A50" stroke-width="2.5" marker-end="url(#ag)"/>
+<line x1="270" y1="800" x2="270" y2="758" stroke="#0A7A50" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#agup)"/>
+<rect x="278" y="764" width="152" height="30" rx="6" fill="white" stroke="#90D4B0" stroke-width="1.2"/>
+<text x="354" y="777" text-anchor="middle" font-size="8.5" fill="#0A7A50" font-weight="700">③ GraphQL sorgu</text>
+<text x="354" y="788" text-anchor="middle" font-size="8" fill="#5A6A8A">④ itinerary yanıtı</text>
+
+<!-- ─── OTP polling geri Express'e (sol kenar) ─── -->
+<path d="M 8 870 L 2 870 L 2 630 L 8 630" stroke="#B07000" stroke-width="1.8" stroke-dasharray="6 4" fill="none" marker-end="url(#aa)"/>
+<text x="0" y="752" text-anchor="middle" font-size="7.5" fill="#B07000" font-weight="700" transform="rotate(-90,0,752)">OTP polling (1dk)</text>
+
+<!-- ③ OTP 2.8.1  y=808–1228 -->
+<rect x="8" y="808" width="514" height="420" rx="12" fill="#E6F2FF" stroke="#80B8E8" stroke-width="2" filter="url(#sh)"/>
+<rect x="8" y="808" width="514" height="40" rx="12" fill="url(#g-otp)"/>
+<rect x="8" y="834" width="514" height="14" fill="url(#g-otp)"/>
+<text x="265" y="827" text-anchor="middle" font-size="14" font-weight="800" fill="white">🗺️  OpenTripPlanner 2.8.1  (:8080 internal)</text>
+<text x="265" y="840" text-anchor="middle" font-size="9" fill="rgba(255,255,255,0.9)">Java · 1 GB heap · GTFS rota grafiği · GraphQL API · vehicleParking + GBFS updater</text>
+
+<rect x="22" y="854" width="486" height="32" rx="7" fill="#0D55A0"/>
+<text x="265" y="868" text-anchor="middle" font-size="11" font-weight="700" fill="white">İzmir GTFS Rota Grafiği  —  graph.obj  (73 MB)</text>
+<text x="265" y="880" text-anchor="middle" font-size="8" fill="rgba(255,255,255,0.85)">Otobüs · Tramvay · Metro · Hafif Raylı · Feribot · Yürüme bağlantıları</text>
+
+<rect x="22" y="892" width="486" height="90" rx="7" fill="white" stroke="#80B8E8" stroke-width="1.2"/>
+<text x="265" y="908" text-anchor="middle" font-size="9.5" fill="#0D55A0" font-weight="700">router-config.json — Rota Parametreleri</text>
+<rect x="30" y="914" width="140" height="24" rx="4" fill="#F0F6FF"/>
+<text x="100" y="926" text-anchor="middle" font-size="8.5" fill="#1A1A2E" font-weight="600">walkReluctance: 2.0</text>
+<text x="100" y="935" text-anchor="middle" font-size="7.5" fill="#1560D4">Yürüyüş caydır</text>
+<rect x="178" y="914" width="148" height="24" rx="4" fill="#F0F6FF"/>
+<text x="252" y="926" text-anchor="middle" font-size="8.5" fill="#1A1A2E" font-weight="600">transferPenalty: 300s</text>
+<text x="252" y="935" text-anchor="middle" font-size="7.5" fill="#1560D4">Aktarma penaltısı</text>
+<rect x="334" y="914" width="166" height="24" rx="4" fill="#F0F6FF"/>
+<text x="417" y="926" text-anchor="middle" font-size="8.5" fill="#1A1A2E" font-weight="600">bikeSpeed: 4.5 m/s</text>
+<text x="417" y="935" text-anchor="middle" font-size="7.5" fill="#1560D4">Bisiklet hızı</text>
+<rect x="30" y="944" width="140" height="24" rx="4" fill="#F0F6FF"/>
+<text x="100" y="956" text-anchor="middle" font-size="8.5" fill="#1A1A2E" font-weight="600">carParkTime: 5dk</text>
+<text x="100" y="965" text-anchor="middle" font-size="7.5" fill="#1560D4">Park süresi</text>
+<rect x="178" y="944" width="148" height="24" rx="4" fill="#F0F6FF"/>
+<text x="252" y="956" text-anchor="middle" font-size="8.5" fill="#1A1A2E" font-weight="600">carParkCost: 120</text>
+<text x="252" y="965" text-anchor="middle" font-size="7.5" fill="#1560D4">Park maliyeti</text>
+<rect x="334" y="944" width="166" height="24" rx="4" fill="#F0F6FF"/>
+<text x="417" y="956" text-anchor="middle" font-size="8.5" fill="#1A1A2E" font-weight="600">heapSize: 1 GB</text>
+<text x="417" y="965" text-anchor="middle" font-size="7.5" fill="#1560D4">Java bellek</text>
+<text x="265" y="977" text-anchor="middle" font-size="7.5" fill="#5A6A8A">vehicleParking updater + vehicleRental (GBFS) updater → her 1 dakika /parking/feed ve /bisim/gbfs polling</text>
+
+<rect x="22" y="988" width="486" height="62" rx="7" fill="white" stroke="#80B8E8" stroke-width="1.2"/>
+<text x="265" y="1004" text-anchor="middle" font-size="9.5" fill="#0D55A0" font-weight="700">Desteklenen OTP Rota Modları</text>
+<rect x="30" y="1010" width="58" height="16" rx="3" fill="#EEF4FF" stroke="#B8CCFF" stroke-width="1"/>
+<text x="59" y="1022" text-anchor="middle" font-size="8" fill="#0A4FA6" font-weight="600">WALK</text>
+<rect x="94" y="1010" width="68" height="16" rx="3" fill="#E8F8F2" stroke="#90D4B0" stroke-width="1"/>
+<text x="128" y="1022" text-anchor="middle" font-size="8" fill="#0A7A50" font-weight="600">BICYCLE</text>
+<rect x="168" y="1010" width="118" height="16" rx="3" fill="#FFF8E7" stroke="#FDD99A" stroke-width="1"/>
+<text x="227" y="1022" text-anchor="middle" font-size="8" fill="#92620A" font-weight="600">BICYCLE_PARKING</text>
+<rect x="292" y="1010" width="58" height="16" rx="3" fill="#FFF0F5" stroke="#FFB0CC" stroke-width="1"/>
+<text x="321" y="1022" text-anchor="middle" font-size="8" fill="#B52060" font-weight="600">CAR</text>
+<rect x="356" y="1010" width="112" height="16" rx="3" fill="#F5F0FF" stroke="#D0B0FF" stroke-width="1"/>
+<text x="412" y="1022" text-anchor="middle" font-size="8" fill="#6B3DB5" font-weight="600">CAR_PARKING</text>
+<rect x="30" y="1032" width="50" height="14" rx="3" fill="#EEF4FF" stroke="#B8CCFF" stroke-width="1"/>
+<text x="55" y="1043" text-anchor="middle" font-size="8" fill="#0A4FA6" font-weight="600">BUS</text>
+<rect x="86" y="1032" width="58" height="14" rx="3" fill="#EEF4FF" stroke="#B8CCFF" stroke-width="1"/>
+<text x="115" y="1043" text-anchor="middle" font-size="8" fill="#0A4FA6" font-weight="600">TRAM</text>
+<rect x="150" y="1032" width="74" height="14" rx="3" fill="#EEF4FF" stroke="#B8CCFF" stroke-width="1"/>
+<text x="187" y="1043" text-anchor="middle" font-size="8" fill="#0A4FA6" font-weight="600">SUBWAY</text>
+<rect x="230" y="1032" width="56" height="14" rx="3" fill="#EEF4FF" stroke="#B8CCFF" stroke-width="1"/>
+<text x="258" y="1043" text-anchor="middle" font-size="8" fill="#0A4FA6" font-weight="600">RAIL</text>
+<rect x="292" y="1032" width="58" height="14" rx="3" fill="#EEF4FF" stroke="#B8CCFF" stroke-width="1"/>
+<text x="321" y="1043" text-anchor="middle" font-size="8" fill="#0A4FA6" font-weight="600">FERRY</text>
+
+<rect x="22" y="1056" width="232" height="56" rx="7" fill="#FFF8E7" stroke="#FDD99A" stroke-width="1.2"/>
+<text x="138" y="1072" text-anchor="middle" font-size="8.5" fill="#92620A" font-weight="700">🔄 vehicleParking Updater</text>
+<text x="138" y="1085" text-anchor="middle" font-size="7.5" fill="#B07020">/parking/feed · her 1 dakika</text>
+<text x="138" y="1097" text-anchor="middle" font-size="7.5" fill="#B07020">P+R + bisiklet doluluk · PARK_API</text>
+<text x="138" y="1106" text-anchor="middle" font-size="7" fill="#5A6A8A">router-config.json tanımlı</text>
+
+<rect x="260" y="1056" width="248" height="56" rx="7" fill="#E8F8F2" stroke="#90D4B0" stroke-width="1.2"/>
+<text x="384" y="1072" text-anchor="middle" font-size="8.5" fill="#0A5A38" font-weight="700">🔄 GBFS Updater</text>
+<text x="384" y="1085" text-anchor="middle" font-size="7.5" fill="#4A9A70">/bisim/gbfs · her 1 dakika</text>
+<text x="384" y="1097" text-anchor="middle" font-size="7.5" fill="#4A9A70">BİSİM istasyon konumları · GBFS 2.3</text>
+<text x="384" y="1106" text-anchor="middle" font-size="7" fill="#5A6A8A">is_renting: false (OSM, canlı veri yok)</text>
+
+<rect x="22" y="1118" width="232" height="44" rx="7" fill="white" stroke="#80B8E8" stroke-width="1.2"/>
+<text x="138" y="1133" text-anchor="middle" font-size="8.5" fill="#0D55A0" font-weight="700">GraphQL Sorgu</text>
+<text x="138" y="1146" text-anchor="middle" font-size="7.5" fill="#5A6A8A">localhost:8080/otp/gtfs/v1</text>
+<text x="138" y="1157" text-anchor="middle" font-size="7" fill="#5A6A8A">plan(from, to, modes) &#x7B; legs &#x7B; mode, dur &#x7D; &#x7D;</text>
+
+<rect x="260" y="1118" width="248" height="44" rx="7" fill="white" stroke="#80B8E8" stroke-width="1.2"/>
+<text x="384" y="1133" text-anchor="middle" font-size="8.5" fill="#0D55A0" font-weight="700">OTP İç Bileşenler</text>
+<text x="384" y="1146" text-anchor="middle" font-size="7.5" fill="#5A6A8A">Raptor (transit) · A*/BiDirA* (yürüyüş)</text>
+<text x="384" y="1157" text-anchor="middle" font-size="7" fill="#5A6A8A">VehicleParking matcher · P+R eşleştirme</text>
+
+<rect x="22" y="1168" width="486" height="22" rx="5" fill="#F5F0FF" stroke="#D0B0FF" stroke-width="1.2"/>
+<text x="265" y="1183" text-anchor="middle" font-size="8.5" fill="#6B3DB5" font-weight="600">İZBAN · İZTRAM · Metro · İZBAŞ Hafif Raylı · İZFERRY · İZULAŞ Otobüs</text>
+
+<!-- ═══════════════════════════════
+     SAĞ SÜTUN  cx=716
+═══════════════════════════════ -->
+
+<!-- ─── OK ⑤ : Mobil → Photon (düz ok, sağa) ─── -->
+<line x1="522" y1="322" x2="540" y2="322" stroke="#6A7A9A" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#agr)"/>
+<text x="531" y="316" text-anchor="middle" font-size="7" fill="#6A7A9A">geocode</text>
+
+<!-- PHOTON / NOMINATIM  y=66-240 -->
+<rect x="542" y="66" width="350" height="160" rx="12" fill="white" stroke="#DDE3EE" stroke-width="2" filter="url(#sh)"/>
+<rect x="542" y="66" width="350" height="38" rx="12" fill="#6A7A9A"/>
+<rect x="542" y="92" width="350" height="12" fill="#6A7A9A"/>
+<text x="717" y="87" text-anchor="middle" font-size="13" font-weight="800" fill="white">🌍  Photon · Nominatim</text>
+<text x="717" y="101" text-anchor="middle" font-size="8.5" fill="rgba(255,255,255,0.9)">Komoot (birincil) · OSM Nominatim (yedek)</text>
+<text x="717" y="124" text-anchor="middle" font-size="9.5" fill="#4A5A7A" font-weight="600">Adres Geocoding</text>
+<text x="717" y="139" text-anchor="middle" font-size="8.5" fill="#6A7A9A">Doğrudan frontend çağrısı · Backend bypass</text>
+<text x="717" y="153" text-anchor="middle" font-size="8.5" fill="#6A7A9A">3 karakter debounce · API anahtarı yok</text>
+<text x="717" y="167" text-anchor="middle" font-size="8.5" fill="#6A7A9A">Photon başarısız → Nominatim fallback</text>
+<text x="717" y="181" text-anchor="middle" font-size="8" fill="#8A8AAA">Services/api.js searchAddress() üzerinden</text>
+<rect x="558" y="190" width="318" height="18" rx="4" fill="#F0F4FF" stroke="#DDE3EE" stroke-width="1"/>
+<text x="717" y="202" text-anchor="middle" font-size="7.5" fill="#6A7A9A" font-weight="600">OTP'den bağımsız — geocoding için ayrı dış servis</text>
+
+<!-- ─── OK ⑥ : Express → Overpass/OSM ─── -->
+<line x1="522" y1="568" x2="540" y2="568" stroke="#B07000" stroke-width="2.5" marker-end="url(#aa)"/>
+<text x="531" y="560" text-anchor="middle" font-size="7" fill="#B07000">Overpass</text>
+<text x="531" y="570" text-anchor="middle" font-size="7" fill="#B07000">(OSM)</text>
+
+<!-- BİSİM API  y=440-628 -->
+<rect x="542" y="440" width="350" height="188" rx="12" fill="#FFF8E7" stroke="#FDD99A" stroke-width="2" filter="url(#sh)"/>
+<rect x="542" y="440" width="350" height="40" rx="12" fill="url(#g-bisim)"/>
+<rect x="542" y="468" width="350" height="12" fill="url(#g-bisim)"/>
+<text x="717" y="459" text-anchor="middle" font-size="14" font-weight="800" fill="white">🚲  BİSİM  —  OpenStreetMap</text>
+<text x="717" y="471" text-anchor="middle" font-size="8.5" fill="rgba(255,255,255,0.9)">Overpass API · amenity=bicycle_rental · İzmir bbox</text>
+<text x="717" y="495" text-anchor="middle" font-size="9.5" fill="#333" font-weight="600">İstasyon koordinatları (OSM'den)</text>
+<text x="717" y="509" text-anchor="middle" font-size="8.5" fill="#5A6A8A">3 Overpass mirror · başarısız → bisim_cache.json</text>
+<text x="717" y="522" text-anchor="middle" font-size="8.5" fill="#5A6A8A">24s cache TTL · build-time snapshot fallback</text>
+<rect x="558" y="531" width="318" height="16" rx="4" fill="#B07000" opacity="0.10" stroke="#FDD99A" stroke-width="1"/>
+<text x="717" y="543" text-anchor="middle" font-size="8" fill="#8A5600" font-weight="600">OTP: vehicleRentalServiceDirectory olarak tanımlı</text>
+<text x="717" y="558" text-anchor="middle" font-size="8" fill="#5A6A8A">GBFS 2.3 · is_renting: false (gerçek zamanlı veri yok)</text>
+<text x="717" y="571" text-anchor="middle" font-size="8" fill="#5A6A8A">num_bikes_available: 0 · num_docks_available: 0</text>
+<text x="717" y="584" text-anchor="middle" font-size="8" fill="#5A6A8A">İZULAŞ API kullanılmıyor — sadece konum verisi</text>
+<text x="717" y="597" text-anchor="middle" font-size="8" fill="#5A6A8A">Frontend harita: /bisim/stations endpoint</text>
+
+<!-- ─── OK ⑦ : Express → İZELMAN ─── -->
+<line x1="522" y1="700" x2="540" y2="700" stroke="#B84A00" stroke-width="2.5" marker-end="url(#aa)"/>
+<text x="531" y="694" text-anchor="middle" font-size="7" fill="#B84A00">fetch</text>
+
+<!-- İZELMAN API  y=640-828 -->
+<rect x="542" y="640" width="350" height="188" rx="12" fill="#FFF0EC" stroke="#FFBB99" stroke-width="2" filter="url(#sh)"/>
+<rect x="542" y="640" width="350" height="40" rx="12" fill="url(#g-izelm)"/>
+<rect x="542" y="668" width="350" height="12" fill="url(#g-izelm)"/>
+<text x="717" y="659" text-anchor="middle" font-size="14" font-weight="800" fill="white">🅿️  İZELMAN / İZUM</text>
+<text x="717" y="671" text-anchor="middle" font-size="8.5" fill="rgba(255,255,255,0.9)">openapi.izmir.bel.tr / ibb / izum / otoparklar</text>
+<text x="717" y="695" text-anchor="middle" font-size="9.5" fill="#333" font-weight="600">Otopark listesi · Koordinat · Kapasite</text>
+<text x="717" y="709" text-anchor="middle" font-size="8.5" fill="#5A6A8A">free · occupied (gerçek zamanlı doluluk)</text>
+<text x="717" y="722" text-anchor="middle" font-size="8.5" fill="#5A6A8A">OffStreet / OnStreet · isPaid · provider</text>
+<text x="717" y="735" text-anchor="middle" font-size="8.5" fill="#5A6A8A">poi.metroStation · tramStation · trainStation</text>
+<rect x="558" y="743" width="318" height="16" rx="4" fill="#B84A00" opacity="0.10" stroke="#FFBB99" stroke-width="1"/>
+<text x="717" y="755" text-anchor="middle" font-size="8" fill="#923A00" font-weight="600">isParkAndRide() filtresi → toOtpParking() dönüşümü</text>
+<text x="717" y="770" text-anchor="middle" font-size="8" fill="#5A6A8A">30s timeout · eager yükleme · 60s cache · ufid</text>
+<text x="717" y="783" text-anchor="middle" font-size="8" fill="#5A6A8A">Frontend harita: /parking/stations endpoint</text>
+<text x="717" y="796" text-anchor="middle" font-size="8" fill="#5A6A8A">OTP feed: /parking/feed (PARK_API) her 1 dk</text>
+
+<!-- ─── OK ⑧ : GTFS → OTP (build zamanı, sola) ─── -->
+<line x1="542" y1="920" x2="524" y2="920" stroke="#6B3DB5" stroke-width="2" stroke-dasharray="7 4" marker-end="url(#apL)"/>
+<rect x="527" y="906" width="64" height="18" rx="4" fill="white" stroke="#D0B0FF" stroke-width="1"/>
+<text x="559" y="919" text-anchor="middle" font-size="7.5" fill="#6B3DB5" font-weight="700">⑧ build zamanı</text>
+
+<!-- GTFS VERİSİ  y=840-1100 -->
+<rect x="542" y="840" width="350" height="260" rx="12" fill="#F5F0FF" stroke="#D0B0FF" stroke-width="2" filter="url(#sh)"/>
+<rect x="542" y="840" width="350" height="40" rx="12" fill="url(#g-gtfs)"/>
+<rect x="542" y="868" width="350" height="12" fill="url(#g-gtfs)"/>
+<text x="717" y="859" text-anchor="middle" font-size="14" font-weight="800" fill="white">📊  İzmir GTFS Verisi</text>
+<text x="717" y="872" text-anchor="middle" font-size="8.5" fill="rgba(255,255,255,0.9)">Build zamanında Docker imajına eklenir</text>
+<text x="717" y="897" text-anchor="middle" font-size="9.5" fill="#333" font-weight="600">graph.obj — 73 MB önceden işlenmiş graf</text>
+<text x="717" y="911" text-anchor="middle" font-size="8.5" fill="#5A6A8A">OTP --build komutuyla üretilir</text>
+<text x="717" y="925" text-anchor="middle" font-size="8.5" fill="#5A6A8A">İZBAN · İZTRAM · Metro · İZBAŞ · İZFERRY</text>
+<text x="717" y="939" text-anchor="middle" font-size="8.5" fill="#5A6A8A">İZULAŞ Otobüs · Durak zamanlamaları</text>
+<text x="717" y="953" text-anchor="middle" font-size="8.5" fill="#5A6A8A">Transfer noktaları · Frekanslar</text>
+<rect x="558" y="961" width="318" height="16" rx="4" fill="#6B3DB5" opacity="0.10" stroke="#D0B0FF" stroke-width="1"/>
+<text x="717" y="973" text-anchor="middle" font-size="8" fill="#522E8E" font-weight="600">JAR (177MB) + graph.obj → GitHub Releases</text>
+<text x="717" y="988" text-anchor="middle" font-size="8" fill="#5A6A8A">Dockerfile build sırasında wget ile indirilir</text>
+<text x="717" y="1002" text-anchor="middle" font-size="8" fill="#5A6A8A">Güncelleme: OTP --build + yeniden Railway deploy</text>
+<text x="717" y="1016" text-anchor="middle" font-size="8" fill="#5A6A8A">.railwayignore → source kontrolünde değil</text>
+<rect x="558" y="1022" width="318" height="28" rx="6" fill="white" stroke="#D0B0FF" stroke-width="1"/>
+<text x="717" y="1034" text-anchor="middle" font-size="8" fill="#6B3DB5" font-weight="600">otp-shaded-2.8.1.jar (177 MB)</text>
+<text x="717" y="1045" text-anchor="middle" font-size="7.5" fill="#5A6A8A">java -Xmx1G -jar ... --load graphs/</text>
+<text x="717" y="1056" text-anchor="middle" font-size="8" fill="#5A6A8A">OTP_PORT env var (default 8080)</text>
+<text x="717" y="1070" text-anchor="middle" font-size="8" fill="#5A6A8A">Sadece :3000 dışa açık · :8080 Railway iç</text>
+<text x="717" y="1083" text-anchor="middle" font-size="8" fill="#5A6A8A">Her 40 saniyede OTP ayağa kalkar, sonra Node</text>
+
+<!-- ═══════════════════════════════
+     LEGEND
+═══════════════════════════════ -->
+<rect x="8" y="1240" width="884" height="16" rx="8" fill="#0A4FA6" opacity="0.9"/>
+<text x="450" y="1252" text-anchor="middle" font-size="8.5" fill="white">İzmir Ulaşım · Bitirme Projesi · Dokuz Eylül Üniversitesi Bilgisayar Mühendisliği · 2025</text>
+
+<!-- sembol satırı -->
+<line x1="20"  y1="1232" x2="60"  y2="1232" stroke="#1560D4" stroke-width="2.5" marker-end="url(#ab)"/>
+<text x="66" y="1236" font-size="8" fill="#333">Mobil↔Express (sync)</text>
+<line x1="178" y1="1232" x2="218" y2="1232" stroke="#1560D4" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#ab)"/>
+<text x="224" y="1236" font-size="8" fill="#333">Yanıt (dashed)</text>
+<line x1="320" y1="1232" x2="360" y2="1232" stroke="#0A7A50" stroke-width="2.5" marker-end="url(#ag)"/>
+<text x="366" y="1236" font-size="8" fill="#333">Express↔OTP (GraphQL)</text>
+<line x1="490" y1="1232" x2="530" y2="1232" stroke="#B07000" stroke-width="2.5" marker-end="url(#aa)"/>
+<text x="536" y="1236" font-size="8" fill="#333">Dış API fetch</text>
+<line x1="620" y1="1232" x2="660" y2="1232" stroke="#6B3DB5" stroke-width="2" stroke-dasharray="7 4" marker-end="url(#ap)"/>
+<text x="666" y="1236" font-size="8" fill="#333">Build zamanı</text>
+<line x1="750" y1="1232" x2="790" y2="1232" stroke="#6A7A9A" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#agr)"/>
+<text x="796" y="1236" font-size="8" fill="#333">Frontend direct</text>
+
+</svg>
+</body>
+</html>
