@@ -334,6 +334,18 @@ export default function HomeScreen() {
                 <View style={s.parkingCallout}>
                   <Text style={s.parkingCalloutTitle}>{st.name || "Otopark"}</Text>
                   <Text style={s.parkingCalloutMeta}>{parkingOccupancyText(st)}</Text>
+                  {(st.nearMetro || st.nearTram || st.nearTrain) && (
+                    <View style={s.parkingCalloutTags}>
+                      {st.nearMetro && <Text style={s.parkingCalloutTag}>🚇 Metro</Text>}
+                      {st.nearTram  && <Text style={s.parkingCalloutTag}>🚋 Tramvay</Text>}
+                      {st.nearTrain && <Text style={s.parkingCalloutTag}>🚆 Tren</Text>}
+                    </View>
+                  )}
+                  {st.isPaid != null && (
+                    <Text style={[s.parkingCalloutMeta, { marginTop: 3 }]}>
+                      {st.isPaid ? "💳 Ücretli" : "✅ Ücretsiz"}
+                    </Text>
+                  )}
                 </View>
               </Callout>
             </Marker>
@@ -635,6 +647,8 @@ const s = StyleSheet.create({
   },
   parkingCalloutTitle: { color: "#f8fafc", fontSize: 12, fontWeight: "800" },
   parkingCalloutMeta: { color: "#cbd5e1", fontSize: 11, fontWeight: "700", marginTop: 4 },
+  parkingCalloutTags: { flexDirection: "row", flexWrap: "wrap", gap: 4, marginTop: 5 },
+  parkingCalloutTag:  { fontSize: 10, fontWeight: "700", color: "#60a5fa", backgroundColor: "#60a5fa18", paddingHorizontal: 5, paddingVertical: 2, borderRadius: 4 },
   activeParkMarker: {
     width: 28, height: 28, borderRadius: 14, borderWidth: 2.5,
     alignItems: "center", justifyContent: "center",

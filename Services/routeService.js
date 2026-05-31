@@ -87,9 +87,9 @@ export async function fetchBicycleParkingStations() {
   }));
 }
 
-// Araba P+R: OTP'nin kullandığı park_and_ride etiketli lotlar
+// Araba P+R: zengin doluluk + yakın durak bilgisiyle
 export async function fetchPrStations() {
-  const res = await fetch(`${API_URL}/parking/otp-lots?tag=park_and_ride`);
+  const res = await fetch(`${API_URL}/parking/stations`);
   const data = await res.json();
   return data.stations || [];
 }

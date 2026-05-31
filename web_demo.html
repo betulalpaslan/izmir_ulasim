@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <title>İzmir Ulaşım</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0f1117;color:#e8eaf0;height:100vh;display:flex;overflow:hidden}
+    #map{flex:1}
+    #panel{width:340px;min-width:340px;background:#181c25;border-left:1px solid #2a2f3d;display:flex;flex-direction:column;overflow:hidden}
+    .ptop{padding:14px 14px 10px;border-bottom:1px solid #2a2f3d;flex-shrink:0}
+    .app-title{font-size:10px;font-weight:700;letter-spacing:2px;color:#7a8299;margin-bottom:10px}
+    .profiles{display:flex;gap:5px;margin-bottom:8px}
+    .pbtn{flex:1;padding:7px 4px;border-radius:8px;border:1px solid #2a2f3d;background:#0f1117;color:#7a8299;font-size:11px;font-weight:700;cursor:pointer;transition:all .15s}
+    .pbtn.at{border-color:#60a5fa60;background:#60a5fa12;color:#60a5fa}
+    .pbtn.ab{border-color:#4ade8060;background:#4ade8012;color:#4ade80}
+    .pbtn.ac{border-color:#f9731660;background:#f9731612;color:#f97316}
+    .sub-opts{display:flex;gap:4px;margin-bottom:8px}
+    .sbtn{flex:1;padding:5px 3px;border-radius:6px;border:1px solid #2a2f3d;background:#0f1117;color:#7a8299;font-size:10px;font-weight:700;cursor:pointer;text-align:center}
+    .sbtn.sb{border-color:#4ade8060;background:#4ade8012;color:#4ade80}
+    .sbtn.sc{border-color:#f9731660;background:#f9731612;color:#f97316}
+    .search-area{position:relative}
+    .sw{position:relative;margin-bottom:6px}
+    .sin{width:100%;padding:9px 36px 9px 30px;background:#0f1117;border:1px solid #2a2f3d;border-radius:10px;color:#e8eaf0;font-size:13px;outline:none}
+    .sin:focus{border-color:#3a4060}
+    .sin::placeholder{color:#7a8299}
+    .dot{position:absolute;left:10px;top:50%;transform:translateY(-50%);width:8px;height:8px;border-radius:50%;pointer-events:none}
+    .loc-btn{position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:14px;color:#7a8299;padding:2px}
+    .swap-btn{position:absolute;right:-12px;top:50%;transform:translateY(-50%);z-index:10;width:24px;height:24px;border-radius:12px;background:#181c25;border:1px solid #2a2f3d;color:#e8eaf0;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+    .sugg{position:absolute;top:100%;left:0;right:0;z-index:3000;background:#181c25;border:1px solid #2a2f3d;border-radius:8px;max-height:190px;overflow-y:auto;display:none}
+    .si{padding:8px 12px;cursor:pointer;border-bottom:1px solid #1e2330}
+    .si:hover{background:#1e2330}
+    .sn{font-size:12px;font-weight:700;color:#e8eaf0}
+    .sd{font-size:10px;color:#7a8299;margin-top:1px}
+    .time-tip{font-size:11px;font-weight:700;border:1px solid;border-radius:8px;padding:7px 10px;margin-bottom:8px;line-height:1.5}
+    .sbtn-main{width:100%;padding:10px;background:#60a5fa;border:none;border-radius:10px;color:#0a1020;font-size:13px;font-weight:800;cursor:pointer;margin-top:2px}
+    .sbtn-main:hover:not(:disabled){background:#3b82f6}
+    .sbtn-main:disabled{background:#2a2f3d;color:#7a8299;cursor:not-allowed}
+    .results{flex:1;overflow-y:auto;padding:10px}
+    .results::-webkit-scrollbar{width:4px}
+    .results::-webkit-scrollbar-thumb{background:#2a2f3d;border-radius:2px}
+    .loading{text-align:center;padding:28px;color:#7a8299;font-size:13px}
+    .err{color:#f87171;font-size:13px;padding:16px;text-align:center}
+    .empty{text-align:center;padding:36px 16px;color:#7a8299;font-size:13px;line-height:1.7}
+    .rcard{background:#0f1117;border:1px solid #2a2f3d;border-radius:10px;padding:10px;margin-bottom:7px;cursor:pointer;transition:border-color .15s}
+    .rcard:hover{border-color:#3a4060}
+    .rcard.sel{border-color:var(--tc)}
+    .ch{display:flex;align-items:center;gap:6px;margin-bottom:4px}
+    .tag{font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;padding:2px 6px;border-radius:4px;border:1px solid;flex-shrink:0}
+    .cdur{font-size:14px;font-weight:800;flex:1}
+    .ccost{font-size:11px;font-weight:700}
+    .cmeta{font-size:10px;color:#7a8299;margin-bottom:6px}
+    .strip{display:flex;flex-wrap:wrap;gap:3px;align-items:center}
+    .chip{font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px}
+    .det{margin-top:8px;padding-top:8px;border-top:1px solid #2a2f3d}
+    .srow{display:flex;gap:4px;margin-bottom:7px}
+    .sc2{flex:1;background:#181c25;border:1px solid #2a2f3d;border-radius:7px;padding:5px 3px;text-align:center}
+    .sv{font-size:11px;font-weight:800}
+    .sl{font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#7a8299;margin-top:2px}
+    .hint{font-size:10px;font-weight:700;border:1px solid;border-radius:6px;padding:5px 8px;margin-bottom:6px;line-height:1.5}
+    .lr{display:flex;align-items:flex-start;gap:8px;padding:5px 0;border-bottom:1px solid #1e2330}
+    .lr:last-child{border-bottom:none}
+    .li{width:24px;height:24px;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0}
+    .linfo{flex:1;min-width:0}
+    .lm{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.4px}
+    .lt{font-size:11px;font-weight:600;color:#e8eaf0;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .lh{font-size:10px;color:#7a8299;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .ld{font-size:11px;font-weight:700;color:#7a8299;flex-shrink:0}
+    .reset{width:100%;padding:7px;background:transparent;border:1px solid #2a2f3d;border-radius:8px;color:#7a8299;font-size:12px;font-weight:700;cursor:pointer;margin-top:4px}
+    .reset:hover{background:#1e2330}
+    .hist-section{margin-top:10px;padding-top:10px;border-top:1px solid #2a2f3d}
+    .hist-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#7a8299;margin-bottom:6px}
+    .hcard{background:#0f1117;border:1px solid #2a2f3d;border-radius:8px;padding:8px;margin-bottom:5px;font-size:11px;color:#7a8299}
+    .hroute{color:#e8eaf0;font-weight:600}
+  </style>
+</head>
+<body>
+<div id="map"></div>
+<div id="panel">
+  <div class="ptop">
+    <div class="app-title">İZMİR ULAŞIM</div>
+    <div class="profiles">
+      <button class="pbtn at" data-p="transit"  onclick="setProfile('transit')">🚌 Transit</button>
+      <button class="pbtn"    data-p="bicycle"  onclick="setProfile('bicycle')">🚲 Bisiklet</button>
+      <button class="pbtn"    data-p="car"      onclick="setProfile('car')">🚗 Araba</button>
+    </div>
+    <div id="bike-sub" class="sub-opts" style="display:none">
+      <button class="sbtn"    data-bt="RENT"  onclick="setBikeType('RENT')">Kirala (BİSİM)</button>
+      <button class="sbtn sb" data-bt=""      onclick="setBikeType('')">Kendi Bisiklet</button>
+      <button class="sbtn"    data-bt="PARK"  onclick="setBikeType('PARK')">Park+Taşı</button>
+    </div>
+    <div id="car-sub" class="sub-opts" style="display:none">
+      <button class="sbtn sc" data-cm=""              onclick="setCarMode('')">Direkt</button>
+      <button class="sbtn"    data-cm="park_and_ride" onclick="setCarMode('park_and_ride')">Park+Taşı</button>
+    </div>
+    <div id="time-tip"></div>
+    <div class="search-area">
+      <div class="sw" style="padding-right:0">
+        <span class="dot" style="background:#4ade80"></span>
+        <input class="sin" id="orig-in" placeholder="Nereden?" autocomplete="off"
+          oninput="onSearch(this,'orig')" onblur="hideSugg('orig')">
+        <button class="loc-btn" onclick="locateMe()" title="Konumumu kullan">📍</button>
+        <div class="sugg" id="orig-sugg"></div>
+      </div>
+      <button class="swap-btn" onclick="swapPoints()" title="Başlangıç/Varış değiştir">⇄</button>
+      <div class="sw">
+        <span class="dot" style="background:#f87171"></span>
+        <input class="sin" id="dest-in" placeholder="Nereye?" autocomplete="off"
+          oninput="onSearch(this,'dest')" onblur="hideSugg('dest')">
+        <div class="sugg" id="dest-sugg"></div>
+      </div>
+    </div>
+    <button class="sbtn-main" id="search-btn" onclick="doSearch()" disabled>Rota Ara</button>
+  </div>
+  <div class="results" id="results">
+    <div class="empty">Başlangıç ve varış noktasını girin<br>veya haritaya tıklayın</div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const API="https://izmirbackend-production.up.railway.app";
+const PHOTON="https://photon.komoot.io/api";
+
+const MODE={
+  WALK:          {color:"#7a8299",label:"Yürüyüş", emoji:"🚶",dash:true },
+  BUS:           {color:"#f97316",label:"Otobüs",  emoji:"🚌",dash:false},
+  RAIL:          {color:"#60a5fa",label:"Metro",   emoji:"🚇",dash:false},
+  SUBWAY:        {color:"#60a5fa",label:"Metro",   emoji:"🚇",dash:false},
+  TRAM:          {color:"#a78bfa",label:"Tramvay", emoji:"🚋",dash:false},
+  FERRY:         {color:"#38bdf8",label:"Vapur",   emoji:"⛴", dash:false},
+  BICYCLE:       {color:"#4ade80",label:"Bisiklet",emoji:"🚲",dash:false},
+  BICYCLE_RENTAL:{color:"#4ade80",label:"BİSİM",  emoji:"🚲",dash:false},
+  CAR:           {color:"#f97316",label:"Araba",   emoji:"🚗",dash:false},
+};
+const NON_TRANSIT=["WALK","BICYCLE","BICYCLE_RENTAL","CAR"];
+const CO2_G={CAR:150,BUS:80,RAIL:41,SUBWAY:41,TRAM:30,FERRY:60,WALK:0,BICYCLE:0,BICYCLE_RENTAL:0};
+const WALK_MAX={transit:2000,bicycle:600,bicycle_rent:1000,bicycle_park:1500,car:1e9,park_and_ride:1500};
+const SCORING={
+  transit:      {wKm:7, wTr:10,wOver:45},
+  bicycle:      {wKm:2, wTr:3, wOver:15},
+  bicycle_rent: {wKm:5, wTr:5, wOver:25},
+  bicycle_park: {wKm:8, wTr:8, wOver:40},
+  car:          {wKm:0, wTr:0, wOver:0 },
+  park_and_ride:{wKm:6, wTr:8, wOver:35},
+};
+
+let map,origMark,destMark,parkMark;
+let routeLayers=[],overlayLayers=[];
+let orig=null,dest=null;
+let profile="transit",bikeType="",carMode="";
+let routes=[],selIdx=0;
+let suggCache={orig:[],dest:[]};
+let timers={};
+
+// ── Zaman ipucu ───────────────────────────────────────────────
+function getTimeTip(){
+  const h=new Date().getHours(),d=new Date().getDay(),we=d===0||d===6;
+  const rush=!we&&((h>=7&&h<=9)||(h>=17&&h<=19));
+  const night=h<6||h>=23;
+  if(we&&h>=8&&h<=18)return{text:"Hafta sonu — bisiklet veya vapur güzel bir seçim!",col:"#4ade80"};
+  if(we)return{text:"Hafta sonu gece — seferler seyrek, sürelere dikkat edin.",col:"#f97316"};
+  if(rush)return{text:"Yoğun saat — metro aktarmasız en hızlı seçenek olabilir.",col:"#f59e0b"};
+  if(night)return{text:"Gece saati — bazı hatlar çalışmıyor olabilir.",col:"#f87171"};
+  return{text:"Gündüz — tüm hatlar aktif, iyi yolculuklar!",col:"#4ade80"};
+}
+(()=>{const t=getTimeTip();if(t.text)document.getElementById("time-tip").innerHTML=`<div class="time-tip" style="color:${t.col};background:${t.col}12;border-color:${t.col}30">${t.text}</div>`;})();
+
+// ── Harita ────────────────────────────────────────────────────
+function initMap(){
+  map=L.map("map").setView([38.428,27.16],12);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{attribution:"© OpenStreetMap",maxZoom:19}).addTo(map);
+  map.on("click",e=>{
+    const{lat,lng}=e.latlng,lbl=`${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+    if(!orig) setPoint("orig",{lat,lon:lng},lbl);
+    else if(!dest){setPoint("dest",{lat,lon:lng},lbl);doSearch();}
+  });
+}
+
+function setPoint(field,coord,label){
+  if(field==="orig"){
+    orig=coord;document.getElementById("orig-in").value=label;
+    if(origMark)map.removeLayer(origMark);
+    origMark=L.circleMarker([coord.lat,coord.lon],{radius:9,fillColor:"#4ade80",color:"#fff",weight:2.5,fillOpacity:1}).addTo(map).bindPopup("Başlangıç");
+  }else{
+    dest=coord;document.getElementById("dest-in").value=label;
+    if(destMark)map.removeLayer(destMark);
+    destMark=L.circleMarker([coord.lat,coord.lon],{radius:9,fillColor:"#f87171",color:"#fff",weight:2.5,fillOpacity:1}).addTo(map).bindPopup("Varış");
+  }
+  updateBtn();
+}
+
+// ── GPS konum ─────────────────────────────────────────────────
+function locateMe(){
+  if(!navigator.geolocation)return alert("Tarayıcınız konum desteklemiyor.");
+  navigator.geolocation.getCurrentPosition(p=>{
+    const coord={lat:p.coords.latitude,lon:p.coords.longitude};
+    setPoint("orig",coord,"Mevcut konumum");
+    map.setView([coord.lat,coord.lon],14);
+    if(dest)doSearch();
+  },()=>alert("Konum alınamadı."));
+}
+
+// ── Swap ──────────────────────────────────────────────────────
+function swapPoints(){
+  if(!orig&&!dest)return;
+  [orig,dest]=[dest,orig];
+  const ot=document.getElementById("orig-in").value,dt=document.getElementById("dest-in").value;
+  document.getElementById("orig-in").value=dt;
+  document.getElementById("dest-in").value=ot;
+  if(origMark)map.removeLayer(origMark);
+  if(destMark)map.removeLayer(destMark);
+  origMark=destMark=null;
+  if(orig){origMark=L.circleMarker([orig.lat,orig.lon],{radius:9,fillColor:"#4ade80",color:"#fff",weight:2.5,fillOpacity:1}).addTo(map);}
+  if(dest){destMark=L.circleMarker([dest.lat,dest.lon],{radius:9,fillColor:"#f87171",color:"#fff",weight:2.5,fillOpacity:1}).addTo(map);}
+  updateBtn();
+  if(orig&&dest)doSearch();
+}
+
+// ── Overlay katmanları ────────────────────────────────────────
+function clearOverlays(){overlayLayers.forEach(l=>map.removeLayer(l));overlayLayers=[];}
+
+function prCol(st){
+  if(!st.capacity)return"#6b7280";
+  const r=(st.occupied??(st.capacity-(st.free||0)))/st.capacity;
+  return r<0.5?"#4ade80":r<0.8?"#f97316":"#f87171";
+}
+
+function dicon(html,sz=24){
+  return L.divIcon({html,className:"",iconSize:[sz,sz],iconAnchor:[sz/2,sz/2]});
+}
+
+async function loadOverlays(){
+  clearOverlays();
+  try{
+    if(profile==="bicycle"&&bikeType==="RENT"){
+      const d=await fetch(`${API}/bisim/stations`).then(r=>r.json());
+      (d.stations||[]).forEach(st=>{
+        const m=L.marker([st.lat,st.lon],{icon:dicon(`<div style="width:22px;height:22px;border-radius:50%;background:#0f1117;border:1.5px solid #4ade80;display:flex;align-items:center;justify-content:center;font-size:11px">🚲</div>`)})
+          .bindPopup(`<b>${st.name}</b><br>${st.capacity?`Kapasite: ${st.capacity}`:"BİSİM istasyonu"}`);
+        m.addTo(map);overlayLayers.push(m);
+      });
+    }else if(profile==="bicycle"&&bikeType==="PARK"){
+      const d=await fetch(`${API}/parking/otp-lots?tag=bike_and_ride`).then(r=>r.json());
+      (d.stations||[]).forEach(st=>{
+        const m=L.marker([st.lat,st.lon],{icon:dicon(`<div style="width:22px;height:22px;border-radius:50%;background:#0f1117;border:1.5px solid #f87171;display:flex;align-items:center;justify-content:center;font-size:11px">🚲</div>`)})
+          .bindPopup(`<b>${st.name||"Bisiklet parkı"}</b><br>${st.free!=null&&st.capacity?`${st.free} boş / ${st.capacity} toplam`:st.capacity?`Kapasite: ${st.capacity}`:"Bisiklet park"}`);
+        m.addTo(map);overlayLayers.push(m);
+      });
+    }else if(profile==="bicycle"){
+      const d=await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent('[out:json];node[amenity=bicycle_parking](38.2,26.8,38.6,27.5);out;')}`).then(r=>r.json());
+      (d.elements||[]).forEach(e=>{
+        const m=L.circleMarker([e.lat,e.lon],{radius:5,fillColor:"#f87171",color:"#fff",weight:1,fillOpacity:0.85})
+          .bindPopup(`Bisiklet parkı${e.tags?.capacity?` · Kapasite: ${e.tags.capacity}`:""}`);
+        m.addTo(map);overlayLayers.push(m);
+      });
+    }else if(profile==="car"&&carMode==="park_and_ride"){
+      const d=await fetch(`${API}/parking/stations`).then(r=>r.json());
+      (d.stations||[]).forEach(st=>{
+        const col=prCol(st);
+        const m=L.marker([st.lat,st.lon],{icon:dicon(`<div style="width:24px;height:24px;border-radius:50%;background:#0f1117;border:2px solid ${col};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:${col}">P</div>`)})
+          .bindPopup(`<b>${st.name}</b><br>${st.free!=null&&st.capacity?`${st.free} boş / ${st.capacity} toplam`:st.capacity?`Kapasite: ${st.capacity}`:"Otopark"}${st.nearMetro?" · Metro yanı":""}${st.nearTram?" · Tramvay yanı":""}${st.nearTrain?" · Tren yanı":""}`);
+        m.addTo(map);overlayLayers.push(m);
+      });
+    }else if(profile==="car"){
+      const q=`[out:json][timeout:10];(node[amenity=parking][parking~"multi-storey|underground"](38.2,26.8,38.6,27.5);way[amenity=parking][parking~"multi-storey|underground"](38.2,26.8,38.6,27.5);node[amenity=parking][parking=surface][name](38.2,26.8,38.6,27.5););out center;`;
+      const d=await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(q)}`).then(r=>r.json());
+      (d.elements||[]).forEach(e=>{
+        const lat=e.lat??e.center?.lat,lon=e.lon??e.center?.lon;
+        if(!lat)return;
+        const col=e.tags?.parking==="underground"?"#a78bfa":"#94a3b8";
+        const m=L.marker([lat,lon],{icon:dicon(`<div style="width:20px;height:20px;border-radius:4px;background:#0f1117;border:1.5px solid ${col};display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:${col}">P</div>`,20)})
+          .bindPopup(`${e.tags?.name||"Otopark"}<br>${e.tags?.parking==="underground"?"Yeraltı":e.tags?.parking==="multi-storey"?"Kapalı":"Açık"}${e.tags?.capacity?` · ${e.tags.capacity} araç`:""}${e.tags?.fee==="yes"?" · Ücretli":e.tags?.fee==="no"?" · Ücretsiz":""}`);
+        m.addTo(map);overlayLayers.push(m);
+      });
+    }
+  }catch(e){console.warn("Overlay:",e.message);}
+}
+
+// ── Profil ────────────────────────────────────────────────────
+function setProfile(p){
+  profile=p;bikeType="";carMode="";
+  document.querySelectorAll(".pbtn").forEach(b=>b.className="pbtn"+(b.dataset.p===p?` a${p[0]}`:""));
+  document.getElementById("bike-sub").style.display=p==="bicycle"?"flex":"none";
+  document.getElementById("car-sub").style.display=p==="car"?"flex":"none";
+  if(p==="bicycle"){document.querySelectorAll("[data-bt]").forEach(b=>b.className="sbtn"+(b.dataset.bt===""?" sb":""));}
+  if(p==="car"){document.querySelectorAll("[data-cm]").forEach(b=>b.className="sbtn"+(b.dataset.cm===""?" sc":""));}
+  loadOverlays();
+  if(orig&&dest)doSearch();
+}
+function setBikeType(t){
+  bikeType=t;
+  document.querySelectorAll("[data-bt]").forEach(b=>b.className="sbtn"+(b.dataset.bt===t?" sb":""));
+  loadOverlays();if(orig&&dest)doSearch();
+}
+function setCarMode(m){
+  carMode=m;
+  document.querySelectorAll("[data-cm]").forEach(b=>b.className="sbtn"+(b.dataset.cm===m?" sc":""));
+  loadOverlays();if(orig&&dest)doSearch();
+}
+
+// ── Geocoding ─────────────────────────────────────────────────
+async function fetchPhoton(q){
+  const r=await fetch(`${PHOTON}/api/?q=${encodeURIComponent(q)}&limit=4&lang=tr&lat=38.42&lon=27.14&bbox=26.5,38.2,27.5,38.7`,{headers:{"User-Agent":"IzmirUlasimWeb/1.0"}});
+  const d=await r.json();
+  return(d.features||[]).map((f,i)=>{
+    const p=f.properties;
+    const name=[p.name,p.street,p.housenumber].filter(Boolean).join(" ");
+    const detail=[p.district||p.county,p.city||p.state].filter(Boolean).join(", ");
+    return{id:`ph_${p.osm_id||i}`,lat:f.geometry.coordinates[1],lon:f.geometry.coordinates[0],name:name||"Konum",detail};
+  });
+}
+async function fetchNominatim(q){
+  const r=await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=4&viewbox=26.5,38.2,27.5,38.7&accept-language=tr`,{headers:{"User-Agent":"IzmirUlasimWeb/1.0"}});
+  const d=await r.json();
+  return d.map(item=>({id:`nm_${item.place_id}`,lat:parseFloat(item.lat),lon:parseFloat(item.lon),name:item.display_name.split(",")[0],detail:item.display_name.split(",").slice(1,3).join(",").trim()}));
+}
+function dedup(items){
+  const seen=[];
+  return items.filter(item=>{
+    const close=seen.some(s=>Math.abs(s.lat-item.lat)<0.002&&Math.abs(s.lon-item.lon)<0.002);
+    if(!close)seen.push(item);return!close;
+  });
+}
+function onSearch(el,field){
+  const q=el.value.trim();
+  if(q.length<3){document.getElementById(`${field}-sugg`).style.display="none";return;}
+  clearTimeout(timers[field]);
+  timers[field]=setTimeout(async()=>{
+    try{
+      const[ph,nm]=await Promise.all([fetchPhoton(q).catch(()=>[]),fetchNominatim(q).catch(()=>[])]);
+      suggCache[field]=dedup([...ph,...nm]).slice(0,6);renderSugg(field);
+    }catch{}
+  },400);
+}
+function renderSugg(field){
+  const el=document.getElementById(`${field}-sugg`);
+  const items=suggCache[field];
+  if(!items.length){el.style.display="none";return;}
+  el.innerHTML=items.map((item,i)=>`<div class="si" onmousedown="pickSugg('${field}',${i})"><div class="sn">${item.name}</div>${item.detail?`<div class="sd">${item.detail}</div>`:""}</div>`).join("");
+  el.style.display="block";
+}
+function pickSugg(field,i){
+  const item=suggCache[field][i];
+  setPoint(field,{lat:item.lat,lon:item.lon},item.name);
+  document.getElementById(`${field}-sugg`).style.display="none";
+  if(orig&&dest)doSearch();
+}
+function hideSugg(field){setTimeout(()=>{document.getElementById(`${field}-sugg`).style.display="none";},160);}
+
+// ── Rota arama ────────────────────────────────────────────────
+function updateBtn(){document.getElementById("search-btn").disabled=!(orig&&dest);}
+
+async function doSearch(){
+  if(!orig||!dest)return;
+  clearRoutes();
+  document.getElementById("results").innerHTML=`<div class="loading">🔍 Rota aranıyor...</div>`;
+  const effProf=(profile==="car"&&carMode==="park_and_ride")?"park_and_ride":profile;
+  try{
+    const body={from:{lat:orig.lat,lon:orig.lon},to:{lat:dest.lat,lon:dest.lon},profile:effProf,numItineraries:8};
+    if(effProf==="bicycle"&&bikeType)body.bikeType=bikeType;
+    const data=await fetch(`${API}/get-route`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)}).then(r=>r.json());
+    if(data.error){document.getElementById("results").innerHTML=`<div class="err">${data.error}</div>`;return;}
+    const itins=data.itineraries||[];
+    if(!itins.length){document.getElementById("results").innerHTML=`<div class="err">Rota bulunamadı.</div>`;return;}
+    const profKey=effProf==="bicycle"?(bikeType==="RENT"?"bicycle_rent":bikeType==="PARK"?"bicycle_park":"bicycle"):effProf;
+    routes=buildRoutes(itins,profKey);
+    selIdx=0;renderResults();drawRoute(routes[0]);saveHistory(routes[0],effProf);
+  }catch{
+    document.getElementById("results").innerHTML=`<div class="err">Sunucuya bağlanılamadı.</div>`;
+  }
+}
+
+// ── Polyline çöz / mesafe ─────────────────────────────────────
+function decodePoly(enc){
+  const pts=[];let i=0,la=0,ln=0;
+  while(i<enc.length){let b,sh=0,r=0;do{b=enc.charCodeAt(i++)-63;r|=(b&0x1f)<<sh;sh+=5;}while(b>=0x20);la+=(r&1)?~(r>>1):(r>>1);sh=0;r=0;do{b=enc.charCodeAt(i++)-63;r|=(b&0x1f)<<sh;sh+=5;}while(b>=0x20);ln+=(r&1)?~(r>>1):(r>>1);pts.push([la/1e5,ln/1e5]);}
+  return pts;
+}
+function distKm(pts){
+  const R=6371;let d=0;
+  for(let i=1;i<pts.length;i++){const dLa=(pts[i][0]-pts[i-1][0])*Math.PI/180,dLn=(pts[i][1]-pts[i-1][1])*Math.PI/180;const a=Math.sin(dLa/2)**2+Math.cos(pts[i-1][0]*Math.PI/180)*Math.cos(pts[i][0]*Math.PI/180)*Math.sin(dLn/2)**2;d+=R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));}
+  return d;
+}
+
+// ── Rota işleme ───────────────────────────────────────────────
+function buildRoutes(itins,profKey){
+  const maxLeg=WALK_MAX[profKey]??2000,w=SCORING[profKey]||SCORING.transit;
+  const scored=itins.map(itin=>{
+    const legs=itin.legs.map(l=>({...l,pts:l.legGeometry?.points?decodePoly(l.legGeometry.points):[],style:MODE[l.mode]||MODE.WALK}));
+    const dur=legs.reduce((s,l)=>s+(l.duration||0),0);
+    const walkLegs=legs.filter(l=>l.mode==="WALK").map(l=>distKm(l.pts)*1000);
+    const walkKm=walkLegs.reduce((s,d)=>s+d,0)/1000;
+    const maxW=walkLegs.length?Math.max(...walkLegs):0;
+    const over=Math.max(0,maxW-maxLeg);
+    const transit=legs.filter(l=>!NON_TRANSIT.includes(l.mode));
+    const transfers=Math.max(0,transit.length-1);
+    const co2=legs.reduce((s,l)=>s+(CO2_G[l.mode]||0)*distKm(l.pts),0);
+    const cost=transit.length===0?0:35;
+    const score=(dur/60)*1+walkKm*w.wKm+transfers*w.wTr+(over/1000)*w.wOver;
+    // Park noktası — araç modundan sonra transit/yürüyüş gelen ilk bacağın varışı
+    const PARK_MODES=["CAR","BICYCLE","BICYCLE_RENTAL"];
+    const pIdx=legs.findIndex((l,i)=>PARK_MODES.includes(l.mode)&&l.to?.lat!=null&&i<legs.length-1);
+    const parkingPoint=pIdx!==-1?{lat:legs[pIdx].to.lat,lon:legs[pIdx].to.lon,name:legs[pIdx].to.name||"Otopark"}:null;
+    return{legs,dur,walkKm,maxWalkLeg:maxW,transfers,co2,cost,score,parkingPoint};
+  }).sort((a,b)=>a.score-b.score);
+  const filtered=scored.filter(r=>r.maxWalkLeg<=maxLeg);
+  const pool=filtered.length>0?filtered:scored.slice(0,1);
+  const TAGS=[
+    {tag:"Önerilen",  tc:"#60a5fa",pick:rs=>rs[0]},
+    {tag:"Az Aktarma",tc:"#a78bfa",pick:rs=>[...rs].sort((a,b)=>a.transfers-b.transfers)[0]},
+    {tag:"En Hızlı",  tc:"#f59e0b",pick:rs=>[...rs].sort((a,b)=>a.dur-b.dur)[0]},
+    {tag:"Çevreci",   tc:"#34d399",pick:rs=>[...rs].sort((a,b)=>a.co2-b.co2)[0]},
+  ];
+  const result=[],seen=new Set();
+  for(const{tag,tc,pick}of TAGS){const c=pick(pool);if(!c)continue;const k=`${Math.round(c.dur)}_${c.transfers}`;if(!seen.has(k)){seen.add(k);result.push({...c,tag,tc});}}
+  for(const c of pool){if(result.length>=5)break;const k=`${Math.round(c.dur)}_${c.transfers}`;if(!seen.has(k)){seen.add(k);result.push({...c,tag:"Alternatif",tc:"#64748b"});}}
+  return result;
+}
+
+// ── Harita çizimi ─────────────────────────────────────────────
+function clearRoutes(){
+  routeLayers.forEach(l=>map.removeLayer(l));routeLayers=[];
+  if(parkMark){map.removeLayer(parkMark);parkMark=null;}
+}
+
+function drawRoute(r){
+  clearRoutes();const all=[];
+  r.legs.forEach(leg=>{
+    if(leg.pts.length<2)return;
+    all.push(...leg.pts);
+    const w=leg.mode==="WALK"?4:6;
+    const cas=L.polyline(leg.pts,{weight:w+3,color:"#fff",opacity:0.5});cas.addTo(map);routeLayers.push(cas);
+    const opt={weight:w,color:leg.style.color,opacity:0.95};
+    if(leg.style.dash)opt.dashArray="9,9";
+    const line=L.polyline(leg.pts,opt);line.addTo(map);routeLayers.push(line);
+    // Yürüyüş dışı bacakların ortasına mod ikonu
+    if(leg.mode!=="WALK"&&leg.pts.length>1){
+      const mid=leg.pts[Math.floor(leg.pts.length/2)];
+      const im=L.marker(mid,{icon:dicon(`<div style="width:28px;height:28px;border-radius:50%;background:#fff;border:2px solid ${leg.style.color};display:flex;align-items:center;justify-content:center;font-size:14px;box-shadow:0 2px 6px #0006">${leg.style.emoji}</div>`,28),zIndexOffset:100});
+      im.addTo(map);routeLayers.push(im);
+    }
+  });
+  // Park noktası — altın sarısı P markeri
+  if(r.parkingPoint){
+    parkMark=L.marker([r.parkingPoint.lat,r.parkingPoint.lon],{icon:dicon(`<div style="width:28px;height:28px;border-radius:50%;background:#1e293b;border:2.5px solid #f59e0b;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;color:#f59e0b;box-shadow:0 2px 6px #0006">P</div>`,28)})
+      .bindPopup(`<b>${r.parkingPoint.name}</b>`).addTo(map);
+  }
+  if(all.length>1)map.fitBounds(L.latLngBounds(all),{padding:[60,60]});
+}
+
+// ── Rota kartları ─────────────────────────────────────────────
+function renderResults(){
+  const el=document.getElementById("results");
+  const cards=routes.map((r,i)=>{
+    const open=i===selIdx;
+    const c2col=r.co2<100?"#4ade80":r.co2<300?"#f97316":"#f87171";
+    const strip=r.legs.map(l=>`<span class="chip" style="background:${l.style.color}22;color:${l.style.color}">${l.style.label}${l.route?.shortName?" "+l.route.shortName:""}</span>`).join("");
+    const walkWarn=r.maxWalkLeg>=(WALK_MAX[selProfKey()]??2000)?`<div class="hint" style="color:#f97316;background:#f9731612;border-color:#f9731630">⚠ Bu rotada tek seferde ${(r.maxWalkLeg/1000).toFixed(1)} km yürüyüş var.</div>`:"";
+    // BİSİM kiralama ipucu
+    const bikeLegs=r.legs.filter(l=>l.mode==="BICYCLE_RENTAL");
+    const bisimHint=(bikeType==="RENT"&&bikeLegs.length>0)?`<div class="hint" style="color:#4ade80;background:#4ade8012;border-color:#4ade8030">🚲 ${bikeLegs[0].from?.name||"İstasyon"} · bisiklet kirala → ${bikeLegs[bikeLegs.length-1].to?.name||"İstasyon"} · bırak</div>`:"";
+    let details="";
+    if(open){
+      const legRows=r.legs.map(leg=>{
+        const from=leg.from?.name&&leg.from.name!=="unknown"?leg.from.name:"Başlangıç";
+        const to=leg.to?.name&&leg.to.name!=="unknown"?leg.to.name:"Varış";
+        const dur=`${Math.max(1,Math.round((leg.duration||0)/60))} dk`;
+        let title,hint;
+        if(leg.mode==="WALK"){title=`${to} noktasına yürüyün`;hint=dur;}
+        else if(NON_TRANSIT.includes(leg.mode)){title=`${to} noktasına gidin`;hint=dur;}
+        else{title=`${leg.route?.shortName?leg.route.shortName+" · ":""}${from} durağından bin`;hint=`→ ${to} durağında in`;}
+        return`<div class="lr"><div class="li" style="background:${leg.style.color}20">${leg.style.emoji}</div><div class="linfo"><div class="lm" style="color:${leg.style.color}">${leg.style.label}</div><div class="lt">${title}</div><div class="lh">${hint}</div></div><div class="ld">${dur}</div></div>`;
+      }).join("");
+      details=`<div class="det">
+        <div class="srow">
+          <div class="sc2"><div class="sv" style="color:#60a5fa">${Math.round(r.dur/60)} dk</div><div class="sl">Süre</div></div>
+          <div class="sc2"><div class="sv" style="color:#a78bfa">${r.transfers}</div><div class="sl">Aktarma</div></div>
+          <div class="sc2"><div class="sv" style="color:#4ade80">${r.walkKm.toFixed(1)} km</div><div class="sl">Yürüyüş</div></div>
+          <div class="sc2"><div class="sv" style="color:#f97316">${r.cost===0?"Ücretsiz":r.cost+"₺"}</div><div class="sl">Ücret</div></div>
+        </div>
+        ${r.co2>0?`<div class="hint" style="color:${c2col};background:${c2col}15;border-color:${c2col}40">🌿 ~${Math.round(r.co2)}g CO₂ · ${r.co2<100?"Düşük":r.co2<300?"Orta":"Yüksek"} emisyon</div>`:""}
+        ${bisimHint}${walkWarn}
+        ${legRows}
+      </div>`;
+    }
+    return`<div class="rcard${open?" sel":""}" style="--tc:${r.tc}" onclick="selectRoute(${i})">
+      <div class="ch"><span class="tag" style="color:${r.tc};border-color:${r.tc}55;background:${r.tc}18">${r.tag}</span><span class="cdur">${Math.round(r.dur/60)} dk</span><span class="ccost" style="color:${r.cost===0?"#4ade80":"#f97316"}">${r.cost===0?"Ücretsiz":r.cost+"₺"}</span></div>
+      <div class="cmeta">${r.walkKm.toFixed(1)} km yürüyüş · ${r.transfers} aktarma</div>
+      <div class="strip">${strip}</div>${details}
+    </div>`;
+  }).join("");
+  el.innerHTML=cards+`<button class="reset" onclick="resetAll()">↺ Temizle</button>`+renderHistory();
+}
+
+function selProfKey(){
+  const effProf=(profile==="car"&&carMode==="park_and_ride")?"park_and_ride":profile;
+  return effProf==="bicycle"?(bikeType==="RENT"?"bicycle_rent":bikeType==="PARK"?"bicycle_park":"bicycle"):effProf;
+}
+function selectRoute(i){selIdx=i;drawRoute(routes[i]);renderResults();}
+
+// ── Sıfırla ───────────────────────────────────────────────────
+function resetAll(){
+  orig=null;dest=null;
+  if(origMark)map.removeLayer(origMark);if(destMark)map.removeLayer(destMark);
+  origMark=destMark=null;
+  document.getElementById("orig-in").value="";document.getElementById("dest-in").value="";
+  clearRoutes();routes=[];
+  document.getElementById("results").innerHTML=`<div class="empty">Başlangıç ve varış noktasını girin<br>veya haritaya tıklayın</div>`;
+  updateBtn();map.setView([38.428,27.16],12);
+}
+
+// ── Rota geçmişi (localStorage) ──────────────────────────────
+function saveHistory(r,prof){
+  try{
+    const hist=JSON.parse(localStorage.getItem("routeHistory")||"[]");
+    hist.unshift({orig:document.getElementById("orig-in").value,dest:document.getElementById("dest-in").value,dur:Math.round(r.dur/60),mode:prof,date:new Date().toLocaleDateString("tr-TR")});
+    localStorage.setItem("routeHistory",JSON.stringify(hist.slice(0,20)));
+  }catch{}
+}
+function renderHistory(){
+  try{
+    const hist=JSON.parse(localStorage.getItem("routeHistory")||"[]").slice(0,5);
+    if(!hist.length)return"";
+    const MODES={transit:"🚌 Toplu taşıma",bicycle:"🚲 Bisiklet",car:"🚗 Araba",park_and_ride:"🅿 Park+Taşı"};
+    return`<div class="hist-section"><div class="hist-title">Son Rotalar</div>${hist.map(h=>`<div class="hcard"><span class="hroute">${h.orig} → ${h.dest}</span><br>${h.dur} dk · ${MODES[h.mode]||h.mode} · ${h.date}</div>`).join("")}</div>`;
+  }catch{return"";}
+}
+
+// ── divIcon yardımcısı ─────────────────────────────────────────
+function dicon(html,sz=24){return L.divIcon({html,className:"",iconSize:[sz,sz],iconAnchor:[sz/2,sz/2]});}
+
+initMap();
+</script>
+</body>
+</html>
