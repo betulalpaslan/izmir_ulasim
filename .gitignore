@@ -33,7 +33,13 @@ yarn-error.*
 *.pem
 
 # local env files
+.env
 .env*.local
+
+# geçici API dökümleri / hata ayıklama çıktıları
+tmp*.json
+*tmp*.json
+coverage/
 
 # typescript
 *.tsbuildinfo

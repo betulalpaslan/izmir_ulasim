@@ -1,4 +1,5 @@
-const API_URL = "https://izmirbackend-production.up.railway.app";
+const API_URL =
+  process.env.EXPO_PUBLIC_API_URL || "https://izmirbackend-production.up.railway.app";
 const OVERPASS_URL = "https://overpass-api.de/api/interpreter";
 const IZMIR_BBOX = "38.2,26.8,38.6,27.5";
 
