@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 İzmir Ulaşım is a React Native (Expo) mobile app for multimodal public transit navigation in Izmir, Turkey. Users plan routes using public transit, bicycle, or car — with real-time bike-sharing (BİSİM) and park-and-ride (İZELMAN/İZUM) integration.
 
-The companion backend is at `d:\izmir_backend`, deployed on Railway at `https://izmirbackend-production.up.railway.app`. It is a Node.js/Express server that bridges the app to an OpenTripPlanner 2.8.1 (OTP) instance running in the same container.
+The companion backend is at `d:\Mures\izmir_backend`, deployed on Railway at `https://izmirbackend-production.up.railway.app`. It is a Node.js/Express server that bridges the app to an OpenTripPlanner 2.8.1 (OTP) instance running in the same container.
 
 ## Commands
 
@@ -18,7 +18,7 @@ npm run ios        # Run on iOS simulator/device
 npm run web        # Run in browser
 ```
 
-### Backend (`d:\izmir_backend`)
+### Backend (`d:\Mures\izmir_backend`)
 ```bash
 node server.js     # Start Express API only (OTP must already be running on :8080)
 bash start.sh      # Production start: launches OTP on :8080, waits 40s, then Node on :3000
@@ -148,10 +148,10 @@ Park & Bike enables users to cycle to a BİSİM bike-sharing station or bike par
 | [Services/api.js](Services/api.js) | All backend + geocoding calls |
 | [Components/RoutePanel.js](Components/RoutePanel.js) | Route result display and leg breakdown |
 | [utils/ThemeContext.js](utils/ThemeContext.js) | Global theme provider |
-| `d:\izmir_backend\server.js` | Express + OTP bridge, GBFS feeds, parking feed |
-| `d:\izmir_backend\router-config.json` | OTP tuning parameters + parking/GBFS updaters |
-| `d:\izmir_backend\start.sh` | Production startup (OTP then Node) |
-| `d:\izmir_backend\Dockerfile` | Railway container build (downloads JAR + graph.obj) |
+| `d:\Mures\izmir_backend\server.js` | Express + OTP bridge, GBFS feeds, parking feed |
+| `d:\Mures\izmir_backend\router-config.json` | OTP tuning parameters + parking/GBFS updaters |
+| `d:\Mures\izmir_backend\start.sh` | Production startup (OTP then Node) |
+| `d:\Mures\izmir_backend\Dockerfile` | Railway container build (downloads JAR + graph.obj) |
 
 ## Notes
 

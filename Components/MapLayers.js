@@ -139,6 +139,17 @@ export function ActiveParkingMarker({ point }) {
 const legMidpoint = (coords) =>
   !coords || coords.length < 2 ? null : coords[Math.floor(coords.length / 2)];
 
+// Yürüyüş bacağı harita üzerinde kendi rengiyle çizilir: MODE_STYLE.WALK rengi
+// karanlık temadaki çipler için açık tonda, harita hep açık tema olduğundan
+// orada yeterince okunmuyordu.
+const WALK_MAP_COLOR = "#1f2937";
+// Yuvarlak uçla birleşince kesik çizgi yerine belirgin noktalar üretir
+const WALK_DASH = [2, 12];
+// Bu uzunluğun altındaki yürüyüşlere ikon konmaz — çizgiyi kalabalıklaştırır
+const WALK_BADGE_MIN_METERS = 250;
+
+const isWalk = (leg) => leg.mode === "WALK";
+
 // Güzergâh çizimi: beyaz kaplama + renkli çizgi + bacak ortasında mod ikonu
 export function RouteOverlay({ route }) {
   if (!route) return null;
@@ -151,27 +162,31 @@ export function RouteOverlay({ route }) {
           key={`casing-${i}`}
           coordinates={leg.coords}
           strokeColor="#ffffff"
-          strokeWidth={leg.mode === "WALK" ? 4 : 7}
-          lineDashPattern={leg.mode === "WALK" ? [6, 6] : undefined}
+          strokeWidth={isWalk(leg) ? 9 : 7}
+          lineDashPattern={isWalk(leg) ? WALK_DASH : undefined}
+          lineCap="round"
         />
       ))}
       {visibleLegs.map((leg, i) => (
         <Polyline
           key={`line-${i}`}
           coordinates={leg.coords}
-          strokeColor={leg.color}
-          strokeWidth={leg.mode === "WALK" ? 2 : 4}
-          lineDashPattern={leg.mode === "WALK" ? [6, 6] : undefined}
+          strokeColor={isWalk(leg) ? WALK_MAP_COLOR : leg.color}
+          strokeWidth={isWalk(leg) ? 5 : 4}
+          lineDashPattern={isWalk(leg) ? WALK_DASH : undefined}
+          lineCap="round"
         />
       ))}
       {visibleLegs.map((leg, i) => {
-        if (leg.mode === "WALK") return null;
+        // Kısa yürüyüşler dışında her bacak ortasına mod rozeti
+        if (isWalk(leg) && (leg.distanceMeters ?? 0) < WALK_BADGE_MIN_METERS) return null;
         const mid = legMidpoint(leg.coords);
         if (!mid) return null;
+        const color = isWalk(leg) ? WALK_MAP_COLOR : leg.color;
         return (
           <Marker key={`marker-${i}`} coordinate={mid} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={false}>
-            <View style={[s.routeIconBadge, { borderColor: leg.color }]}>
-              <AppIcon name={leg.icon} size={15} color={leg.color} strokeWidth={2.5} />
+            <View style={[s.routeIconBadge, { borderColor: color }]}>
+              <AppIcon name={leg.icon} size={15} color={color} strokeWidth={2.5} />
             </View>
           </Marker>
         );
@@ -180,18 +195,32 @@ export function RouteOverlay({ route }) {
   );
 }
 
-// Navigasyon sırasında kullanıcının rotaya oturtulmuş konumu
-export function SnappedPositionMarker({ point, color = "#60a5fa" }) {
+// Navigasyon sırasında kullanıcının tek konum imleci.
+// Bu imleç görünürken haritanın kendi mavi noktası kapatılmalıdır; ikisi birden
+// açıkken rotaya oturtulmuş konum ile ham GPS iki ayrı nokta olarak görünür.
+// Yön bilgisi Marker.rotation ile verilir: çocuk görünüm yeniden çizilmediği için
+// tracksViewChanges kapalı kalabilir.
+export function UserPuck({ point, heading = 0, offRoute = false }) {
   if (!point) return null;
+  // Rota dışındayken renk değişir: konum artık rotaya oturtulmuş değil, ham GPS
+  const color = offRoute ? "#f59e0b" : "#2563eb";
   return (
     <Marker
+      // tracksViewChanges kapalıyken Android imleci ilk hâliyle bitmap'e alır;
+      // rota dışına çıkınca renk değişsin diye imleç yeniden kurulur.
+      key={offRoute ? "puck-offroute" : "puck-onroute"}
       coordinate={point}
       anchor={{ x: 0.5, y: 0.5 }}
+      flat
+      rotation={heading}
       tracksViewChanges={false}
       zIndex={99}
     >
-      <View style={[s.snapOuter, { borderColor: color + "55" }]}>
-        <View style={[s.snapInner, { backgroundColor: color }]} />
+      <View style={s.puckWrap}>
+        <View style={[s.puckHalo, { backgroundColor: color + "26" }]} />
+        <View style={[s.puckCore, { backgroundColor: color }]}>
+          <AppIcon name="navigation" size={13} color="#ffffff" strokeWidth={2.5} />
+        </View>
       </View>
     </Marker>
   );
@@ -246,12 +275,13 @@ const s = StyleSheet.create({
     shadowColor: "#000", shadowOpacity: 0.2, shadowRadius: 4, shadowOffset: { height: 1 },
     elevation: 4,
   },
-  snapOuter: {
-    width: 26, height: 26, borderRadius: 13, borderWidth: 5,
+  puckWrap: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
+  puckHalo: { ...StyleSheet.absoluteFillObject, borderRadius: 22 },
+  puckCore: {
+    width: 26, height: 26, borderRadius: 13,
+    borderWidth: 3, borderColor: "#ffffff",
     alignItems: "center", justifyContent: "center",
-  },
-  snapInner: {
-    width: 14, height: 14, borderRadius: 7,
-    borderWidth: 2, borderColor: "#ffffff",
+    shadowColor: "#000", shadowOpacity: 0.3, shadowRadius: 3, shadowOffset: { height: 1 },
+    elevation: 5,
   },
 });

@@ -12,7 +12,7 @@ import NavigationOverlay from "../Components/NavigationOverlay";
 import AppIcon from "../Components/AppIcon";
 import {
   BisimMarkers, BikeParkingMarkers, OsmParkingMarkers,
-  ParkAndRideMarkers, ActiveParkingMarker, RouteOverlay, SnappedPositionMarker,
+  ParkAndRideMarkers, ActiveParkingMarker, RouteOverlay, UserPuck,
 } from "../Components/MapLayers";
 import { useTheme } from "../utils/ThemeContext";
 import { useSettings } from "../hooks/useSettings";
@@ -70,6 +70,9 @@ export default function HomeScreen() {
   // (selectedRouteIdx) navigasyon sırasında değişemez, dolayısıyla ayrı tutulur.
   const [navActive, setNavActive] = useState(false);
   const [navRouteIdx, setNavRouteIdx] = useState(0);
+  // Takip kamerası açık mı: kullanıcı haritayı sürükleyince kapanır ki
+  // ileriye/geriye bakabilsin, "Ortala" ile geri açılır.
+  const [navFollow, setNavFollow] = useState(true);
 
   const { userLocation, heading, permission } = useLocationService({ watch: navActive });
 
@@ -127,14 +130,27 @@ export default function HomeScreen() {
     return () => { deactivateKeepAwake("navigation").catch(() => {}); };
   }, [navActive]);
 
-  // Takip kamerası: kullanıcıyı ortada tutar, gidiş yönüne döner
+  // Navigasyonda gösterilen konum: rotaya oturtulmuş nokta, rota dışındayken ham GPS
+  const navPoint = navActive ? (offRoute ? userLocation : progress?.snapped ?? userLocation) : null;
+
+  // Takip kamerası: kullanıcıyı ortada tutar, gidiş yönüne döner.
+  // navFollow kapalıyken haritaya dokunulmaz — kullanıcı serbestçe gezinir.
   useEffect(() => {
-    if (!navActive || !userLocation) return;
+    if (!navActive || !navFollow || !navPoint) return;
     mapRef.current?.animateCamera(
-      { center: userLocation, heading: cameraHeading, pitch: 45, zoom: 17 },
+      { center: navPoint, heading: cameraHeading, pitch: 45, zoom: 17 },
       { duration: 700 }
     );
-  }, [navActive, userLocation, cameraHeading]);
+  }, [navActive, navFollow, navPoint, cameraHeading]);
+
+  const recenterNavigation = () => {
+    setNavFollow(true);
+    if (!navPoint) return;
+    mapRef.current?.animateCamera(
+      { center: navPoint, heading: cameraHeading, pitch: 45, zoom: 17 },
+      { duration: 500 }
+    );
+  };
 
   const fitToRoute = (route) => {
     const allCoords = route.legs.flatMap((l) => l.coords);
@@ -261,6 +277,7 @@ export default function HomeScreen() {
     if (!displayRoute) return;
     setNavRouteIdx(selectedRouteIdx >= 0 ? selectedRouteIdx : 0);
     setNavActive(true);
+    setNavFollow(true);
     setSuggestions([]);
     setActiveInput(null);
     Keyboard.dismiss();
@@ -268,6 +285,7 @@ export default function HomeScreen() {
 
   const stopNavigation = () => {
     setNavActive(false);
+    setNavFollow(true);
     if (mapRoute) fitToRoute(mapRoute);
   };
 
@@ -286,7 +304,7 @@ export default function HomeScreen() {
     if (loading) return "Rota aranıyor...";
     if (error) return "Rota bulunamadı";
     if (displayRoute) {
-      return `${Math.round(displayRoute.totalDuration / 60)} dk · ${displayRoute.walkDistance} km yürüyüş · ${displayRoute.transfers} aktarma`;
+      return `${Math.round(displayRoute.totalDuration / 60)} dk · ${displayRoute.totalDistance} km · ${displayRoute.walkDistance} km yürüyüş · ${displayRoute.transfers} aktarma`;
     }
     if (!origin) return "Başlangıç seçin";
     if (!destination) return "Varış seçin";
@@ -300,7 +318,11 @@ export default function HomeScreen() {
         style={s.map}
         initialRegion={IZMIR_REGION}
         onPress={handleMapPress}
-        showsUserLocation={true}
+        onPanDrag={() => { if (navActive) setNavFollow(false); }}
+        // Navigasyonda haritanın kendi mavi noktası kapatılır: konum tek imleçle
+        // (UserPuck) gösterilir, aksi hâlde ham GPS ile rotaya oturtulmuş nokta
+        // iki ayrı işaret olarak yan yana görünür.
+        showsUserLocation={!navActive}
         showsMyLocationButton={false}
         userInterfaceStyle="light"
       >
@@ -314,9 +336,7 @@ export default function HomeScreen() {
         <ActiveParkingMarker point={mapRoute?.parkingPoint} />
         <RouteOverlay route={mapRoute} />
 
-        {navActive && !offRoute && (
-          <SnappedPositionMarker point={progress?.snapped} color={progress?.currentLeg?.color} />
-        )}
+        {navActive && <UserPuck point={navPoint} heading={cameraHeading} offRoute={offRoute} />}
       </MapView>
 
       {!navActive && userLocation && !origin && (
@@ -326,6 +346,24 @@ export default function HomeScreen() {
           activeOpacity={0.85}
         >
           <AppIcon name="locate" size={22} color={theme.text} />
+        </TouchableOpacity>
+      )}
+
+      {/* Navigasyonda "Ortala": takip kapalıyken vurgulanır ve etiket alır */}
+      {navActive && (
+        <TouchableOpacity
+          style={[
+            s.recenterFab,
+            {
+              backgroundColor: navFollow ? theme.surface : theme.active,
+              borderColor: navFollow ? theme.border : theme.active,
+            },
+          ]}
+          onPress={recenterNavigation}
+          activeOpacity={0.85}
+        >
+          <AppIcon name="locate" size={20} color={navFollow ? theme.muted : "#0f1117"} />
+          {!navFollow && <Text style={s.recenterText}>Ortala</Text>}
         </TouchableOpacity>
       )}
 
@@ -440,6 +478,15 @@ const s = StyleSheet.create({
     shadowColor: "#000", shadowOpacity: 0.4, shadowRadius: 6, shadowOffset: { height: 2 },
     elevation: 6,
   },
+  recenterFab: {
+    position: "absolute", right: 16, bottom: 210,
+    flexDirection: "row", alignItems: "center", gap: 6,
+    minHeight: 48, borderRadius: 24, borderWidth: 1,
+    paddingHorizontal: 14, justifyContent: "center", zIndex: 25,
+    shadowColor: "#000", shadowOpacity: 0.4, shadowRadius: 6, shadowOffset: { height: 2 },
+    elevation: 6,
+  },
+  recenterText: { fontSize: 13, fontWeight: "800", color: "#0f1117" },
   bottomPanel: {
     position: "absolute", bottom: 0, left: 0, right: 0,
     borderTopLeftRadius: 18, borderTopRightRadius: 18,

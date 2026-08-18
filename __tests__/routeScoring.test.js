@@ -232,6 +232,30 @@ describe("buildRouteResult", () => {
     expect(buildRouteResult(aday(), 35, false, "transit").totalDuration).toBe(1800);
   });
 
+  it("toplam mesafeyi tüm bacaklardan, yürüyüşü yalnız yürüme bacaklarından toplar", () => {
+    const sonuc = buildRouteResult(aday(), 35, false, "transit");
+    // 400 + 4000 + 150 + 3000 = 7550 m, bunun 550 m'si yürüyüş
+    expect(sonuc.totalDistance).toBe("7.5");
+    expect(sonuc.walkDistance).toBe("0.6");
+  });
+
+  it("her bacağa metre cinsinden mesafe ekler", () => {
+    const sonuc = buildRouteResult(aday(), 35, false, "transit");
+    expect(sonuc.legs.map((l) => l.distanceMeters)).toEqual([400, 4000, 150, 3000]);
+  });
+
+  it("İZBAN bacağını banliyö olarak etiketler, metrodan ayırır", () => {
+    const izban = guzergah(1200, [bacak("RAIL", 600, 9000, "İZBAN"), bacak("SUBWAY", 600, 5000, "M1")]);
+    const [siralanan] = rankItineraries([izban], "transit");
+    const sonuc = buildRouteResult(
+      { ...siralanan, carbon: 0, tag: "Önerilen", tagColor: "#60a5fa" },
+      35, false, "transit"
+    );
+    expect(sonuc.legs[0].label).toBe("Banliyö");
+    expect(sonuc.legs[1].label).toBe("Metro");
+    expect(sonuc.legs[0].color).not.toBe(sonuc.legs[1].color);
+  });
+
   it("eşik aşılmadığında yürüyüş uyarısı vermez", () => {
     expect(buildRouteResult(aday(), 35, false, "transit").walkWarning).toBeNull();
   });

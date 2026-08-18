@@ -3,6 +3,7 @@ import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, StyleSheet
 import AppIcon from "./AppIcon";
 import { useTheme } from "../utils/ThemeContext";
 import { getLegInstruction } from "../utils/routeInstructions";
+import { formatDistance } from "../utils/geo";
 
 export default function RoutePanel({ routes, selectedIdx, onSelect, loading, error, timeTip, origin, destination, onReset, bikeType }) {
   const { theme } = useTheme();
@@ -86,7 +87,7 @@ export default function RoutePanel({ routes, selectedIdx, onSelect, loading, err
                   {Math.round(r.totalDuration / 60)} dk
                 </Text>
                 <Text style={[s.cardMeta, { color: theme.muted }]}>
-                  {r.walkDistance} km · {r.transfers} aktarma
+                  {r.totalDistance} km · {r.walkDistance} km yürüyüş · {r.transfers} aktarma
                 </Text>
               </View>
 
@@ -122,7 +123,8 @@ export default function RoutePanel({ routes, selectedIdx, onSelect, loading, err
                 <View style={s.summaryRow}>
                   {[
                     { l: "Süre",    v: `${Math.round(r.totalDuration / 60)} dk`, color: "#60a5fa" },
-                    { l: "Aktarma", v: String(r.transfers),                       color: "#a78bfa" },
+                    // Aktarma sayısı zaten kart başlığında; burada toplam mesafeye yer açıldı
+                    { l: "Mesafe",  v: `${r.totalDistance} km`,                  color: "#a78bfa" },
                     { l: "Yürüyüş", v: `${r.walkDistance} km`,                   color: "#4ade80" },
                     { l: "Ücret",   v: r.cost === 0 ? "Ücretsiz" : `${r.cost} ₺`, color: "#f97316" },
                   ].map((c, k) => (
@@ -169,9 +171,14 @@ export default function RoutePanel({ routes, selectedIdx, onSelect, loading, err
                           {instruction.detail}
                         </Text>
                       </View>
-                      <Text style={[s.legDur, { color: theme.muted }]}>
-                        {Math.max(1, Math.round(leg.duration / 60))} dk
-                      </Text>
+                      <View style={s.legMetrics}>
+                        <Text style={[s.legDur, { color: theme.muted }]}>
+                          {Math.max(1, Math.round(leg.duration / 60))} dk
+                        </Text>
+                        <Text style={[s.legDist, { color: theme.muted }]}>
+                          {formatDistance(leg.distanceMeters)}
+                        </Text>
+                      </View>
                     </View>
                   );
                 })}
@@ -272,5 +279,7 @@ const s = StyleSheet.create({
   legMode:     { fontSize: 9, fontWeight: "800", textTransform: "uppercase", letterSpacing: 0.5 },
   legRoute:    { fontSize: 11, fontWeight: "600" },
   legHint:     { fontSize: 10, fontWeight: "600", marginTop: 1 },
+  legMetrics:  { alignItems: "flex-end" },
   legDur:      { fontSize: 11, fontWeight: "700" },
+  legDist:     { fontSize: 9, fontWeight: "600", marginTop: 1 },
 });

@@ -8,7 +8,9 @@ import { haversineMeters } from "./geo";
 export const MODE_STYLE = {
   WALK:           { color: "#7a8299", icon: "walk",  label: "Yürüyüş" },
   BUS:            { color: "#f97316", icon: "bus",   label: "Otobüs" },
-  RAIL:           { color: "#60a5fa", icon: "train", label: "Metro" },
+  // RAIL = İZBAN banliyö hattı, SUBWAY = İzmir Metrosu. Aynı ikonu paylaşırlar,
+  // bu yüzden renkleri ayrı tutulur; aksi hâlde kart şeridinde ayırt edilemezler.
+  RAIL:           { color: "#4f46e5", icon: "train", label: "Banliyö" },
   SUBWAY:         { color: "#60a5fa", icon: "train", label: "Metro" },
   TRAM:           { color: "#a78bfa", icon: "tram",  label: "Tramvay" },
   FERRY:          { color: "#38bdf8", icon: "ship",  label: "Vapur" },
@@ -245,18 +247,18 @@ export function buildRouteResult(candidate, fareBase, farePerBoarding, profileKe
       icon: style.icon,
       label: style.label,
       routeName: leg.route?.shortName || null,
+      // Mesafe OTP'nin kendi değerinden gelir; yoksa çizim noktalarından hesaplanır.
+      // Toplam mesafe, yürüyüş payı ve bacak listesindeki "x km" aynı kaynağı kullanır.
+      distanceMeters: calcLegDistanceMeters(leg),
       coords: leg.legGeometry?.points ? decodePolyline(leg.legGeometry.points) : [],
     };
   });
 
   const totalDuration = legs.reduce((s, l) => s + l.duration, 0);
+  const totalDistance = legs.reduce((s, l) => s + l.distanceMeters, 0);
   const walkDistance = legs
     .filter((l) => l.mode === "WALK")
-    .reduce((s, l) => {
-      let d = 0;
-      for (let i = 1; i < l.coords.length; i++) d += haversineMeters(l.coords[i - 1], l.coords[i]);
-      return s + d;
-    }, 0);
+    .reduce((s, l) => s + l.distanceMeters, 0);
 
   const transitLegs = legs.filter((l) => !NON_TRANSIT_MODES.includes(l.mode));
   const maxWalk = WALK_LEG_TARGET[profileKey] ?? 2000;
@@ -269,6 +271,7 @@ export function buildRouteResult(candidate, fareBase, farePerBoarding, profileKe
     legs,
     totalDuration,
     transfers: Math.max(0, transitLegs.length - 1),
+    totalDistance: (totalDistance / 1000).toFixed(1),
     walkDistance: (walkDistance / 1000).toFixed(1),
     walkWarning,
     cost: Math.round(calcJourneyFare(transitLegs.length, fareBase, farePerBoarding)),
