@@ -1,40 +1,45 @@
+import { apiGet, apiPost } from "./apiClient";
+
 const API_URL =
   process.env.EXPO_PUBLIC_API_URL || "https://izmirbackend-production.up.railway.app";
 const OVERPASS_URL = "https://overpass-api.de/api/interpreter";
 const IZMIR_BBOX = "38.2,26.8,38.6,27.5";
 
+// Rota isteği en uzun süren çağrı: OTP'nin plan sorgusu backend'de 15 sn
+// timeout ile bekletiliyor, istemci ondan önce vazgeçmemeli.
+const ROTA_TIMEOUT = 25000;
+
 export async function fetchRoute(from, to, profile, bikeType = null) {
-  const res = await fetch(`${API_URL}/get-route`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
+  return apiPost(
+    `${API_URL}/get-route`,
+    {
       from: { lat: from.latitude, lon: from.longitude },
       to:   { lat: to.latitude,   lon: to.longitude },
       profile,
       bikeType: bikeType || undefined,
       numItineraries: 8,
-    }),
-  });
-  return res.json();
+    },
+    { timeoutMs: ROTA_TIMEOUT }
+  );
 }
 
 async function overpassQuery(query) {
-  const res = await fetch(`${OVERPASS_URL}?data=${encodeURIComponent(query)}`);
-  const data = await res.json();
+  const data = await apiGet(`${OVERPASS_URL}?data=${encodeURIComponent(query)}`);
   return data.elements || [];
 }
 
+// BİSİM istasyonları backend'den alınır. Doğrudan Overpass sorgusu
+// `amenity=bicycle_rental` etiketli her noktayı döndürüyordu; bunların
+// arasında özel kiralama dükkânları ve kaldırılmış istasyonlar da vardı.
+// Backend operator=BİSİM süzgecini uygular ve kapasiteyi tamamlar.
+//
+// NOT: Bu uç anlık doluluk döndürmez — her istasyona bikes: null yazar.
+// BİSİM'in gerçek zamanlı verisi 2025-07-23'ten beri yayınlanmıyor.
+// (Eskiden ayrıca bir fetchBisimRealtimeStations vardı; aynı ucu çağırıyor,
+// yalnızca timeout'u farklıydı. Artık timeout burada.)
 export async function fetchBisimStations() {
-  const elements = await overpassQuery(
-    `[out:json];node[amenity=bicycle_rental](${IZMIR_BBOX});out;`
-  );
-  return elements.map((e) => ({
-    id:       e.id,
-    name:     e.tags?.name || `BİSİM ${e.tags?.ref || e.id}`,
-    lat:      e.lat,
-    lon:      e.lon,
-    capacity: parseInt(e.tags?.capacity) || null,
-  }));
+  const data = await apiGet(`${API_URL}/bisim/stations`, { timeoutMs: 10000 });
+  return data.stations || [];
 }
 
 // OSM'den kapalı ve yeraltı otoparkları + isimli açık otoparklar
@@ -63,19 +68,6 @@ export async function fetchOsmParkingSpots() {
     .filter((s) => s.lat != null && s.lon != null);
 }
 
-// Gerçek zamanlı BİSİM doluluk verisi (backend GBFS önbelleği)
-export async function fetchBisimRealtimeStations() {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 10000);
-  try {
-    const res = await fetch(`${API_URL}/bisim/stations`, { signal: controller.signal });
-    const data = await res.json();
-    return data.stations || [];
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
 export async function fetchBicycleParkingStations() {
   const elements = await overpassQuery(
     `[out:json];node[amenity=bicycle_parking](${IZMIR_BBOX});out;`
@@ -90,14 +82,15 @@ export async function fetchBicycleParkingStations() {
 
 // Araba P+R: zengin doluluk + yakın durak bilgisiyle
 export async function fetchPrStations() {
-  const res = await fetch(`${API_URL}/parking/stations`);
-  const data = await res.json();
+  const data = await apiGet(`${API_URL}/parking/stations`);
   return data.stations || [];
 }
 
-// Bisiklet PARK: OTP'nin kullandığı bike_and_ride etiketli lotlar
+// Bisiklet PARK+TAŞIMA: OTP'nin bisiklet parkı için gerçekten değerlendirdiği
+// TÜM yerler (OSM bisiklet parkları + İZELMAN lotları). Daha önce yalnızca
+// bike_and_ride etiketli 6 İZELMAN lotu gösteriliyordu; harita rotanın
+// kullandığı yerlerin çok küçük bir kısmını yansıtıyordu.
 export async function fetchBikePrStations() {
-  const res = await fetch(`${API_URL}/parking/otp-lots?tag=bike_and_ride`);
-  const data = await res.json();
+  const data = await apiGet(`${API_URL}/parking/otp-lots?vehicle=bicycle`);
   return data.stations || [];
 }

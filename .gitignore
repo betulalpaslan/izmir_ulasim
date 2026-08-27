@@ -47,3 +47,7 @@ coverage/
 # generated native folders
 /ios
 /android
+
+# elle tutulan yedekler — geçmiş git'te
+*.bak
+*.bak[0-9]

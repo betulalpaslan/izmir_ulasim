@@ -1,27 +1,18 @@
 import { useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { fetchRoute as apiFetchRoute, fetchBisimRealtimeStations } from "../Services/routeService";
-import { haversineMeters } from "../utils/geo";
+import { fetchRoute as apiFetchRoute } from "../Services/routeService";
 import {
   resolveProfileKey, rankItineraries, selectCandidates, buildRouteResult,
 } from "../utils/routeScoring";
 
-// Neden BİSİM rotası oluşturulamadığını gerçek zamanlı veriyle teşhis eder
-async function diagnoseBisimError(from) {
-  const NEARBY_M = 600; // 600m yarıçap
-  try {
-    const stations = await fetchBisimRealtimeStations();
-    const nearby = stations.filter(
-      (st) => haversineMeters(from, { latitude: st.lat, longitude: st.lon }) <= NEARBY_M
-    );
-    if (nearby.length === 0) {
-      return "Başlangıç noktanıza yakın BİSİM istasyonu yok. Farklı bir konum deneyin.";
-    }
-    return "Bu güzergah için BİSİM rotası oluşturulamadı. Bisikletsiz bir rota seçebilirsiniz.";
-  } catch {
-    return "BİSİM bilgisine ulaşılamadı. Bağlantınızı kontrol edip tekrar deneyin.";
-  }
-}
+// BİSİM'in gerçek zamanlı doluluk verisi 2025-07-23'ten beri yayınlanmıyor,
+// bu yüzden backend GBFS feed'inde is_renting=false gönderilir ve OTP kiralama
+// rotası üretmez. Bu bir bağlantı hatası değil, veri kaynağının kesilmesidir —
+// kullanıcıya doğru sebep ve kullanılabilir alternatif gösterilir.
+const BISIM_UNAVAILABLE_MSG =
+  "BİSİM'in anlık bisiklet doluluğu şu anda yayınlanmıyor, bu yüzden kiralama " +
+  "rotası oluşturulamıyor. İstasyonlar haritada görünmeye devam ediyor. " +
+  "Dilerseniz \"Kendi Bisikletim\" seçeneğiyle devam edebilirsiniz.";
 
 async function saveToHistory(best, fromName, toName, profile) {
   try {
@@ -73,7 +64,7 @@ export function useRouteSearch(fareBase = 35, farePerBoarding = false) {
         if (validItineraries.length === 0) {
           const modes = [...new Set(itineraries.flatMap((i) => i.legs.map((l) => l.mode)))];
           console.warn("BİSİM: OTP rota döndü ama BICYCLE_RENTAL yok. Modlar:", modes);
-          setError(await diagnoseBisimError(from));
+          setError(BISIM_UNAVAILABLE_MSG);
           return null;
         }
       }
@@ -86,8 +77,11 @@ export function useRouteSearch(fareBase = 35, farePerBoarding = false) {
       await saveToHistory(routeResults[0], fromName, toName, prof);
 
       return routeResults;
-    } catch {
-      setError("Sunucuya bağlanılamadı.");
+    } catch (err) {
+      // ApiError ağ hatası / 502 / 404 ayrımını taşır; kullanıcıya "bağlanılamadı"
+      // demek yerine gerçek sebebi göster. Başka bir hata türü gelirse genel metin.
+      setError(err?.userMessage || "Sunucuya bağlanılamadı.");
+      console.warn("Rota isteği başarısız:", err?.message ?? err);
       return null;
     } finally {
       setLoading(false);

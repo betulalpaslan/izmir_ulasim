@@ -26,6 +26,7 @@ import {
   Target,
   Train,
   TramFront,
+  TriangleAlert,
   Trash2,
   UserRound,
   UserRoundCog,
@@ -33,6 +34,7 @@ import {
 } from "lucide-react-native";
 
 const ICONS = {
+  alert: TriangleAlert,
   bike: Bike,
   briefcase: BriefcaseBusiness,
   bus: Bus,

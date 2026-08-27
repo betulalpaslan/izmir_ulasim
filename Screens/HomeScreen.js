@@ -14,6 +14,7 @@ import {
   BisimMarkers, BikeParkingMarkers, OsmParkingMarkers,
   ParkAndRideMarkers, ActiveParkingMarker, RouteOverlay, UserPuck,
 } from "../Components/MapLayers";
+import { describeLayerError } from "../utils/layerStatus";
 import { useTheme } from "../utils/ThemeContext";
 import { useSettings } from "../hooks/useSettings";
 import { useLocationService } from "../hooks/useLocationService";
@@ -59,6 +60,11 @@ export default function HomeScreen() {
   const [prStations, setPrStations] = useState([]);
   const [osmParking, setOsmParking] = useState([]);
   const [panelCollapsed, setPanelCollapsed] = useState(false);
+  // Harita katmanı yüklenemediğinde gösterilecek uyarı. Katmanlar eskiden
+  // .catch(() => {}) ile yükleniyordu: hata yutulur, liste boş kalırdı ve
+  // kullanıcı "istasyon yok" ile "sunucuya ulaşılamıyor" arasındaki farkı
+  // göremezdi.
+  const [layerError, setLayerError] = useState(null);
   const [timeTip] = useState(() => getTimeContext());
 
   const { fareBase, farePerBoarding, profiles, savedPlaces, savePlace } = useSettings();
@@ -89,6 +95,17 @@ export default function HomeScreen() {
     [heading]
   );
 
+  // Katman yükleyicilerinin ortak kalıbı: başarıda listeyi yaz ve uyarıyı
+  // temizle, hatada listeyi boşalt ve NEDENİ göster.
+  const loadLayer = (loader, setList, katmanAdi) =>
+    loader()
+      .then((list) => { setList(list); setLayerError(null); })
+      .catch((err) => {
+        setList([]);
+        setLayerError(describeLayerError(katmanAdi, err));
+        console.warn(`Katman hatası (${katmanAdi}):`, err?.message ?? err);
+      });
+
   useEffect(() => {
     setProfile((cur) => (profiles.find((p) => p.id === cur) ? cur : profiles[0].id));
   }, [profiles]);
@@ -97,16 +114,17 @@ export default function HomeScreen() {
     if (profile !== "bicycle") {
       setBisimStations([]);
       setParkingStations([]);
+      setLayerError(null);
       return;
     }
     if (bikeType === "RENT") {
-      fetchBisimStations().then(setBisimStations).catch(() => {});
+      loadLayer(fetchBisimStations, setBisimStations, "BİSİM istasyonları");
       setParkingStations([]);
     } else if (bikeType === "PARK") {
-      fetchBikePrStations().then(setParkingStations).catch(() => {});
+      loadLayer(fetchBikePrStations, setParkingStations, "Bisiklet park noktaları");
       setBisimStations([]);
     } else {
-      fetchBicycleParkingStations().then(setParkingStations).catch(() => {});
+      loadLayer(fetchBicycleParkingStations, setParkingStations, "Bisiklet parkları");
       setBisimStations([]);
     }
   }, [profile, bikeType]);
@@ -115,12 +133,12 @@ export default function HomeScreen() {
 
   useEffect(() => {
     if (profile !== "car" || carMode !== "park_and_ride") { setPrStations([]); return; }
-    fetchPrStations().then(setPrStations).catch(() => {});
+    loadLayer(fetchPrStations, setPrStations, "Park + Devam otoparkları");
   }, [profile, carMode]);
 
   useEffect(() => {
     if (profile !== "car" || carMode === "park_and_ride") { setOsmParking([]); return; }
-    fetchOsmParkingSpots().then(setOsmParking).catch(() => {});
+    loadLayer(fetchOsmParkingSpots, setOsmParking, "Otoparklar");
   }, [profile, carMode]);
 
   // Navigasyon sırasında ekran kapanmasın
@@ -330,7 +348,9 @@ export default function HomeScreen() {
         {destination && <Marker coordinate={destination} pinColor="#f87171" title="Varış" />}
 
         <BisimMarkers stations={bisimStations} />
-        <BikeParkingMarkers stations={parkingStations} />
+        {/* "Park + Taşıma" ile "Kendi Bisikletim" farklı kaynaklardan beslenir;
+            ayırt edilebilmeleri için ayrı renkle çizilirler. */}
+        <BikeParkingMarkers stations={parkingStations} variant={bikeType === "PARK" ? "pr" : "own"} />
         <OsmParkingMarkers spots={osmParking} />
         <ParkAndRideMarkers stations={prStations} />
         <ActiveParkingMarker point={mapRoute?.parkingPoint} />
@@ -338,6 +358,20 @@ export default function HomeScreen() {
 
         {navActive && <UserPuck point={navPoint} heading={cameraHeading} offRoute={offRoute} />}
       </MapView>
+
+      {/* Sessizce boş kalan katman yerine görünür sebep. Dokununca kapanır. */}
+      {!navActive && layerError && (
+        <TouchableOpacity
+          style={[s.layerWarning, { backgroundColor: theme.surface, borderColor: theme.border }]}
+          onPress={() => setLayerError(null)}
+          activeOpacity={0.85}
+        >
+          <AppIcon name="alert" size={16} color="#f59e0b" />
+          <Text style={[s.layerWarningText, { color: theme.text }]} numberOfLines={2}>
+            {layerError}
+          </Text>
+        </TouchableOpacity>
+      )}
 
       {!navActive && userLocation && !origin && (
         <TouchableOpacity
@@ -505,4 +539,12 @@ const s = StyleSheet.create({
   resetBtn: { marginTop: 8, borderWidth: 1, borderRadius: 9, paddingVertical: 7, alignItems: "center" },
   resetContent: { flexDirection: "row", alignItems: "center", gap: 6 },
   resetText: { fontSize: 12, fontWeight: "700" },
+  layerWarning: {
+    position: "absolute", left: 16, right: 16, top: 130,
+    flexDirection: "row", alignItems: "center", gap: 8,
+    borderWidth: 1, borderRadius: 10, paddingVertical: 9, paddingHorizontal: 12, zIndex: 30,
+    shadowColor: "#000", shadowOpacity: 0.35, shadowRadius: 8, shadowOffset: { height: 2 },
+    elevation: 8,
+  },
+  layerWarningText: { flex: 1, fontSize: 12, fontWeight: "700" },
 });
