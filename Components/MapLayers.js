@@ -37,22 +37,35 @@ export function BisimMarkers({ stations }) {
   ));
 }
 
-export function BikeParkingMarkers({ stations }) {
+// İki farklı amaç, iki farklı görünüm:
+//   variant="own" → "Kendi Bisikletim" modunda bilgi amaçlı park demirleri.
+//                   Rotaya girmez; sadece "buraya kilitleyebilirsin" der.
+//   variant="pr"  → "Park + Taşıma" modunda OTP'nin rota kurarken gerçekten
+//                   kullanabileceği park yerleri.
+// Aynı kırmızı ikonla çizildiklerinde iki mod ayırt edilemiyordu.
+const BIKE_PARK_VARIANT = {
+  own: { color: "#94a3b8", title: "Bisiklet parkı",        hint: "Bisikletinizi kilitleyebilirsiniz" },
+  pr:  { color: "#a78bfa", title: "Bisiklet park + aktarma", hint: "Buraya park edip toplu taşımaya geçebilirsiniz" },
+};
+
+export function BikeParkingMarkers({ stations, variant = "own" }) {
+  const style = BIKE_PARK_VARIANT[variant] ?? BIKE_PARK_VARIANT.own;
   return stations.map((st) => (
     <Marker
-      key={`park-${st.id}`}
+      key={`park-${variant}-${st.id}`}
       coordinate={{ latitude: st.lat, longitude: st.lon }}
       anchor={{ x: 0.5, y: 0.5 }}
-      title={st.name || undefined}
+      title={st.name || style.title}
       description={parkingOccupancyText(st)}
       tracksViewChanges={false}
     >
-      <View style={s.parkingMarker}>
-        <AppIcon name="bike" size={13} color="#f87171" />
+      <View style={[s.parkingMarker, { borderColor: style.color }]}>
+        <AppIcon name="bike" size={13} color={style.color} />
       </View>
       <Callout tooltip>
         <View style={s.parkingCallout}>
-          <Text style={s.parkingCalloutTitle}>{st.name || "Bisiklet parkı"}</Text>
+          <Text style={s.parkingCalloutTitle}>{st.name || style.title}</Text>
+          <Text style={s.parkingCalloutMeta}>{style.hint}</Text>
           <Text style={s.parkingCalloutMeta}>{parkingOccupancyText(st)}</Text>
         </View>
       </Callout>
@@ -235,7 +248,7 @@ const s = StyleSheet.create({
   parkingMarker: {
     width: 22, height: 22, borderRadius: 11, borderWidth: 1.5,
     alignItems: "center", justifyContent: "center",
-    backgroundColor: "#0f1117", borderColor: "#f87171",
+    backgroundColor: "#0f1117",
   },
   prMarker: {
     width: 22, height: 22, borderRadius: 11, borderWidth: 1.5,
