@@ -2,8 +2,6 @@ import { apiGet, apiPost } from "./apiClient";
 
 const API_URL =
   process.env.EXPO_PUBLIC_API_URL || "https://izmirbackend-production.up.railway.app";
-const OVERPASS_URL = "https://overpass-api.de/api/interpreter";
-const IZMIR_BBOX = "38.2,26.8,38.6,27.5";
 
 // Rota isteği en uzun süren çağrı: OTP'nin plan sorgusu backend'de 15 sn
 // timeout ile bekletiliyor, istemci ondan önce vazgeçmemeli.
@@ -23,11 +21,6 @@ export async function fetchRoute(from, to, profile, bikeType = null) {
   );
 }
 
-async function overpassQuery(query) {
-  const data = await apiGet(`${OVERPASS_URL}?data=${encodeURIComponent(query)}`);
-  return data.elements || [];
-}
-
 // BİSİM istasyonları backend'den alınır. Doğrudan Overpass sorgusu
 // `amenity=bicycle_rental` etiketli her noktayı döndürüyordu; bunların
 // arasında özel kiralama dükkânları ve kaldırılmış istasyonlar da vardı.
@@ -42,42 +35,20 @@ export async function fetchBisimStations() {
   return data.stations || [];
 }
 
-// OSM'den kapalı ve yeraltı otoparkları + isimli açık otoparklar
+// OSM'den kapalı ve yeraltı otoparkları + isimli açık otoparklar.
+// Overpass sorgusu backend'e taşındı: cache, üç mirror ve disk yedeği orada.
+// Ayrıca Overpass'ın hız sınırı IP başınadır — buradan çekilirken sınır her
+// kullanıcının cihazına ayrı uygulanıyordu ve kalabalık saatte rastgele
+// kullanıcılar boş katman görüyordu.
 export async function fetchOsmParkingSpots() {
-  const query = `
-    [out:json][timeout:10];
-    (
-      node[amenity=parking][parking~"multi-storey|underground"](${IZMIR_BBOX});
-      way[amenity=parking][parking~"multi-storey|underground"](${IZMIR_BBOX});
-      node[amenity=parking][parking=surface][name](${IZMIR_BBOX});
-      way[amenity=parking][parking=surface][name](${IZMIR_BBOX});
-    );
-    out center;
-  `;
-  const elements = await overpassQuery(query);
-  return elements
-    .map((e) => ({
-      id:       e.id,
-      name:     e.tags?.name || null,
-      lat:      e.lat ?? e.center?.lat,
-      lon:      e.lon ?? e.center?.lon,
-      type:     e.tags?.parking || "surface",
-      fee:      e.tags?.fee === "yes" ? true : e.tags?.fee === "no" ? false : null,
-      capacity: parseInt(e.tags?.capacity) || null,
-    }))
-    .filter((s) => s.lat != null && s.lon != null);
+  const data = await apiGet(`${API_URL}/parking/osm`);
+  return data.spots || [];
 }
 
+// OSM bisiklet parkları — yukarıdakiyle aynı gerekçe.
 export async function fetchBicycleParkingStations() {
-  const elements = await overpassQuery(
-    `[out:json];node[amenity=bicycle_parking](${IZMIR_BBOX});out;`
-  );
-  return elements.map((e) => ({
-    id:       e.id,
-    lat:      e.lat,
-    lon:      e.lon,
-    capacity: parseInt(e.tags?.capacity) || null,
-  }));
+  const data = await apiGet(`${API_URL}/parking/bike-racks`);
+  return data.stations || [];
 }
 
 // Araba P+R: zengin doluluk + yakın durak bilgisiyle
@@ -87,9 +58,9 @@ export async function fetchPrStations() {
 }
 
 // Bisiklet PARK+TAŞIMA: OTP'nin bisiklet parkı için gerçekten değerlendirdiği
-// TÜM yerler (OSM bisiklet parkları + İZELMAN lotları). Daha önce yalnızca
-// bike_and_ride etiketli 6 İZELMAN lotu gösteriliyordu; harita rotanın
-// kullandığı yerlerin çok küçük bir kısmını yansıtıyordu.
+// yerler — 2026-08 ölçümünde 87 gerçek OSM bisiklet parkı. Bir süre burada
+// İZELMAN'ın 6 araba otoparkı da görünüyordu (router-config aynı feed'i
+// BICYCLE_PARK_API olarak da besliyordu); o updater kaldırıldı.
 export async function fetchBikePrStations() {
   const data = await apiGet(`${API_URL}/parking/otp-lots?vehicle=bicycle`);
   return data.stations || [];

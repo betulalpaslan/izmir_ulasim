@@ -1,62 +1,53 @@
-async function fetchPhoton(text) {
-  const url =
-    `https://photon.komoot.io/api/?` +
-    `q=${encodeURIComponent(text)}&limit=4&lang=tr` +
-    `&lat=38.42&lon=27.14&bbox=26.5,38.2,27.5,38.7`;
-  const res = await fetch(url, { headers: { "User-Agent": "IzmirUlasimApp/1.0" } });
-  const data = await res.json();
-  return (data.features || []).map((f, i) => {
-    const p = f.properties;
-    const nameParts = [p.name, p.street, p.housenumber].filter(Boolean);
-    const detailParts = [p.district || p.county, p.city || p.state].filter(Boolean);
-    return {
-      place_id: `ph_${p.osm_id || i}`,
-      lat: String(f.geometry.coordinates[1]),
-      lon: String(f.geometry.coordinates[0]),
-      display_name: [...nameParts, ...detailParts].join(", "),
-    };
-  });
-}
+import { apiGet } from "./apiClient";
 
-async function fetchNominatim(text) {
-  const url =
-    `https://nominatim.openstreetmap.org/search?` +
-    `q=${encodeURIComponent(text)}&format=json&limit=4` +
-    `&viewbox=26.5,38.2,27.5,38.7&accept-language=tr`;
-  const res = await fetch(url, { headers: { "User-Agent": "IzmirUlasimApp/1.0" } });
-  const data = await res.json();
-  return data.map((item) => ({
-    place_id: `nm_${item.place_id}`,
-    lat: item.lat,
-    lon: item.lon,
-    display_name: item.display_name,
-  }));
-}
+const API_URL =
+  process.env.EXPO_PUBLIC_API_URL || "https://izmirbackend-production.up.railway.app";
 
-function deduplicateResults(results) {
-  const seen = [];
-  return results.filter((r) => {
-    const lat = parseFloat(r.lat);
-    const lon = parseFloat(r.lon);
-    const tooClose = seen.some(
-      (s) => Math.abs(s.lat - lat) < 0.002 && Math.abs(s.lon - lon) < 0.002
-    );
-    if (!tooClose) seen.push({ lat, lon });
-    return !tooClose;
-  });
-}
+// Adres araması artık backend üzerinden. Photon/Nominatim çağrıları,
+// tekrar eleme ve sonuç sıralaması orada (services/GeocodingService.js).
+// Buraya taşınmasının sebebi yalnızca tutarlılık değildi — burada üç kusur
+// vardı ve üçü de backend'e taşınırken düzeltildi:
+//   • "lang=tr" gönderiliyordu; Photon bunu desteklemez ve 400 döner, yani
+//     Photon HİÇ çalışmıyor, her arama sessizce Nominatim'e düşüyordu
+//   • Türkçe yazılan sorgu ("güzel") Photon'un ASCII indeksinde karşılık
+//     bulmuyordu — sorgu artık ASCII'ye çevriliyor
+//   • aynı yerin station/tram_stop/building kayıtları listeyi dolduruyordu
+
+// En kısa sorgu 2 harf: "ko" yazınca Konak çıkmalı. Eskiden 3 harf şarttı ve
+// kısa yer adları hiç aranamıyordu.
+const MIN_UZUNLUK = 2;
+
+// Her tuşta istek atmamak için bekleme. 400 ms fazlaydı: kullanıcı yazmayı
+// bırakıp sonucu beklerken listeyi geç görüyordu.
+const BEKLEME_MS = 250;
 
 let searchTimer = null;
+let sonIstekNo = 0;
+
 export function searchAddress(text, callback) {
   clearTimeout(searchTimer);
-  if (text.length < 3) { callback([]); return; }
+
+  const sorgu = String(text || "").trim();
+  if (sorgu.length < MIN_UZUNLUK) {
+    callback([]);
+    return;
+  }
+
   searchTimer = setTimeout(async () => {
+    // Yavaş bir istek, sonradan başlayan hızlı bir isteğin sonucunu ezmemeli:
+    // kullanıcı "konak" yazmışken ekranda "kon" sonuçları kalırdı.
+    const istekNo = ++sonIstekNo;
     try {
-      const [photon, nominatim] = await Promise.all([
-        fetchPhoton(text).catch(() => []),
-        fetchNominatim(text).catch(() => []),
-      ]);
-      callback(deduplicateResults([...photon, ...nominatim]).slice(0, 6));
-    } catch { callback([]); }
-  }, 400);
+      const data = await apiGet(`${API_URL}/geocode?q=${encodeURIComponent(sorgu)}`, { timeoutMs: 8000 });
+      if (istekNo !== sonIstekNo) return;
+      callback(data.results || []);
+    } catch (err) {
+      if (istekNo !== sonIstekNo) return;
+      // Arama çalışmasa bile kullanıcı haritaya dokunarak nokta seçebilir;
+      // bu yüzden hata kullanıcıya bir uyarı olarak değil, boş liste olarak
+      // yansır — ama sebebi log'a yazılır.
+      console.warn("Adres araması başarısız:", err?.message ?? err);
+      callback([]);
+    }
+  }, BEKLEME_MS);
 }
