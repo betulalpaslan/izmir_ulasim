@@ -1,0 +1,1612 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+  <title>İzmir Ulaşım Rehberi</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+
+  <style>
+    :root {
+      --bg: #0f1117;
+      --surface: #181c25;
+      --surface2: #1e2330;
+      --border: #2a2f3d;
+      --text: #e8eaf0;
+      --muted: #7a8299;
+      --accent-bike: #4ade80;
+      --accent-car: #f97316;
+      --accent-transit: #60a5fa;
+      --active-glow: 0 0 0 2px rgba(96,165,250,0.4);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      display: flex;
+      height: 100vh;
+      font-family: 'DM Sans', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      overflow: hidden;
+    }
+
+    /* ── SIDEBAR ── */
+    #sidebar {
+      width: 400px;
+      min-width: 400px;
+      display: flex;
+      flex-direction: column;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      overflow-y: auto;
+      z-index: 10;
+    }
+
+    .sidebar-header {
+      padding: 20px 20px 0;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 16px;
+    }
+
+    .app-title {
+      font-family: 'Space Mono', monospace;
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--muted);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+
+    .app-subtitle {
+      font-size: 22px;
+      font-weight: 800;
+      color: var(--text);
+    }
+
+    .sidebar-body { padding: 16px 20px; display: flex; flex-direction: column; gap: 16px; }
+
+    /* ── PROFİL SEÇİCİ ── */
+    .profile-tabs {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 6px;
+      background: var(--bg);
+      border-radius: 14px;
+      padding: 6px;
+    }
+
+    .profile-tab {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      padding: 12px 6px;
+      border-radius: 10px;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: all 0.2s;
+      user-select: none;
+    }
+
+    .profile-tab .icon { font-size: 22px; line-height: 1; }
+    .profile-tab .label { font-size: 11px; font-weight: 700; color: var(--muted); letter-spacing: 0.5px; }
+    .profile-tab .sublabel { font-size: 9px; color: var(--muted); opacity: 0.6; text-align: center; line-height: 1.3; }
+
+    .profile-tab:hover { background: var(--surface2); }
+
+    .profile-tab.active[data-profile="bicycle"] {
+      background: rgba(74,222,128,0.1);
+      border-color: var(--accent-bike);
+    }
+    .profile-tab.active[data-profile="bicycle"] .label { color: var(--accent-bike); }
+
+    .profile-tab.active[data-profile="car"] {
+      background: rgba(249,115,22,0.1);
+      border-color: var(--accent-car);
+    }
+    .profile-tab.active[data-profile="car"] .label { color: var(--accent-car); }
+
+    .profile-tab.active[data-profile="transit"] {
+      background: rgba(96,165,250,0.1);
+      border-color: var(--accent-transit);
+    }
+    .profile-tab.active[data-profile="transit"] .label { color: var(--accent-transit); }
+
+    /* ── PROFİL AÇIKLAMASI ── */
+    .profile-desc {
+      background: var(--bg);
+      border-radius: 12px;
+      padding: 12px 14px;
+      font-size: 12px;
+      color: var(--muted);
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      transition: all 0.3s;
+    }
+
+    .profile-desc .flow {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+      font-weight: 600;
+      font-size: 12px;
+    }
+
+    .flow-chip {
+      padding: 3px 8px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .flow-arrow { color: var(--muted); font-size: 10px; }
+
+    /* ── GÜZERGAH ARAMA ── */
+    .route-search-card {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: visible;
+    }
+
+    .search-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      position: relative;
+    }
+
+    .search-row + .search-row { border-top: 1px solid var(--border); }
+
+    .point-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .dot-from { background: var(--accent-bike); box-shadow: 0 0 6px rgba(74,222,128,0.5); }
+    .dot-to   { background: #f87171; box-shadow: 0 0 6px rgba(248,113,113,0.5); }
+
+    .search-input-wrap { flex: 1; position: relative; }
+
+    .search-input {
+      width: 100%;
+      background: transparent;
+      border: none;
+      outline: none;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+      padding: 4px 0;
+    }
+
+    .search-input::placeholder { color: var(--muted); font-weight: 400; font-style: italic; }
+
+    .search-input:focus { border-bottom: 1px solid var(--border); }
+
+    /* Dropdown */
+    .autocomplete-list {
+      display: none;
+      position: absolute;
+      top: calc(100% + 6px);
+      left: -14px;
+      right: -40px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      z-index: 9999;
+      overflow: hidden;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+      max-height: 220px;
+      overflow-y: auto;
+    }
+
+    .autocomplete-list.open { display: block; }
+
+    .ac-item {
+      padding: 10px 14px;
+      font-size: 12px;
+      color: var(--text);
+      cursor: pointer;
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      transition: background 0.15s;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .ac-item:last-child { border-bottom: none; }
+    .ac-item:hover { background: var(--surface); }
+
+    .ac-icon { font-size: 14px; flex-shrink: 0; margin-top: 1px; }
+    .ac-name { font-weight: 700; color: var(--text); line-height: 1.3; }
+    .ac-detail { font-size: 10px; color: var(--muted); margin-top: 2px; }
+
+    .ac-loading { padding: 12px 14px; font-size: 12px; color: var(--muted); text-align: center; }
+
+    /* GPS butonu */
+    .gps-btn {
+      background: transparent;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 16px;
+      padding: 2px 4px;
+      transition: color 0.2s;
+      flex-shrink: 0;
+    }
+    .gps-btn:hover { color: var(--accent-transit); }
+
+    /* Swap butonu */
+    .swap-btn {
+      position: absolute;
+      right: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      width: 26px; height: 26px;
+      border-radius: 50%;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px;
+      transition: all 0.25s;
+      z-index: 5;
+    }
+    .swap-btn:hover { background: var(--border); transform: translateY(-50%) rotate(180deg); }
+
+    .points-wrapper { position: relative; }
+
+    .small-actions {
+      display: flex; gap: 8px; padding: 10px 14px;
+      border-top: 1px solid var(--border);
+    }
+
+    .small-btn {
+      flex: 1; padding: 8px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: 'DM Sans', sans-serif;
+    }
+
+    .small-btn:hover { border-color: var(--text); color: var(--text); }
+
+    /* ── PANEL: profil ayarları ── */
+    .panel {
+      display: none;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .panel.visible { display: flex; }
+
+    .section-title {
+      font-size: 10px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: var(--muted);
+      margin-bottom: 2px;
+    }
+
+    .chip-group { display: flex; flex-wrap: wrap; gap: 6px; }
+
+    .chip {
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--muted);
+      transition: all 0.2s;
+      user-select: none;
+    }
+
+    .chip:hover { border-color: var(--text); color: var(--text); }
+    .chip.active { border-color: var(--accent-transit); background: rgba(96,165,250,0.12); color: var(--accent-transit); }
+    .chip.active.green { border-color: var(--accent-bike); background: rgba(74,222,128,0.1); color: var(--accent-bike); }
+    .chip.active.orange { border-color: var(--accent-car); background: rgba(249,115,22,0.1); color: var(--accent-car); }
+
+    .seg-group { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+
+    .seg-btn {
+      padding: 10px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.2s;
+      font-family: 'DM Sans', sans-serif;
+    }
+
+    .seg-btn.active {
+      border-color: var(--accent-bike);
+      background: rgba(74,222,128,0.1);
+      color: var(--accent-bike);
+    }
+
+    /* Bisiklet PARK seçili: mavi (transit ile karışık olduğu için) */
+    .seg-btn[data-bike="RENT"].active {
+      border-color: var(--accent-bike);
+      background: rgba(74,222,128,0.12);
+      color: var(--accent-bike);
+    }
+    .seg-btn[data-bike="PARK"].active {
+      border-color: var(--accent-transit);
+      background: rgba(96,165,250,0.1);
+      color: var(--accent-transit);
+    }
+
+    /* Araba P+R seçili: turuncu */
+    .seg-btn.car-seg.active {
+      border-color: var(--accent-car);
+      background: rgba(249,115,22,0.1);
+      color: var(--accent-car);
+    }
+
+    /* Bilgi kutusu */
+    .info-box {
+      font-size: 11px;
+      color: var(--muted);
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 12px;
+      line-height: 1.5;
+      margin-top: 6px;
+    }
+
+    .zaman-btn {
+      background: var(--surface2); color: var(--muted);
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 7px 12px; font-size: 12px; font-weight: 600;
+      cursor: pointer; white-space: nowrap; flex: 0 0 auto;
+    }
+    .zaman-btn.aktif { border-color: var(--accent-transit); color: var(--accent-transit); background: rgba(96,165,250,0.1); }
+
+    /* ── TERCİH ── */
+    .pref-group { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+
+    .pref-btn {
+      padding: 10px 8px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.2s;
+      font-family: 'DM Sans', sans-serif;
+    }
+
+    .pref-btn:hover { border-color: var(--text); color: var(--text); }
+
+    .pref-btn.active {
+      border-color: var(--accent-transit);
+      background: rgba(96,165,250,0.1);
+      color: var(--accent-transit);
+    }
+
+    /* ── ARA BUTONU ── */
+    .search-btn {
+      width: 100%;
+      padding: 14px;
+      border-radius: 12px;
+      border: none;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 14px;
+      font-weight: 800;
+      cursor: pointer;
+      transition: all 0.2s;
+      letter-spacing: 0.5px;
+    }
+
+    .search-btn.profile-bicycle {
+      background: var(--accent-bike);
+      color: #0a1a0e;
+    }
+    .search-btn.profile-bicycle:hover { filter: brightness(1.1); }
+
+    .search-btn.profile-car {
+      background: var(--accent-car);
+      color: #1a0a00;
+    }
+    .search-btn.profile-car:hover { filter: brightness(1.1); }
+
+    .search-btn.profile-transit {
+      background: var(--accent-transit);
+      color: #0a1020;
+    }
+    .search-btn.profile-transit:hover { filter: brightness(1.1); }
+
+    /* ── DURUM ── */
+    #status {
+      font-size: 12px;
+      color: var(--muted);
+      padding: 10px 14px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+    }
+
+    /* ── ÖZET ── */
+    /* Son Rotalar — web_demo.html'den taşındı. Aynı localStorage anahtarını
+       (routeHistory) kullanır, yani iki arayüz arasında geçmiş korunur. */
+    .hist-section { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); }
+    .hist-title   { font-size: 10px; font-weight: 800; text-transform: uppercase;
+                    letter-spacing: 1px; color: var(--muted); margin-bottom: 8px; }
+    .hcard        { font-size: 12px; color: var(--text); padding: 7px 9px; margin-bottom: 5px;
+                    border: 1px solid var(--border); border-radius: 8px; line-height: 1.5; }
+    .hcard .hroute{ font-weight: 700; }
+    .hcard .hmeta { color: var(--muted); font-size: 11px; }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .summary-card {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 12px;
+    }
+
+    .summary-card .s-label { font-size: 10px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
+    .summary-card .s-value { font-size: 18px; font-weight: 800; color: var(--text); font-family: 'Space Mono', monospace; margin-top: 2px; }
+    .summary-card .s-unit { font-size: 11px; color: var(--muted); font-weight: 400; }
+
+    /* ── BACAKLAR ── */
+    #directions { display: flex; flex-direction: column; gap: 8px; }
+
+    .leg-card {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 14px;
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      transition: border-color 0.2s;
+    }
+
+    .leg-card:hover { border-color: var(--muted); }
+
+    .leg-icon {
+      width: 32px; height: 32px;
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px;
+      flex-shrink: 0;
+    }
+
+    .leg-content { flex: 1; min-width: 0; }
+    .leg-mode { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 3px; }
+    .leg-route { font-size: 13px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .leg-meta { font-size: 11px; color: var(--muted); margin-top: 3px; }
+
+    .leg-dur {
+      font-family: 'Space Mono', monospace;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    /* ── HARİTA ── */
+    #map { flex: 1; }
+
+    /* ── KATMAN BUTONU ── */
+    .layer-btn {
+      width: 100%;
+      padding: 10px 14px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--muted);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      text-align: left;
+      transition: all 0.2s;
+    }
+    .layer-btn.active { border-color: var(--accent-bike); background: rgba(74,222,128,0.08); color: var(--accent-bike); }
+    .layer-btn:hover { border-color: var(--text); }
+    .bisim-popup { font-family: 'DM Sans', sans-serif; min-width: 160px; }
+    .bisim-popup .bp-name { font-weight: 800; font-size: 13px; margin-bottom: 8px; color: #1a1a2e; }
+    .bisim-popup .bp-row { display: flex; justify-content: space-between; font-size: 12px; margin: 4px 0; }
+    .bisim-popup .bp-label { color: #666; }
+    .bisim-popup .bp-val { font-weight: 700; }
+    .bisim-popup .bp-bar { height: 6px; background: #eee; border-radius: 3px; margin-top: 8px; overflow: hidden; }
+    .bisim-popup .bp-fill { height: 100%; border-radius: 3px; background: #4ade80; }
+    #sidebar::-webkit-scrollbar { width: 4px; }
+    #sidebar::-webkit-scrollbar-track { background: transparent; }
+    #sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  </style>
+</head>
+
+<body>
+  <div id="sidebar">
+    <div class="sidebar-header">
+      <div class="app-title">İzmir Ulaşım</div>
+      <div class="app-subtitle">Rota Planlayıcı</div>
+    </div>
+
+    <div class="sidebar-body">
+
+      <!-- PROFİL SEÇİCİ -->
+      <div>
+        <div class="section-title">Ulaşım Profili</div>
+        <div class="profile-tabs" style="margin-top:8px;">
+          <div class="profile-tab active" data-profile="bicycle">
+            <span class="icon">🚲</span>
+            <span class="label">Bisiklet</span>
+            <span class="sublabel">Tek başına / Park+Transit</span>
+          </div>
+          <div class="profile-tab" data-profile="car">
+            <span class="icon">🚗</span>
+            <span class="label">Araba</span>
+            <span class="sublabel">Tek başına / P+R</span>
+          </div>
+          <div class="profile-tab" data-profile="transit">
+            <span class="icon">🚌</span>
+            <span class="label">Toplu Taşıma</span>
+            <span class="sublabel">Yürü &amp; transit</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- PROFİL AÇIKLAMASI -->
+      <div class="profile-desc" id="profileDesc">
+        <div class="flow" id="profileFlow"></div>
+      </div>
+
+      <!-- GÜZERGAH ARAMA -->
+      <div>
+        <div class="section-title">Güzergah</div>
+        <div class="route-search-card" style="margin-top:8px;">
+          <div class="points-wrapper">
+
+            <!-- BAŞLANGIÇ -->
+            <div class="search-row">
+              <div class="point-dot dot-from"></div>
+              <div class="search-input-wrap">
+                <input
+                  id="fromInput"
+                  class="search-input"
+                  type="text"
+                  placeholder="Başlangıç noktası..."
+                  autocomplete="off"
+                />
+                <div class="autocomplete-list" id="fromList"></div>
+              </div>
+              <button class="gps-btn" id="gpsBtn" title="Mevcut konumumu kullan">📍</button>
+            </div>
+
+            <button class="swap-btn" id="swapBtn" title="Yönü çevir">⇄</button>
+
+            <!-- BİTİŞ -->
+            <div class="search-row">
+              <div class="point-dot dot-to"></div>
+              <div class="search-input-wrap">
+                <input
+                  id="toInput"
+                  class="search-input"
+                  type="text"
+                  placeholder="Varış noktası..."
+                  autocomplete="off"
+                />
+                <div class="autocomplete-list" id="toList"></div>
+              </div>
+            </div>
+
+          </div>
+          <div class="small-actions">
+            <button class="small-btn" id="resetBtn">🧹 Temizle</button>
+            <button class="small-btn" id="rerouteBtn">🔄 Yeniden Ara</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- BİSİKLET PANELİ -->
+      <div class="panel visible" id="panel-bicycle">
+        <div class="section-title">Sürüş Türü</div>
+        <div class="seg-group">
+          <button class="seg-btn active" data-bike="PERSONAL">🚲 Sadece Bisiklet</button>
+          <button class="seg-btn" data-bike="RENT">🚲 BİSİM Kirala</button>
+          <button class="seg-btn" data-bike="PARK">🅿️🚌 Park &amp; Transit</button>
+        </div>
+        <div class="info-box">
+          🚲 <b>Park &amp; Transit:</b> Bisikletinle bir park noktasına gidersin, kilitlersin, oradan toplu taşımaya geçersin.
+        </div>
+      </div>
+
+      <!-- ARABA PANELİ -->
+      <div class="panel" id="panel-car">
+        <div class="section-title">Sürüş Türü</div>
+        <div class="seg-group">
+          <button class="seg-btn car-seg active" data-cartype="DIRECT">🚗 Sadece Araba</button>
+          <button class="seg-btn car-seg" data-cartype="PARK_RIDE">🅿️🚌 Park &amp; Ride</button>
+        </div>
+        <div class="info-box">
+          🅿️ <b>P+R modu:</b> Arabayla en yakın katlı otoparka gider, oradan toplu taşımaya geçersin.
+        </div>
+      </div>
+
+      <!-- TOPLU TAŞIMA PANELİ -->
+      <div class="panel" id="panel-transit">
+        <!-- boş, araçlar aşağıdaki ortak bölümde -->
+      </div>
+
+      <!-- ORTAK: TRANSİT ARAÇLARI -->
+      <div>
+        <div class="section-title">Araçlar</div>
+        <div class="chip-group" id="modeChips" style="margin-top:8px;">
+          <div class="chip active" data-mode="BUS">🚌 Otobüs</div>
+          <div class="chip active" data-mode="RAIL">🚆 Raylı</div>
+          <div class="chip active" data-mode="TRAM">🚊 Tramvay</div>
+        </div>
+      </div>
+
+      <!-- KALKIŞ ZAMANI -->
+      <div>
+        <div class="section-title">Kalkış Zamanı</div>
+        <div style="display:flex; gap:6px; margin-top:8px;">
+          <button class="zaman-btn aktif" id="zamanSimdi">🕒 Şimdi</button>
+          <input type="datetime-local" id="zamanSecici"
+                 style="flex:1; min-width:0; background:var(--surface2); color:var(--text);
+                        border:1px solid var(--border); border-radius:8px; padding:6px 8px; font-size:12px;">
+        </div>
+        <div id="zamanUyari" style="font-size:11px; color:#fbbf24; margin-top:6px; line-height:1.4; display:none;"></div>
+      </div>
+
+      <!-- TERCİH -->
+      <div>
+        <div class="section-title">Tercih</div>
+        <div class="pref-group" style="margin-top:8px;">
+          <button class="pref-btn active" data-pref="recommended">⭐ Önerilen</button>
+          <button class="pref-btn" data-pref="fastest">⚡ En Hızlı</button>
+          <button class="pref-btn" data-pref="cheapest">💰 En Ucuz</button>
+          <button class="pref-btn" data-pref="leastTransfers">🔁 Az Aktarma</button>
+          <button class="pref-btn" data-pref="leastWalking">🚶 Az Yürüyüş</button>
+        </div>
+      </div>
+
+      <!-- HARİTA KATMANLARI -->
+      <div>
+        <div class="section-title">Harita Katmanları</div>
+        <div style="margin-top:8px; display:flex; flex-direction:column; gap:6px;">
+          <button id="parkingToggle" class="layer-btn">🅿️ Otoparklar <span id="parkingCount" style="font-size:10px;opacity:0.7;"></span></button>
+          <button id="bisimToggle" class="layer-btn">🚲 BİSİM istasyonları <span id="bisimCount" style="font-size:10px;opacity:0.7;"></span></button>
+          <button id="bikeParkToggle" class="layer-btn">🅿️🚲 Bisiklet parkları <span id="bikeParkCount" style="font-size:10px;opacity:0.7;"></span></button>
+        </div>
+      </div>
+
+      <!-- ARA -->
+      <button class="search-btn profile-bicycle" id="searchBtn">🔍 Rota Ara</button>
+
+      <!-- DURUM -->
+      <div id="status">📍 Haritadan iki nokta seçin.</div>
+
+      <!-- ÖZET -->
+      <div id="summary"></div>
+
+      <!-- BACAKLAR -->
+      <div id="directions"></div>
+
+      <!-- SON ROTALAR -->
+      <div id="history"></div>
+
+    </div>
+  </div>
+
+  <div id="map"></div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/@mapbox/polyline@1.1.1/src/polyline.js"></script>
+
+  <script src="routeScoring.bundle.js"></script>
+  <script>
+    /* Backend adresi. Varsayılan lokal geliştirme; ?api= ile değiştirilebilir:
+         web/index.html?api=https://izmirbackend-production.up.railway.app
+       Silinen web_demo.html doğrudan Railway'e bakıyordu ve bu bir tuzaktı —
+       lokalde yapılan değişiklikler orada hiç görünmüyordu, çünkü sorgu
+       canlı sunucuya gidiyordu. */
+    const API_BASE = new URLSearchParams(location.search).get("api")
+      || "http://localhost:3000";
+    const API_URL = `${API_BASE}/get-route`;
+
+    // ── HARİTA ──
+    const map = L.map("map").setView([38.4189, 27.1287], 13);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19, attribution: "© OpenStreetMap"
+    }).addTo(map);
+
+    let points = [null, null]; // [from, to]
+    let markers = [null, null];
+    let routeLayers = [];
+    let currentItineraries = [];
+
+    /* Ücret: mobil uygulamanın varsayılanıyla aynı — İzmirim Kart tam tarife.
+       90 dk içindeki aktarmalar tek ücrete dahil olduğu için farePerBoarding
+       false. Demo eskiden her rotaya sabit 25 TL yazıyordu. */
+    const FARE_BASE = 35;
+    const FARE_PER_BOARDING = false;
+
+    // ── MOD RENKLERİ & LABEL ──
+    const modeColors = {
+      WALK: "#7a8299", BICYCLE: "#4ade80", BICYCLE_RENTAL: "#a3e635",
+      BUS: "#f97316", RAIL: "#f87171", TRAM: "#34d399",
+      SUBWAY: "#22d3ee", CAR: "#fb923c"
+    };
+    const modeIcons = {
+      WALK: "🚶", BICYCLE: "🚲", BICYCLE_RENTAL: "🔁",
+      BUS: "🚌", RAIL: "🚆", TRAM: "🚊",
+      SUBWAY: "🚇", CAR: "🚗"
+    };
+    const modeLabels = {
+      WALK: "Yürüme", BICYCLE: "Bisiklet", BICYCLE_RENTAL: "Kiralık Bisiklet",
+      BUS: "Otobüs", RAIL: "Raylı", TRAM: "Tramvay",
+      SUBWAY: "Metro", CAR: "Araba"
+    };
+
+    // ── PROFİL AKIŞ TANIMLARI ──
+    /* Mobil uygulamayla AYNI puanlama: utils/routeScoring.js buraya kopyalandı,
+       iki taraf da aynı katsayıları, aynı yürüyüş eşiklerini ve aynı ücret
+       hesabını kullanıyor. Daha önce demo kendi basit mantığını çalıştırıyordu:
+       ücret sabit 25 TL, yürüyüş eşiği toplam 3 km, profil ayrımı yoktu. */
+    // routeScoring.bundle.js yukarıda klasik script olarak yüklendi ve
+    // window.RS'i doldurdu. Dinamik import() yerine bu yol seçildi: demo normal
+    // <script> kullanıyor ve import() her ortamda çalışmıyor.
+    const RS = window.RS;
+
+    const profileFlows = {
+      bicycle: [
+        { label: "🚲 Bisiklet", color: "#4ade80", bg: "rgba(74,222,128,0.12)" },
+        { label: "→", type: "arrow" },
+        { label: "🚶 Varış", color: "#94a3b8", bg: "rgba(148,163,184,0.1)" },
+      ],
+      bicycle_rent: [
+        { label: "🚶 Yürüme", color: "#94a3b8", bg: "rgba(148,163,184,0.1)" },
+        { label: "→", type: "arrow" },
+        { label: "🚲 BİSİM", color: "#4ade80", bg: "rgba(74,222,128,0.12)" },
+        { label: "→", type: "arrow" },
+        { label: "🚶 Varış", color: "#94a3b8", bg: "rgba(148,163,184,0.1)" },
+      ],
+      bicycle_park: [
+        { label: "🚲 Bisiklet", color: "#4ade80", bg: "rgba(74,222,128,0.12)" },
+        { label: "→", type: "arrow" },
+        { label: "🅿️ Park", color: "#94a3b8", bg: "rgba(148,163,184,0.1)" },
+        { label: "→", type: "arrow" },
+        { label: "🚌 Transit", color: "#60a5fa", bg: "rgba(96,165,250,0.12)" },
+      ],
+      car: [
+        { label: "🚗 Araba", color: "#f97316", bg: "rgba(249,115,22,0.12)" },
+        { label: "→", type: "arrow" },
+        { label: "🚶 Varış", color: "#94a3b8", bg: "rgba(148,163,184,0.1)" },
+      ],
+      car_pr: [
+        { label: "🚗 Araba", color: "#f97316", bg: "rgba(249,115,22,0.12)" },
+        { label: "→", type: "arrow" },
+        { label: "🅿️ P+R", color: "#94a3b8", bg: "rgba(148,163,184,0.1)" },
+        { label: "→", type: "arrow" },
+        { label: "🚌 Transit", color: "#60a5fa", bg: "rgba(96,165,250,0.12)" },
+      ],
+      transit: [
+        { label: "🚶 Yürüme", color: "#94a3b8", bg: "rgba(148,163,184,0.1)" },
+        { label: "→", type: "arrow" },
+        { label: "🚌 Transit", color: "#60a5fa", bg: "rgba(96,165,250,0.12)" },
+        { label: "→", type: "arrow" },
+        { label: "🚶 Yürüme", color: "#94a3b8", bg: "rgba(148,163,184,0.1)" },
+      ]
+    };
+
+    // ── DURUM ──
+    function setStatus(t) { document.getElementById("status").textContent = t; }
+
+    // ── MARKERİ YERLEŞTİR ──
+    function placeMarker(idx, latlng) {
+      if (markers[idx]) map.removeLayer(markers[idx]);
+      const color = idx === 0 ? "#4ade80" : "#f87171";
+      markers[idx] = L.circleMarker(latlng, {
+        radius: 9, fillColor: color, color: "#fff", weight: 2.5, fillOpacity: 1
+      }).addTo(map);
+      points[idx] = latlng;
+    }
+
+    // ── NOMİNATİM ARAMA ──
+    let searchTimers = [null, null];
+
+    // Adres araması artık backend üzerinden. Doğrudan Nominatim'e gitmenin iki
+    // sorunu vardı: Nominatim tam kelime eşleşmesi ister (kısmi yazımda zayıf)
+    // ve hız sınırı IP başına uygulanır. Backend Photon'u öncelikli kullanıyor,
+    // sorguyu ASCII'ye çeviriyor (Türkçe klavye sorunu) ve sonuçları tekilleştiriyor.
+    const GEOCODE_API = `${API_BASE}/geocode`;
+
+    function formatAddress(item) {
+      const a = item.address || {};
+      const parts = [
+        a.road || a.pedestrian || a.footway,
+        a.neighbourhood || a.suburb,
+        a.district || a.county,
+      ].filter(Boolean);
+      return parts.join(", ") || item.display_name.split(",").slice(1, 3).join(",").trim();
+    }
+
+    function getPlaceIcon(item) {
+      const t = (item.type || "") + (item.class || "");
+      if (t.includes("station") || t.includes("stop")) return "🚉";
+      if (t.includes("hospital") || t.includes("clinic")) return "🏥";
+      if (t.includes("school") || t.includes("university")) return "🎓";
+      if (t.includes("park") || t.includes("garden")) return "🌳";
+      if (t.includes("shop") || t.includes("mall")) return "🛍️";
+      if (t.includes("restaurant") || t.includes("cafe")) return "☕";
+      if (t.includes("hotel")) return "🏨";
+      if (t.includes("airport")) return "✈️";
+      return "📍";
+    }
+
+    async function searchAddress(query) {
+      const res = await fetch(`${GEOCODE_API}?q=${encodeURIComponent(query)}`);
+      if (!res.ok) throw new Error(`arama başarısız: HTTP ${res.status}`);
+      const data = await res.json();
+      // Backend {place_id, lat, lon, display_name} döndürüyor; bu arayüz
+      // Nominatim'in name/address/type alanlarını bekliyordu. Eksik alanlar
+      // için formatAddress ve getPlaceIcon zaten yedek davranışa düşüyor.
+      return (data.results || []).map((r) => ({
+        ...r,
+        name: r.display_name.split(",")[0],
+      }));
+    }
+
+    function showDropdown(listEl, results, onSelect) {
+      listEl.innerHTML = "";
+      if (!results.length) {
+        listEl.innerHTML = `<div class="ac-loading">Sonuç bulunamadı</div>`;
+        listEl.classList.add("open");
+        return;
+      }
+      results.forEach(item => {
+        const div = document.createElement("div");
+        div.className = "ac-item";
+        const name = item.name || item.display_name.split(",")[0];
+        const detail = formatAddress(item);
+        div.innerHTML = `
+          <span class="ac-icon">${getPlaceIcon(item)}</span>
+          <div>
+            <div class="ac-name">${name}</div>
+            <div class="ac-detail">${detail}</div>
+          </div>
+        `;
+        div.onclick = () => onSelect(item);
+        listEl.appendChild(div);
+      });
+      listEl.classList.add("open");
+    }
+
+    function setupSearch(inputId, listId, idx) {
+      const input = document.getElementById(inputId);
+      const list  = document.getElementById(listId);
+
+      input.addEventListener("input", () => {
+        const q = input.value.trim();
+        clearTimeout(searchTimers[idx]);
+
+        if (q.length < 2) { list.classList.remove("open"); return; }
+
+        list.innerHTML = `<div class="ac-loading">🔍 Aranıyor...</div>`;
+        list.classList.add("open");
+
+        searchTimers[idx] = setTimeout(async () => {
+          try {
+            const results = await searchAddress(q);
+            showDropdown(list, results, (item) => {
+              const latlng = { lat: parseFloat(item.lat), lng: parseFloat(item.lon) };
+              const name   = item.name || item.display_name.split(",")[0];
+              input.value  = name;
+              list.classList.remove("open");
+              placeMarker(idx, latlng);
+              map.setView(latlng, 15);
+              if (points[0] && points[1]) fetchRoute();
+            });
+          } catch {
+            list.innerHTML = `<div class="ac-loading">⚠️ Arama hatası</div>`;
+          }
+        }, 400);
+      });
+
+      input.addEventListener("focus", () => {
+        if (input.value.length >= 2 && list.children.length) list.classList.add("open");
+      });
+
+      // Dışarı tıklayınca kapat
+      document.addEventListener("click", (e) => {
+        if (!input.contains(e.target) && !list.contains(e.target)) {
+          list.classList.remove("open");
+        }
+      });
+
+      // Enter ile ilk sonucu seç
+      input.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          const first = list.querySelector(".ac-item");
+          if (first) first.click();
+        }
+        if (e.key === "Escape") list.classList.remove("open");
+      });
+    }
+
+    // Arama kutularını başlat
+    setupSearch("fromInput", "fromList", 0);
+    setupSearch("toInput",   "toList",   1);
+
+    // ── GPS: Mevcut konum ──
+    document.getElementById("gpsBtn").onclick = () => {
+      if (!navigator.geolocation) { setStatus("⚠️ Tarayıcı konum desteği yok."); return; }
+      setStatus("📍 Konum alınıyor...");
+      navigator.geolocation.getCurrentPosition(pos => {
+        const latlng = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        placeMarker(0, latlng);
+        map.setView(latlng, 15);
+        // Reverse geocode ile adı bul
+        fetch(`https://nominatim.openstreetmap.org/reverse?lat=${latlng.lat}&lon=${latlng.lng}&format=json`, {
+          headers: { "Accept-Language": "tr" }
+        })
+        .then(r => r.json())
+        .then(data => {
+          const name = data.address?.road || data.address?.suburb || "Mevcut Konum";
+          document.getElementById("fromInput").value = name;
+        });
+        setStatus("📍 Konum alındı.");
+        if (points[0] && points[1]) fetchRoute();
+      }, () => setStatus("⚠️ Konum alınamadı."));
+    };
+
+    // ── HARİTA TIKLAMA (fallback) ──
+    map.on("click", async e => {
+      // Hangi alan boşsa onu doldur
+      const idx = points[0] === null ? 0 : (points[1] === null ? 1 : -1);
+      if (idx === -1) return; // ikisi de doluysa tıklama devre dışı
+
+      placeMarker(idx, e.latlng);
+
+      // Reverse geocode
+      try {
+        const res  = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${e.latlng.lat}&lon=${e.latlng.lng}&format=json`, {
+          headers: { "Accept-Language": "tr" }
+        });
+        const data = await res.json();
+        const name = data.address?.road || data.address?.suburb || `${e.latlng.lat.toFixed(4)}, ${e.latlng.lng.toFixed(4)}`;
+        document.getElementById(idx === 0 ? "fromInput" : "toInput").value = name;
+      } catch {
+        document.getElementById(idx === 0 ? "fromInput" : "toInput").value =
+          `${e.latlng.lat.toFixed(4)}, ${e.latlng.lng.toFixed(4)}`;
+      }
+
+      if (points[0] && points[1]) fetchRoute();
+    });
+
+    // ── SIFIRLAMA ──
+    function clearRoutesAndSteps() {
+      routeLayers.forEach(l => map.removeLayer(l));
+      routeLayers = [];
+      document.getElementById("summary").innerHTML = "";
+      document.getElementById("directions").innerHTML = "";
+    }
+
+    function resetSelection() {
+      points = [null, null];
+      markers.forEach(m => { if (m) map.removeLayer(m); });
+      markers = [null, null];
+      currentItineraries = [];
+      clearRoutesAndSteps();
+      document.getElementById("fromInput").value = "";
+      document.getElementById("toInput").value = "";
+      setStatus("📍 Başlangıç ve varış noktası girin.");
+    }
+
+    // ── AKTİF PROFİL ──
+    function getProfile() {
+      const el = document.querySelector(".profile-tab.active");
+      const baseProfile = el ? el.dataset.profile : "transit";
+      // Araba seçiliyse alt seçeneğe bak: P+R mi sadece araba mı?
+      if (baseProfile === "car") {
+        const carSeg = document.querySelector(".seg-btn.car-seg.active");
+        if (carSeg && carSeg.dataset.cartype === "PARK_RIDE") {
+          return "park_and_ride";
+        }
+        return "car";
+      }
+      return baseProfile;
+    }
+
+    function getActiveModes() {
+      return Array.from(document.querySelectorAll(".chip.active")).map(c => c.dataset.mode);
+    }
+
+    function getBikeType() {
+      const el = document.querySelector(".seg-btn[data-bike].active");
+      return el ? el.dataset.bike : "PERSONAL";
+    }
+
+    /* Kalkış zamanı. Demo eskiden hep "şimdi"yi kullanıyordu; gece saatlerinde
+       İzmir'de otobüs/metro çalışmadığı için hiç rota çıkmıyor ve sorun rota
+       motorundaymış gibi görünüyordu. Ölçüldü: 30.08 saat 01:51'de 0 güzergâh,
+       aynı gün 18:00'de 10 güzergâh (4'ü BİSİM'li, 3'ü BİSİM+transit). */
+    let zamanSimdi = true;
+
+    function getDateTime() {
+      if (zamanSimdi) return null;                 // gönderilmezse backend "şimdi" varsayar
+      const v = document.getElementById("zamanSecici").value;
+      return v ? new Date(v).toISOString() : null;
+    }
+
+    function zamanUyarisiGuncelle() {
+      const kutu = document.getElementById("zamanUyari");
+      const iso = getDateTime();
+      const saat = (iso ? new Date(iso) : new Date()).getHours();
+      const gece = saat < 6;
+      kutu.style.display = gece ? "block" : "none";
+      if (gece) kutu.textContent = "⚠ Bu saatte toplu taşıma seferleri çalışmıyor — yalnız bisiklet veya yürüme rotası çıkar.";
+    }
+
+    document.getElementById("zamanSimdi").onclick = () => {
+      zamanSimdi = true;
+      document.getElementById("zamanSimdi").classList.add("aktif");
+      document.getElementById("zamanSecici").value = "";
+      zamanUyarisiGuncelle();
+    };
+    document.getElementById("zamanSecici").onchange = () => {
+      zamanSimdi = false;
+      document.getElementById("zamanSimdi").classList.remove("aktif");
+      zamanUyarisiGuncelle();
+    };
+    zamanUyarisiGuncelle();
+
+    function getPref() {
+      const el = document.querySelector(".pref-btn.active");
+      return el ? el.dataset.pref : "recommended";
+    }
+
+    // ── PROFİL AKIŞINI GÜNCELLE ──
+    function updateProfileFlow() {
+      const baseProfile = document.querySelector(".profile-tab.active")?.dataset.profile || "transit";
+      let flowKey = baseProfile;
+
+      // Bisiklet için: PARK seçiliyse bicycle_park göster
+      if (baseProfile === "bicycle") {
+        const bikeType = getBikeType();
+        if (bikeType === "PARK") flowKey = "bicycle_park";
+        if (bikeType === "RENT") flowKey = "bicycle_rent";
+      }
+      // Araba için: P+R seçiliyse car_pr göster
+      if (baseProfile === "car") {
+        const carSeg = document.querySelector(".seg-btn.car-seg.active");
+        if (carSeg && carSeg.dataset.cartype === "PARK_RIDE") flowKey = "car_pr";
+      }
+
+      const flowEl = document.getElementById("profileFlow");
+      flowEl.innerHTML = "";
+      (profileFlows[flowKey] || profileFlows.transit).forEach(item => {
+        if (item.type === "arrow") {
+          const span = document.createElement("span");
+          span.className = "flow-arrow";
+          span.textContent = "→";
+          flowEl.appendChild(span);
+        } else {
+          const chip = document.createElement("span");
+          chip.className = "flow-chip";
+          chip.style.color = item.color;
+          chip.style.background = item.bg;
+          chip.textContent = item.label;
+          flowEl.appendChild(chip);
+        }
+      });
+
+      const btn = document.getElementById("searchBtn");
+      btn.className = `search-btn profile-${baseProfile}`;
+
+      document.querySelectorAll(".panel").forEach(p => p.classList.remove("visible"));
+      const panel = document.getElementById(`panel-${baseProfile}`);
+      if (panel) panel.classList.add("visible");
+    }
+
+    // ── MESAFE HESABI ──
+    function calcDistanceMeters(encoded) {
+      try {
+        const pts = polyline.decode(encoded);
+        let dist = 0;
+        const R = 6371000;
+        for (let i = 1; i < pts.length; i++) {
+          const dLat = (pts[i][0] - pts[i-1][0]) * Math.PI / 180;
+          const dLon = (pts[i][1] - pts[i-1][1]) * Math.PI / 180;
+          const a = Math.sin(dLat/2)**2 + Math.cos(pts[i-1][0]*Math.PI/180)*Math.cos(pts[i][0]*Math.PI/180)*Math.sin(dLon/2)**2;
+          dist += R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        }
+        return dist;
+      } catch { return 0; }
+    }
+
+    // ── ROTA ÇEK ──
+    async function fetchRoute() {
+      if (!points[0] || !points[1]) return;
+      const profile  = getProfile();
+      const modes    = getActiveModes();
+      const bikeType = getBikeType();
+
+      setStatus("🔎 Rota aranıyor...");
+
+      const dateTime = getDateTime();
+      const payload = {
+        from: { lat: points[0].lat, lon: points[0].lng },
+        to:   { lat: points[1].lat, lon: points[1].lng },
+        profile, modes, bikeType, numItineraries: 10,
+        ...(dateTime ? { dateTime } : {})
+      };
+
+      try {
+        const res = await fetch(API_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+
+        if (!data || !Array.isArray(data.itineraries)) {
+          setStatus("❌ Rota hatası."); return;
+        }
+
+        currentItineraries = data.itineraries;
+
+        /* MOD SAFLIĞI. Bir bisiklet modu seçildiyse araçsız güzergâh
+           gösterilmez — modu seçmenin anlamı bu. Mobil uygulama da aynısını
+           yapıyor (hooks/useRouteSearch.js).
+           Daha önce yalnız BİSİM süzülüyordu; "kendi bisikletim" seçiliyken
+           içinde hiç bisiklet olmayan güzergâhlar geçiyordu. */
+        const ARANAN = {
+          RENT:     (l) => l.mode === "BICYCLE_RENTAL",
+          PERSONAL: (l) => l.mode === "BICYCLE" || l.mode === "BICYCLE_RENTAL",
+        };
+        if (profile === "bicycle" && ARANAN[bikeType]) {
+          const araclı = currentItineraries.filter((it) => it.legs.some(ARANAN[bikeType]));
+          if (araclı.length === 0) {
+            clearRoutesAndSteps();
+            setStatus(bikeType === "RENT"
+              ? "⚠️ Bu yolculuk için BİSİM'li güzergâh kurulamadı — başlangıç ya da varış hizmet alanının dışında kalıyor olabilir. Hizmet alanı haritada görünmeye devam ediyor."
+              : "⚠️ Bu yolculuk için bisikletli güzergâh kurulamadı — bisiklet yolculuğa anlamlı bir katkı sağlamıyor.");
+            return;
+          }
+          currentItineraries = araclı;
+        }
+
+        if (currentItineraries.length === 0) {
+          clearRoutesAndSteps();
+          setStatus("⚠️ Uygun rota bulunamadı."); return;
+        }
+
+        /* applyPreference eleme sonucu boş kalırsa KENDİ mesajını yazar.
+           Burada koşulsuz "Rota bulundu" yazmak onu eziyordu: puanlama tüm
+           güzergâhları elediğinde ekranda hiçbir şey yokken "✅ Rota bulundu"
+           görünüyordu. */
+        if (applyPreference()) setStatus("✅ Rota bulundu.");
+      } catch (e) {
+        console.error(e);
+        setStatus("❌ Sunucu hatası.");
+      }
+    }
+
+    // ── TERCİH UYGULA ──
+    // Başarıyla bir güzergâh çizdiyse true döner. Çağıran buna bakmalı:
+    // eleme sonucu boş kalabilir ve o zaman durum mesajı burada yazılır.
+    function applyPreference() {
+      // Paket <script src="routeScoring.bundle.js"> ile yükleniyor ve bir
+      // süre O DOSYA BU KLASÖRDE YOKTU: 404 alınıyor, tarayıcı önbelleğindeki
+      // eski kopya kullanılıyordu. Sonuç sessizdi ve kötüydü — kullanıcı
+      // aylar önceki kurallarla üretilmiş güzergâhlar görüyordu (39 dakikalık
+      // yürüyüş bacağı dahil). Paketi üretmek:
+      //   node <izmir_backend>/senaryo/derle.js
+      if (!RS) {
+        setStatus("⏳ Puanlama paketi yüklenemedi (routeScoring.bundle.js). " +
+                  "Üretmek için: node izmir_backend/senaryo/derle.js");
+        return false;
+      }
+
+      const pref       = getPref();
+      const profile    = getProfile();
+      const bikeType   = getBikeType();
+      const profileKey = RS.resolveProfileKey(profile, bikeType === "PERSONAL" ? null : bikeType);
+
+      // Mobildeki puanlama ve eleme: profil başına dört katsayı, ve tek bir
+      // yürüyüş bacağı profilin hedefini aşıyorsa güzergâh tamamen elenir.
+      const ranked = RS.rankItineraries(currentItineraries, profileKey);
+      if (!ranked.length) {
+        clearRoutesAndSteps();
+        // İki sert kural listeyi boşaltabilir: tek yürüyüş bacağının 20
+        // dakikayı aşması, ve seçilen modun amacının karşılanmaması. İkisi
+        // farklı şeyler; aynı mesajı vermek kullanıcıyı yanıltıyordu.
+        const MSJ = {
+          bicycle_rent:  "⚠️ Bu yolculukta BİSİM anlamlı bir katkı sağlamıyor.",
+          bicycle_park:  "⚠️ Bu yolculukta bisiklet anlamlı bir katkı sağlamıyor.",
+          park_and_ride: "⚠️ Bu yolculuk için Park + Devam güzergâhı kurulamadı — araç ya da toplu taşıma tarafı anlamlı bir mesafe tutmuyor.",
+        };
+        setStatus(MSJ[profileKey] ||
+          "⚠️ Bulunan güzergâhların hepsinde tek seferde 20 dakikadan uzun yürüyüş var.");
+        return false;
+      }
+
+      // "Önerilen" seçiliyken rankItineraries sırası KORUNUR — profil katsayıları,
+      // yürüyüş cezası ve bisiklet ödülü bu sıralamada zaten hesaplanmış durumda.
+      // Diğer tercihler o sıralamayı tek bir ölçüte göre yeniden dizer.
+      const secim = [...ranked];
+      if (pref === "fastest")             secim.sort((a, b) => a.walk.duration - b.walk.duration);
+      else if (pref === "leastTransfers") secim.sort((a, b) => a.walk.transfers - b.walk.transfers);
+      else if (pref === "leastWalking")   secim.sort((a, b) => a.walk.total - b.walk.total);
+      else if (pref === "cheapest") {
+        const ucret = (r) => RS.calcJourneyFare(
+          r.itin.legs.filter((l) => !RS.NON_TRANSIT_MODES.includes(l.mode)).length, FARE_BASE, FARE_PER_BOARDING);
+        secim.sort((a, b) => (ucret(a) - ucret(b)) || (a.walk.duration - b.walk.duration));
+      }
+
+      const s = secim[0];
+      renderRoute({
+        it: s.itin,
+        totalDur: s.walk.duration,
+        transfers: s.walk.transfers,
+        walkDist: s.walk.total,
+        cost: RS.calcJourneyFare(
+          s.itin.legs.filter((l) => !RS.NON_TRANSIT_MODES.includes(l.mode)).length, FARE_BASE, FARE_PER_BOARDING),
+      });
+      return true;
+    }
+
+    // ── ROTA RENDER ──
+    function renderRoute(choice) {
+      clearRoutesAndSteps();
+      const mins = Math.round(choice.totalDur / 60);
+      const km   = (choice.walkDist / 1000).toFixed(1);
+
+      document.getElementById("summary").innerHTML = `
+        <div class="summary-grid">
+          <div class="summary-card">
+            <div class="s-label">Süre</div>
+            <div class="s-value">${mins} <span class="s-unit">dk</span></div>
+          </div>
+          <div class="summary-card">
+            <div class="s-label">Aktarma</div>
+            <div class="s-value">${choice.transfers} <span class="s-unit">adet</span></div>
+          </div>
+          <div class="summary-card">
+            <div class="s-label">Yürüyüş</div>
+            <div class="s-value">${km} <span class="s-unit">km</span></div>
+          </div>
+          <div class="summary-card">
+            <div class="s-label">Ücret (tahmini)</div>
+            <div class="s-value">${choice.cost} <span class="s-unit">TL</span></div>
+          </div>
+        </div>
+      `;
+
+      const dir = document.getElementById("directions");
+      choice.it.legs.forEach(leg => {
+        const mode  = leg.mode || "UNKNOWN";
+        const color = modeColors[mode] || "#7a8299";
+        const icon  = modeIcons[mode] || "❓";
+        const label = modeLabels[mode] || mode;
+
+        if (leg.legGeometry?.points) {
+          const pts  = polyline.decode(leg.legGeometry.points);
+          const line = L.polyline(pts, { color, weight: 5, opacity: 0.9 }).addTo(map);
+          routeLayers.push(line);
+        }
+
+        const fromName  = leg.from?.name || "Başlangıç";
+        const toName    = leg.to?.name   || "Bitiş";
+        const legMins   = Math.max(1, Math.round((leg.duration || 0) / 60));
+        const routeName = leg.route?.shortName ? ` · ${leg.route.shortName}` : "";
+
+        const card = document.createElement("div");
+        card.className = "leg-card";
+        card.innerHTML = `
+          <div class="leg-icon" style="background:${color}22; color:${color}; font-size:18px;">${icon}</div>
+          <div class="leg-content">
+            <div class="leg-mode" style="color:${color};">${label}${routeName}</div>
+            <div class="leg-route">${fromName} → ${toName}</div>
+          </div>
+          <div class="leg-dur">${legMins}dk</div>
+        `;
+        dir.appendChild(card);
+      });
+
+      if (routeLayers.length) map.fitBounds(L.featureGroup(routeLayers).getBounds(), { padding: [40, 40] });
+
+      saveHistory(choice);
+      renderHistory();
+    }
+
+    /* ── SON ROTALAR ──
+       web_demo.html'den taşındı; o dosya silindi. Anahtar aynı bırakıldı
+       (routeHistory) — mobil uygulama da aynı adı kullanıyor. */
+    function saveHistory(choice) {
+      try {
+        const hist = JSON.parse(localStorage.getItem("routeHistory") || "[]");
+        hist.unshift({
+          orig: document.getElementById("fromInput").value || "Başlangıç",
+          dest: document.getElementById("toInput").value   || "Varış",
+          dur:  Math.round(choice.totalDur / 60),
+          mode: getProfile(),
+          date: new Date().toLocaleDateString("tr-TR"),
+        });
+        localStorage.setItem("routeHistory", JSON.stringify(hist.slice(0, 20)));
+      } catch {}
+    }
+
+    function renderHistory() {
+      const el = document.getElementById("history");
+      if (!el) return;
+      try {
+        const hist = JSON.parse(localStorage.getItem("routeHistory") || "[]").slice(0, 5);
+        if (!hist.length) { el.innerHTML = ""; return; }
+        const MODLAR = {
+          transit: "🚌 Toplu taşıma", bicycle: "🚲 Bisiklet",
+          car: "🚗 Araba", park_and_ride: "🅿️ Park + Devam",
+        };
+        el.innerHTML = `<div class="hist-section"><div class="hist-title">Son Rotalar</div>` +
+          hist.map(h => `<div class="hcard"><span class="hroute">${h.orig} → ${h.dest}</span>` +
+            `<br><span class="hmeta">${h.dur} dk · ${MODLAR[h.mode] || h.mode} · ${h.date}</span></div>`).join("") +
+          `</div>`;
+      } catch { el.innerHTML = ""; }
+    }
+
+    // ── PROFİL SEÇİMİ ──
+    document.querySelectorAll(".profile-tab").forEach(tab => {
+      tab.onclick = () => {
+        document.querySelectorAll(".profile-tab").forEach(t => t.classList.remove("active"));
+        tab.classList.add("active");
+        updateProfileFlow();
+        if (points[0] && points[1]) fetchRoute();
+      };
+    });
+
+    // ── ARAÇ CHİPLERİ ──
+    document.querySelectorAll(".chip[data-mode]").forEach(chip => {
+      chip.onclick = () => {
+        chip.classList.toggle("active");
+        if (points[0] && points[1]) fetchRoute();
+      };
+    });
+
+    // ── BİSİKLET TİPİ (PERSONAL / PARK) ──
+    document.querySelectorAll(".seg-btn[data-bike]").forEach(btn => {
+      btn.onclick = () => {
+        document.querySelectorAll(".seg-btn[data-bike]").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        updateProfileFlow();
+        if (points[0] && points[1]) fetchRoute();
+      };
+    });
+
+    // ── ARABA TİPİ (DIRECT / PARK_RIDE) ──
+    document.querySelectorAll(".seg-btn.car-seg").forEach(btn => {
+      btn.onclick = () => {
+        document.querySelectorAll(".seg-btn.car-seg").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        updateProfileFlow();
+        if (points[0] && points[1]) fetchRoute();
+      };
+    });
+
+    // ── TERCİH ──
+    document.querySelectorAll(".pref-btn").forEach(btn => {
+      btn.onclick = () => {
+        document.querySelectorAll(".pref-btn").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        if (currentItineraries.length) applyPreference();
+      };
+    });
+
+    // ── SWAP ──
+    document.getElementById("swapBtn").onclick = () => {
+      if (!points[0] || !points[1]) return;
+      [points[0], points[1]] = [points[1], points[0]];
+      [markers[0], markers[1]] = [markers[1], markers[0]];
+      const fromVal = document.getElementById("fromInput").value;
+      const toVal   = document.getElementById("toInput").value;
+      document.getElementById("fromInput").value = toVal;
+      document.getElementById("toInput").value   = fromVal;
+      fetchRoute();
+    };
+
+    // ── BUTONLAR ──
+    document.getElementById("resetBtn").onclick   = resetSelection;
+    document.getElementById("rerouteBtn").onclick = () => { if (points[0] && points[1]) fetchRoute(); };
+    document.getElementById("searchBtn").onclick  = () => { if (points[0] && points[1]) fetchRoute(); };
+
+    // ── BAŞLANGIÇ ──
+    updateProfileFlow();
+    setStatus("📍 Başlangıç ve varış noktası girin.");
+
+    // ──────────────────────────────────────────────────────────
+    // OTOPARK KATMANI (P+R noktaları haritada gösterimi)
+    // ──────────────────────────────────────────────────────────
+    const PARKING_API = `${API_BASE}/parking/stations`;
+    let parkingMarkers = [];
+    let parkingVisible = false;
+
+    function parkingColor(free, capacity) {
+      if (!capacity) return "#94a3b8";
+      const ratio = free / capacity;
+      if (ratio === 0)   return "#f87171"; // dolu
+      if (ratio < 0.2)   return "#fb923c"; // çok az
+      if (ratio < 0.5)   return "#facc15"; // orta
+      return "#4ade80";                    // bol
+    }
+
+    function parkingIcon(free, capacity) {
+      const color = parkingColor(free, capacity);
+      return L.divIcon({
+        className: "",
+        html: `<div style="
+          width:30px; height:30px;
+          background:${color};
+          border:3px solid #fff;
+          border-radius:6px;
+          box-shadow:0 2px 6px rgba(0,0,0,0.35);
+          display:flex; align-items:center; justify-content:center;
+          font-weight:800; color:#1a1a2e; font-size:14px;
+        ">P</div>`,
+        iconSize: [30, 30],
+        iconAnchor: [15, 30],
+        popupAnchor: [0, -32],
+      });
+    }
+
+    async function loadParking() {
+      try {
+        const res  = await fetch(PARKING_API);
+        const data = await res.json();
+        const list = data.stations || [];
+        document.getElementById("parkingCount").textContent = `(${list.length} otopark)`;
+
+        parkingMarkers.forEach(m => map.removeLayer(m));
+        parkingMarkers = [];
+        if (!parkingVisible) return;
+
+        list.forEach(p => {
+          const icon = parkingIcon(p.free, p.capacity);
+          const color = parkingColor(p.free, p.capacity);
+          const pct = p.capacity ? Math.round((p.free / p.capacity) * 100) : 0;
+          const popup = `
+            <div class="bisim-popup">
+              <div class="bp-name">🅿️ ${p.name}</div>
+              <div class="bp-row">
+                <span class="bp-label">Boş yer</span>
+                <span class="bp-val" style="color:${color}">${p.free} / ${p.capacity}</span>
+              </div>
+              <div class="bp-row">
+                <span class="bp-label">Tip</span>
+                <span class="bp-val">${p.type === "OffStreet" ? "Katlı" : "Yol kenarı"}</span>
+              </div>
+              <div class="bp-bar"><div class="bp-fill" style="width:${pct}%; background:${color}"></div></div>
+            </div>
+          `;
+          const m = L.marker([p.lat, p.lon], { icon }).bindPopup(popup).addTo(map);
+          parkingMarkers.push(m);
+        });
+      } catch (err) {
+        console.warn("Otopark yüklenemedi:", err.message);
+        document.getElementById("parkingCount").textContent = "(erişilemiyor)";
+      }
+    }
+
+    document.getElementById("parkingToggle").onclick = () => {
+      parkingVisible = !parkingVisible;
+      document.getElementById("parkingToggle").classList.toggle("active", parkingVisible);
+      loadParking();
+    };
+
+    // İlk yükleme: sayıyı göster (markerları çizme, kullanıcı toggle'la açacak)
+    loadParking();
+    setInterval(() => { if (parkingVisible) loadParking(); }, 60 * 1000);
+
+    /* ── BİSİM istasyonları ve bisiklet parkları ─────────────────────────
+       Bunlar rota motoruna beslenen iki ayrı kaynak:
+         /bisim/stations      → kiralama istasyonları (GBFS akışının kaynağı)
+         /parking/bike-racks  → OSM'den gelen bisiklet park demirleri
+       BİSİM'in anlık doluluk verisi 2025-07'den beri yayınlanmıyor; kapasite
+       biliniyorsa gösterilir, bisiklet sayısı gösterilmez — uydurulmaz. */
+    const BISIM_API     = `${API_BASE}/bisim/stations`;
+    const BIKEPARK_API  = `${API_BASE}/parking/bike-racks`;
+
+    function noktaIkonu(renk, simge, boyut = 22) {
+      return L.divIcon({
+        className: "",
+        html: `<div style="
+          width:${boyut}px; height:${boyut}px;
+          background:#0f1117; border:2px solid ${renk}; border-radius:50%;
+          box-shadow:0 2px 5px rgba(0,0,0,0.4);
+          display:flex; align-items:center; justify-content:center;
+          font-size:${Math.round(boyut * 0.5)}px;
+        ">${simge}</div>`,
+        iconSize: [boyut, boyut],
+        iconAnchor: [boyut / 2, boyut / 2],
+        popupAnchor: [0, -boyut / 2],
+      });
+    }
+
+    function katmanKur({ dugme, sayac, api, renk, simge, baslik, popup }) {
+      let isaretler = [];
+      let acik = false;
+
+      async function yukle() {
+        try {
+          const res = await fetch(api);
+          if (!res.ok) throw new Error("HTTP " + res.status);
+          const data = await res.json();
+          const liste = data.stations || data.spots || [];
+          document.getElementById(sayac).textContent = `(${liste.length})`;
+
+          isaretler.forEach((m) => map.removeLayer(m));
+          isaretler = [];
+          if (!acik) return;
+
+          liste.forEach((x) => {
+            if (x.lat == null || x.lon == null) return;
+            const m = L.marker([x.lat, x.lon], { icon: noktaIkonu(renk, simge) })
+              .bindPopup(`<b>${x.name || baslik}</b><br>${popup(x)}`);
+            m.addTo(map);
+            isaretler.push(m);
+          });
+        } catch (e) {
+          document.getElementById(sayac).textContent = "(yüklenemedi)";
+          console.warn(baslik + " katmanı:", e.message);
+        }
+      }
+
+      document.getElementById(dugme).onclick = () => {
+        acik = !acik;
+        document.getElementById(dugme).classList.toggle("active", acik);
+        yukle();
+      };
+      yukle();
+      return () => acik;
+    }
+
+    const bisimAcikMi = katmanKur({
+      dugme: "bisimToggle", sayac: "bisimCount", api: BISIM_API,
+      renk: "#4ade80", simge: "🚲", baslik: "BİSİM istasyonu",
+      popup: (x) => (x.capacity ? `Kapasite: ${x.capacity} yuva` : "Kapasite bilgisi yok") +
+                    "<br><span style='opacity:.7'>Anlık doluluk yayınlanmıyor</span>",
+    });
+
+    const bikeParkAcikMi = katmanKur({
+      dugme: "bikeParkToggle", sayac: "bikeParkCount", api: BIKEPARK_API,
+      renk: "#a78bfa", simge: "🅿️", baslik: "Bisiklet parkı",
+      popup: (x) => (x.capacity ? `${x.capacity} bisiklet` : "Kapasite bilgisi yok") +
+                    (x.covered === true ? "<br>Üstü kapalı" : ""),
+    });
+  </script>
+</body>
+</html>
