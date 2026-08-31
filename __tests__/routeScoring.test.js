@@ -139,13 +139,18 @@ describe("rankItineraries", () => {
     expect(siralama[0].itin).toBe(normal);
   });
 
-  // Sınır dahil kabul: tam 20 dakika geçer, 20 dakika + 1 sn geçmez.
+  // Sınır dahil kabul: tam 20 dakika tavanın altındadır, 20 dakika + 1 sn
+  // değildir. Tavan artık ELEMİYOR (alternatif yoksa güzergâh gösteriliyor),
+  // bu yüzden sınır `yuruyusZorunlu` işaretinden okunur — asıl garanti bu.
   it("tavan sınırı dahildir", () => {
     const tamTavan = guzergah(1800, [bacak("WALK", 1200, 1500), bacak("BUS", 600, 4000, "169")]);
     const birSaniyeFazla = guzergah(1801, [bacak("WALK", 1201, 1500), bacak("BUS", 600, 4000, "169")]);
 
-    expect(rankItineraries([tamTavan], "transit")).toHaveLength(1);
-    expect(rankItineraries([birSaniyeFazla], "transit")).toHaveLength(0);
+    const [tam] = rankItineraries([tamTavan], "transit");
+    expect(tam.yuruyusZorunlu).toBeFalsy();
+
+    const [fazla] = rankItineraries([birSaniyeFazla], "transit");
+    expect(fazla.yuruyusZorunlu).toBe(true);
   });
 
   // Ölçüm — Asmaaltı → Nergiz civarı: 60 dakikalık yolculuğun sonunda
@@ -233,13 +238,26 @@ describe("rankItineraries", () => {
     expect(rankItineraries([tekAday], "transit")).toHaveLength(1);
   });
 
-  // Yürüyüş tavanının İSTİSNASI YOKTUR. Eskiden son çare olarak "hiç yoktan
-  // iyidir" diye tavanı aşan güzergâh da gösterilebiliyordu; 20 dakika sert
-  // bir kural olduğu için artık doğru yanıt boş listedir ve çağıran bunu
-  // kullanıcıya sebebiyle söyler (hooks/useRouteSearch.js).
-  it("tek aday tavanı aşıyorsa boş liste döner — istisna yok", () => {
+  // Yürüyüş tavanı KADEMELİDİR. Tavanın altında güzergâh varsa yalnız onlar
+  // gösterilir (yukarıdaki test); hiçbiri yoksa uzun yürümek o yolculukta
+  // gerçekten zorunludur ve boş ekran kullanıcıya yardım etmez. Doğru yanıt
+  // en az yürüteni GÖSTERİP zorunlu olduğunu söylemektir; işaret arayüze
+  // taşınır (hooks/useRouteSearch.js → notice, RoutePanel → walkWarning).
+  it("tek aday tavanı aşıyorsa gösterilir ama zorunlu diye işaretlenir", () => {
     const uzunYuruyus = guzergah(1900, [bacak("WALK", 1300, 1700), bacak("BUS", 600, 4000, "169")]);
-    expect(rankItineraries([uzunYuruyus], "transit")).toHaveLength(0);
+    const sonuc = rankItineraries([uzunYuruyus], "transit");
+    expect(sonuc).toHaveLength(1);
+    expect(sonuc[0].yuruyusZorunlu).toBe(true);
+  });
+
+  // Mod amacı ile yürüyüş tavanı AYRI gerekçelerdir ve ayrı sonuç verirler:
+  // tavan esner, vaat esnemez. Bisiklet modunda amaca uymayan tek aday
+  // kalırsa liste boş döner — "zorunlu" işaretiyle gösterilmez.
+  it("mod amacı karşılanmıyorsa liste boş kalır — tavandan farklı", () => {
+    const kisaBisiklet = guzergah(1800, [
+      bacak("BICYCLE", 60, 120), bacak("BUS", 1500, 6000, "12"),
+    ]);
+    expect(rankItineraries([kisaBisiklet], "bicycle_park")).toHaveLength(0);
   });
 
   it("aynı rota kümesini profile göre farklı sıralar", () => {
@@ -625,31 +643,33 @@ describe("aday etiketleri", () => {
   test("aynı güzergâh birden çok üstünlüğe sahipse etiket düşmez, eklenir", () => {
     // Ölçüm: eskiden "En Hızlı" 60 mod-senaryonun yalnız 6'sında görünüyordu;
     // Önerilen'le aynı güzergâhı seçtiğinde tamamen atılıyordu.
-    const k = selectCandidates(rankItineraries([hizli, aktarma], "transit"), "transit", 17, true);
+    const k = selectCandidates(rankItineraries([hizli, aktarma], "transit"), "transit");
     expect(k[0].etiketler).toContain("Önerilen");
     expect(k[0].etiketler).toContain("En Hızlı");
   });
 
   test("ölçüsü değişmeyen etiket hiç gösterilmez", () => {
-    // Düz tarife (İzmirim Kart, 90 dk aktarma dahil): her güzergâh aynı
-    // ücrete gelir, dolayısıyla "En Ucuz" bilgi taşımaz.
-    const duzTarife = selectCandidates(rankItineraries([hizli, aktarma], "transit"), "transit", 17, false);
-    expect(duzTarife.flatMap((c) => c.etiketler)).not.toContain("En Ucuz");
+    // Örnek eskiden "En Ucuz" idi (düz tarifede her güzergâh aynı ücrete
+    // gelir); o etiket kaldırıldı, mekanizma duruyor. Aynı şey aktarmayla
+    // gösterilir: iki güzergâh da aktarmasızsa "Az Aktarma" bilgi taşımaz.
+    const aktarmasiz2 = { legs: [bacak("WALK", 250, 300), hatli("BUS", 1400, 8000, "169")] };
+    const esitAktarma = selectCandidates(rankItineraries([hizli, aktarmasiz2], "transit"), "transit");
+    expect(esitAktarma.flatMap((c) => c.etiketler)).not.toContain("Az Aktarma");
 
-    // Kredi kartı: her biniş ayrı ücret → aktarmasız olan ucuzdur.
-    const binisBasi = selectCandidates(rankItineraries([hizli, aktarma], "transit"), "transit", 17, true);
-    expect(binisBasi.flatMap((c) => c.etiketler)).toContain("En Ucuz");
+    // Aktarma sayıları farklıysa etiket ayırt eder → gösterilir.
+    const farkliAktarma = selectCandidates(rankItineraries([hizli, aktarma], "transit"), "transit");
+    expect(farkliAktarma.flatMap((c) => c.etiketler)).toContain("Az Aktarma");
   });
 
   test("etiket vaadini tutar: En Hızlı gerçekten en hızlıdır", () => {
-    const k = selectCandidates(rankItineraries([aktarma, hizli], "transit"), "transit", 17, true);
+    const k = selectCandidates(rankItineraries([aktarma, hizli], "transit"), "transit");
     const enHizliKart = k.find((c) => c.etiketler.includes("En Hızlı"));
     const gercekEnHizli = Math.min(...k.map((c) => c.walk.duration));
     expect(enHizliKart.walk.duration).toBe(gercekEnHizli);
   });
 
   test("tek güzergâhta yalnız Önerilen kalır", () => {
-    const k = selectCandidates(rankItineraries([hizli], "transit"), "transit", 17, true);
+    const k = selectCandidates(rankItineraries([hizli], "transit"), "transit");
     expect(k).toHaveLength(1);
     expect(k[0].etiketler).toEqual(["Önerilen"]);
   });
@@ -658,7 +678,7 @@ describe("aday etiketleri", () => {
     // Elle tutulan tablo hata kaynağıydı: "Çevreci" bisiklet modlarında
     // unutulmuştu, oysa orada en ayırt edici etiket oydu (4/4, 6/7).
     expect(ADAY_OLCULERI.map((x) => x.tag)).toEqual(
-      ["Önerilen", "En Hızlı", "Az Aktarma", "En Ucuz", "Çevreci"]
+      ["Önerilen", "En Hızlı", "Az Aktarma", "Çevreci"]
     );
     expect(ADAY_OLCULERI[0].olcu).toBeNull();
   });

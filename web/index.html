@@ -635,13 +635,12 @@
       <div class="panel visible" id="panel-bicycle">
         <div class="section-title">Sürüş Türü</div>
         <div class="seg-group">
-          <button class="seg-btn active" data-bike="PERSONAL">🚲 Sadece Bisiklet</button>
-          <button class="seg-btn" data-bike="RENT">🚲 BİSİM Kirala</button>
-          <button class="seg-btn" data-bike="PARK">🅿️🚌 Park &amp; Transit</button>
+          <button class="seg-btn active" data-bike="PARK">🚲 Kişisel Bisiklet</button>
+          <button class="seg-btn" data-bike="RENT">🅿️🚲 BİSİM</button>
         </div>
-        <div class="info-box">
-          🚲 <b>Park &amp; Transit:</b> Bisikletinle bir park noktasına gidersin, kilitlersin, oradan toplu taşımaya geçersin.
-        </div>
+        <!-- Metin JS'ten gelir (BISIKLET_ANLATIM): iki seçenek iki ayrı şey
+             yapıyor, tek sabit cümle ikisini birden anlatamıyordu. -->
+        <div class="info-box" id="bikeInfo"></div>
       </div>
 
       <!-- ARABA PANELİ -->
@@ -689,7 +688,6 @@
         <div class="pref-group" style="margin-top:8px;">
           <button class="pref-btn active" data-pref="recommended">⭐ Önerilen</button>
           <button class="pref-btn" data-pref="fastest">⚡ En Hızlı</button>
-          <button class="pref-btn" data-pref="cheapest">💰 En Ucuz</button>
           <button class="pref-btn" data-pref="leastTransfers">🔁 Az Aktarma</button>
           <button class="pref-btn" data-pref="leastWalking">🚶 Az Yürüyüş</button>
         </div>
@@ -710,6 +708,10 @@
 
       <!-- DURUM -->
       <div id="status">📍 Haritadan iki nokta seçin.</div>
+
+      <!-- Seçilen mod bu yolculukta işini göremediğinde çıkış teklifi.
+           Mod kartı DEĞİL: kullanıcı buna basarak moddan çıktığını bilmeli. -->
+      <div id="modBosAksiyon" style="display:none; margin-top:8px;"></div>
 
       <!-- ÖZET -->
       <div id="summary"></div>
@@ -784,11 +786,9 @@
     const RS = window.RS;
 
     const profileFlows = {
-      bicycle: [
-        { label: "🚲 Bisiklet", color: "#4ade80", bg: "rgba(74,222,128,0.12)" },
-        { label: "→", type: "arrow" },
-        { label: "🚶 Varış", color: "#94a3b8", bg: "rgba(148,163,184,0.1)" },
-      ],
+      // Düz "bisiklet" akışı kaldırıldı: baştan sona sürüş modu ölçümle
+      // elendi (Narlıdere → Çiğli'de tek kart, 137 dk / 33.5 km kesintisiz)
+      // ve backend hiçbir bisiklet modunda direct bacak istemiyor.
       bicycle_rent: [
         { label: "🚶 Yürüme", color: "#94a3b8", bg: "rgba(148,163,184,0.1)" },
         { label: "→", type: "arrow" },
@@ -824,8 +824,26 @@
       ]
     };
 
+    // İki bisiklet seçeneği iki AYRI şey yapıyor; kutu seçime göre değişir.
+    // Kişisel bisiklette backend tek değil İKİ sorgu atıyor (BICYCLE ile
+    // bisikleti yanına al, BICYCLE_PARKING ile istasyonda bırak) ve hangisi
+    // daha iyiyse puanlama öne alıyor — kullanıcının ikisini de bilmesi
+    // gerekiyor, yoksa "neden bisikletimi metroya bindirdi" diye soruyor.
+    const BISIKLET_ANLATIM = {
+      PARK: "🚲 <b>Kişisel Bisiklet:</b> Bisikletini metro, tramvay ve İZBAN'a " +
+            "bindirebilirsin — ya da bir kilitleme noktasına park edip toplu " +
+            "taşımayla devam edersin. İkisi de aranır, hızlı olan öne çıkar.",
+      RENT: "🅿️🚲 <b>BİSİM:</b> Hizmet alanı içinde bisikleti alırsın, alanın " +
+            "içinde her yere bırakabilirsin. Yeşil bonus bölgelerine bırakırsan " +
+            "puan kazanırsın. Alan ve bonus bölgeleri haritada işaretli.",
+    };
+
     // ── DURUM ──
     function setStatus(t) { document.getElementById("status").textContent = t; }
+
+    // applyPreference'ın ürettiği uyarı; çağıran "Rota bulundu" yerine bunu
+    // yazar. Tavan istisnaya düştüğünde (KATMAN 2) dolar, normalde null.
+    let sonZorunluYuruyusMsj = null;
 
     // ── MARKERİ YERLEŞTİR ──
     function placeMarker(idx, latlng) {
@@ -1015,6 +1033,25 @@
       routeLayers = [];
       document.getElementById("summary").innerHTML = "";
       document.getElementById("directions").innerHTML = "";
+      cikisTeklifiniGoster(null);
+    }
+
+    // Mod bu yolculukta işini göremediğinde sunulan çıkış: düz toplu taşımaya
+    // geç ve aynı yolculuğu yeniden ara. Sekme GERÇEKTEN değişir — kullanıcı
+    // transit sonucuna baktığını profil şeridinden de görür. Süre ölçülmüş
+    // olmalı; yoksa (taban sorgusu düştüyse) teklif hiç gösterilmez.
+    function cikisTeklifiniGoster(alternatifSn) {
+      const kap = document.getElementById("modBosAksiyon");
+      if (alternatifSn == null) { kap.style.display = "none"; kap.innerHTML = ""; return; }
+      const dk = Math.round(alternatifSn / 60);
+      kap.innerHTML =
+        `<button class="small-btn" style="width:100%; border-color:var(--accent-transit);
+           color:var(--accent-transit);">🚌 Toplu taşıma ile bak: ${dk} dk</button>`;
+      kap.style.display = "block";
+      kap.querySelector("button").onclick = () => {
+        const sekme = document.querySelector('.profile-tab[data-profile="transit"]');
+        if (sekme) sekme.click();      // profil değişimi + katman + yeniden arama
+      };
     }
 
     function resetSelection() {
@@ -1049,7 +1086,10 @@
 
     function getBikeType() {
       const el = document.querySelector(".seg-btn[data-bike].active");
-      return el ? el.dataset.bike : "PERSONAL";
+      // Mobildeki useState("PARK") ile aynı varsayılan. "PERSONAL" seçeneği
+      // kaldırıldı: backend zaten onu PARK dalına düşürüyordu, yani düğme
+      // "sadece bisiklet" diyor ama park+aktarma cevabı veriyordu.
+      return el ? el.dataset.bike : "PARK";
     }
 
     /* Kalkış zamanı. Demo eskiden hep "şimdi"yi kullanıyordu; gece saatlerinde
@@ -1101,6 +1141,8 @@
         const bikeType = getBikeType();
         if (bikeType === "PARK") flowKey = "bicycle_park";
         if (bikeType === "RENT") flowKey = "bicycle_rent";
+        const kutu = document.getElementById("bikeInfo");
+        if (kutu) kutu.innerHTML = BISIKLET_ANLATIM[bikeType] || "";
       }
       // Araba için: P+R seçiliyse car_pr göster
       if (baseProfile === "car") {
@@ -1187,8 +1229,11 @@
            Daha önce yalnız BİSİM süzülüyordu; "kendi bisikletim" seçiliyken
            içinde hiç bisiklet olmayan güzergâhlar geçiyordu. */
         const ARANAN = {
-          RENT:     (l) => l.mode === "BICYCLE_RENTAL",
-          PERSONAL: (l) => l.mode === "BICYCLE" || l.mode === "BICYCLE_RENTAL",
+          RENT: (l) => l.mode === "BICYCLE_RENTAL",
+          // Kişisel bisiklette iki güzergâh tipi de meşru: bisikleti yanına
+          // alıp transite binmek ya da park edip yürüyerek devam etmek.
+          // Senaryo süiti de aynı ikiliyi arıyor (senaryo/kos.js, ARANAN).
+          PARK: (l) => l.mode === "BICYCLE" || l.mode === "BICYCLE_RENTAL",
         };
         if (profile === "bicycle" && ARANAN[bikeType]) {
           const araclı = currentItineraries.filter((it) => it.legs.some(ARANAN[bikeType]));
@@ -1211,7 +1256,7 @@
            Burada koşulsuz "Rota bulundu" yazmak onu eziyordu: puanlama tüm
            güzergâhları elediğinde ekranda hiçbir şey yokken "✅ Rota bulundu"
            görünüyordu. */
-        if (applyPreference()) setStatus("✅ Rota bulundu.");
+        if (applyPreference()) setStatus(sonZorunluYuruyusMsj || "✅ Rota bulundu.");
       } catch (e) {
         console.error(e);
         setStatus("❌ Sunucu hatası.");
@@ -1237,24 +1282,46 @@
       const pref       = getPref();
       const profile    = getProfile();
       const bikeType   = getBikeType();
-      const profileKey = RS.resolveProfileKey(profile, bikeType === "PERSONAL" ? null : bikeType);
+      const profileKey = RS.resolveProfileKey(profile, bikeType);
 
       // Mobildeki puanlama ve eleme: profil başına dört katsayı, ve tek bir
       // yürüyüş bacağı profilin hedefini aşıyorsa güzergâh tamamen elenir.
       const ranked = RS.rankItineraries(currentItineraries, profileKey);
       if (!ranked.length) {
         clearRoutesAndSteps();
-        // İki sert kural listeyi boşaltabilir: tek yürüyüş bacağının 20
-        // dakikayı aşması, ve seçilen modun amacının karşılanmaması. İkisi
-        // farklı şeyler; aynı mesajı vermek kullanıcıyı yanıltıyordu.
+        // Liste artık YALNIZ tek gerekçeyle boşalır: seçilen modun amacı
+        // karşılanmıyor. Yürüyüş tavanı listeyi boşaltmıyor — tavanın altında
+        // güzergâh yoksa en az yürütenler `yuruyusZorunlu` işaretiyle geliyor
+        // (bkz. utils/routeScoring.js, KATMAN 2).
+        // Sebep ölçülmüş sayılarla söylenir; genel cümle yalnız yedek.
+        // Aynı fonksiyon mobilde de çalışıyor (hooks/useRouteSearch.js), iki
+        // istemci aynı cümleyi kurmalı.
         const MSJ = {
           bicycle_rent:  "⚠️ Bu yolculukta BİSİM anlamlı bir katkı sağlamıyor.",
           bicycle_park:  "⚠️ Bu yolculukta bisiklet anlamlı bir katkı sağlamıyor.",
           park_and_ride: "⚠️ Bu yolculuk için Park + Devam güzergâhı kurulamadı — araç ya da toplu taşıma tarafı anlamlı bir mesafe tutmuyor.",
         };
-        setStatus(MSJ[profileKey] ||
-          "⚠️ Bulunan güzergâhların hepsinde tek seferde 20 dakikadan uzun yürüyüş var.");
+        const teshis = RS.modBosSebebi(currentItineraries, profileKey);
+        setStatus("⚠️ " + (teshis.mesaj || MSJ[profileKey] || "Gösterilebilecek bir güzergâh bulunamadı."));
+        cikisTeklifiniGoster(teshis.alternatifSn);
         return false;
+      }
+
+      // Tavanın istisnaya düştüğü durum sessiz kalmamalı: kullanıcı 20
+      // dakikadan uzun yürüyen bir kart görüyorsa bunun kural ihlali değil
+      // seçeneksizlik olduğunu bilmeli. Mobildeki `notice` ile aynı cümle
+      // (hooks/useRouteSearch.js) — iki istemci aynı şeyi söylemeli.
+      // Mesaj BURADA yazılmaz, çağırana bırakılır: applyPreference başarılı
+      // dönünce çağıran satır statüyü "Rota bulundu" ile eziyordu ve uyarı
+      // ekranda hiç görünmüyordu.
+      if (ranked.every((r) => r.yuruyusZorunlu)) {
+        const enAz = Math.round(Math.min(...ranked.map((r) => r.walk.maxWalkSec)) / 60);
+        sonZorunluYuruyusMsj =
+          `⚠️ Bu yolculukta tek seferde en az ${enAz} dakika yürümek gerekiyor; ` +
+          "daha az yürüten güzergâh yok. Başka bir mod ya da bir durağa daha yakın " +
+          "başlangıç/varış noktası deneyebilirsiniz.";
+      } else {
+        sonZorunluYuruyusMsj = null;
       }
 
       // "Önerilen" seçiliyken rankItineraries sırası KORUNUR — profil katsayıları,
@@ -1264,11 +1331,6 @@
       if (pref === "fastest")             secim.sort((a, b) => a.walk.duration - b.walk.duration);
       else if (pref === "leastTransfers") secim.sort((a, b) => a.walk.transfers - b.walk.transfers);
       else if (pref === "leastWalking")   secim.sort((a, b) => a.walk.total - b.walk.total);
-      else if (pref === "cheapest") {
-        const ucret = (r) => RS.calcJourneyFare(
-          r.itin.legs.filter((l) => !RS.NON_TRANSIT_MODES.includes(l.mode)).length, FARE_BASE, FARE_PER_BOARDING);
-        secim.sort((a, b) => (ucret(a) - ucret(b)) || (a.walk.duration - b.walk.duration));
-      }
 
       const s = secim[0];
       renderRoute({
@@ -1386,6 +1448,7 @@
         document.querySelectorAll(".profile-tab").forEach(t => t.classList.remove("active"));
         tab.classList.add("active");
         updateProfileFlow();
+        katmanlariModaGoreAyarla();
         if (points[0] && points[1]) fetchRoute();
       };
     });
@@ -1398,12 +1461,13 @@
       };
     });
 
-    // ── BİSİKLET TİPİ (PERSONAL / PARK) ──
+    // ── BİSİKLET TİPİ (PARK / RENT) ──
     document.querySelectorAll(".seg-btn[data-bike]").forEach(btn => {
       btn.onclick = () => {
         document.querySelectorAll(".seg-btn[data-bike]").forEach(b => b.classList.remove("active"));
         btn.classList.add("active");
         updateProfileFlow();
+        katmanlariModaGoreAyarla();
         if (points[0] && points[1]) fetchRoute();
       };
     });
@@ -1414,6 +1478,7 @@
         document.querySelectorAll(".seg-btn.car-seg").forEach(b => b.classList.remove("active"));
         btn.classList.add("active");
         updateProfileFlow();
+        katmanlariModaGoreAyarla();
         if (points[0] && points[1]) fetchRoute();
       };
     });
@@ -1423,7 +1488,9 @@
       btn.onclick = () => {
         document.querySelectorAll(".pref-btn").forEach(b => b.classList.remove("active"));
         btn.classList.add("active");
-        if (currentItineraries.length) applyPreference();
+        if (currentItineraries.length && applyPreference() && sonZorunluYuruyusMsj) {
+          setStatus(sonZorunluYuruyusMsj);
+        }
       };
     });
 
@@ -1449,14 +1516,89 @@
     setStatus("📍 Başlangıç ve varış noktası girin.");
 
     // ──────────────────────────────────────────────────────────
-    // OTOPARK KATMANI (P+R noktaları haritada gösterimi)
+    // HARİTA KATMANLARI
+    //
+    // Katmanlar iki yoldan açılır ve ikisi de gereklidir:
+    //   • MOD SEÇİMİ — asıl yol. BİSİM'i seçen kullanıcı bisikleti nereye
+    //     bırakabileceğini görmek ister; bunun için ayrıca bir düğmeye
+    //     basmak zorunda kalması hatanın kendisiydi. Mobil uygulama bunu
+    //     zaten böyle yapıyor (Screens/HomeScreen.js, profile+bikeType
+    //     useEffect'i); web geride kalmıştı.
+    //   • ELLE TOGGLE — moddan bağımsız bakmak isteyen için korunuyor.
     // ──────────────────────────────────────────────────────────
+
+    function noktaIkonu(renk, simge, boyut = 22) {
+      return L.divIcon({
+        className: "",
+        html: `<div style="
+          width:${boyut}px; height:${boyut}px;
+          background:#0f1117; border:2px solid ${renk}; border-radius:50%;
+          box-shadow:0 2px 5px rgba(0,0,0,0.4);
+          display:flex; align-items:center; justify-content:center;
+          font-size:${Math.round(boyut * 0.5)}px;
+        ">${simge}</div>`,
+        iconSize: [boyut, boyut],
+        iconAnchor: [boyut / 2, boyut / 2],
+        popupAnchor: [0, -boyut / 2],
+      });
+    }
+
+    // Katmanın ortak iskeleti: veriyi çeker, sayacı yazar, çizer/siler.
+    // `ciz` katmana özgü Leaflet nesnelerini üretir; gerisi ortaktır.
+    function katmanKur({ dugme, sayac, yukleyici, ciz, sayacMetni, kapaninca }) {
+      let nesneler = [];
+      let acik = false;
+
+      function temizle() {
+        nesneler.forEach((n) => map.removeLayer(n));
+        nesneler = [];
+        if (kapaninca) kapaninca();
+      }
+
+      async function yukle() {
+        let veri = null;
+        try {
+          veri = await yukleyici();
+          document.getElementById(sayac).textContent = sayacMetni(veri);
+        } catch (e) {
+          document.getElementById(sayac).textContent = "(yüklenemedi)";
+          console.warn(dugme + " katmanı:", e.message);
+        }
+        temizle();
+        if (!acik || !veri) return;
+        nesneler = ciz(veri);
+        nesneler.forEach((n) => n.addTo(map));
+      }
+
+      function ayarla(istenen) {
+        if (acik === istenen) return;
+        acik = istenen;
+        document.getElementById(dugme).classList.toggle("active", acik);
+        yukle();
+      }
+
+      document.getElementById(dugme).onclick = () => ayarla(!acik);
+
+      // Sayaç mod seçiminden bağımsız olarak ilk açılışta doldurulur;
+      // kullanıcı katmanı açmadan da kaç nokta olduğunu görür.
+      yukle();
+
+      return { ayarla, yenile: yukle, acikMi: () => acik };
+    }
+
+    // ── OTOPARKLAR (P+R) ─────────────────────────────────────────────────
+    // 82 otoparkın tamamı değil, P+R süzgecinden geçen 52'si gösterilir:
+    // haritadaki liste OTP'ye beslenen listeyle aynı olmalı, yoksa kullanıcı
+    // rotanın hiç uğramadığı bir otoparkı görüp "neden burayı seçmedi" diyor.
+    //
+    // Doluluk 82'nin 12'sinde yayınlanıyor (İZELMAN sensörlü otoparklar); bu
+    // 52'nin 7'sine denk geliyor. Bilinmeyeni 0 saymak yanlış: eski kod
+    // `free` null iken oranı 0 hesaplayıp otoparkı KIRMIZI (dolu) boyuyordu,
+    // yani 45 otopark ekranda "dolu" görünüyordu. Bilinmeyen artık gri.
     const PARKING_API = `${API_BASE}/parking/stations`;
-    let parkingMarkers = [];
-    let parkingVisible = false;
 
     function parkingColor(free, capacity) {
-      if (!capacity) return "#94a3b8";
+      if (free == null || !capacity) return "#94a3b8"; // doluluk bilinmiyor
       const ratio = free / capacity;
       if (ratio === 0)   return "#f87171"; // dolu
       if (ratio < 0.2)   return "#fb923c"; // çok az
@@ -1483,130 +1625,198 @@
       });
     }
 
-    async function loadParking() {
-      try {
-        const res  = await fetch(PARKING_API);
-        const data = await res.json();
-        const list = data.stations || [];
-        document.getElementById("parkingCount").textContent = `(${list.length} otopark)`;
-
-        parkingMarkers.forEach(m => map.removeLayer(m));
-        parkingMarkers = [];
-        if (!parkingVisible) return;
-
-        list.forEach(p => {
-          const icon = parkingIcon(p.free, p.capacity);
-          const color = parkingColor(p.free, p.capacity);
-          const pct = p.capacity ? Math.round((p.free / p.capacity) * 100) : 0;
-          const popup = `
+    const otoparkKatmani = katmanKur({
+      dugme: "parkingToggle",
+      sayac: "parkingCount",
+      yukleyici: async () => {
+        const res = await fetch(PARKING_API);
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        return (await res.json()).stations || [];
+      },
+      sayacMetni: (liste) => {
+        const canli = liste.filter((p) => p.free != null).length;
+        return `(${liste.length} otopark · ${canli} canlı doluluk)`;
+      },
+      ciz: (liste) => liste.map((p) => {
+        const color = parkingColor(p.free, p.capacity);
+        const dolulukVar = p.free != null && p.capacity;
+        const pct = dolulukVar ? Math.round((p.free / p.capacity) * 100) : 0;
+        const dolulukSatiri = dolulukVar
+          ? `<div class="bp-row">
+               <span class="bp-label">Boş yer</span>
+               <span class="bp-val" style="color:${color}">${p.free} / ${p.capacity}</span>
+             </div>
+             <div class="bp-bar"><div class="bp-fill" style="width:${pct}%; background:${color}"></div></div>`
+          : `<div class="bp-row">
+               <span class="bp-label">Doluluk</span>
+               <span class="bp-val" style="opacity:.7">yayınlanmıyor</span>
+             </div>` +
+            (p.capacity
+              ? `<div class="bp-row"><span class="bp-label">Kapasite</span><span class="bp-val">${p.capacity}</span></div>`
+              : "");
+        return L.marker([p.lat, p.lon], { icon: parkingIcon(p.free, p.capacity) })
+          .bindPopup(`
             <div class="bisim-popup">
               <div class="bp-name">🅿️ ${p.name}</div>
-              <div class="bp-row">
-                <span class="bp-label">Boş yer</span>
-                <span class="bp-val" style="color:${color}">${p.free} / ${p.capacity}</span>
-              </div>
               <div class="bp-row">
                 <span class="bp-label">Tip</span>
                 <span class="bp-val">${p.type === "OffStreet" ? "Katlı" : "Yol kenarı"}</span>
               </div>
-              <div class="bp-bar"><div class="bp-fill" style="width:${pct}%; background:${color}"></div></div>
+              ${dolulukSatiri}
             </div>
-          `;
-          const m = L.marker([p.lat, p.lon], { icon }).bindPopup(popup).addTo(map);
-          parkingMarkers.push(m);
-        });
-      } catch (err) {
-        console.warn("Otopark yüklenemedi:", err.message);
-        document.getElementById("parkingCount").textContent = "(erişilemiyor)";
+          `);
+      }),
+    });
+
+    // Doluluk İZELMAN'dan dakikada bir tazeleniyor; katman açıkken takip et.
+    setInterval(() => { if (otoparkKatmani.acikMi()) otoparkKatmani.yenile(); }, 60 * 1000);
+
+    // ── BİSİM: hizmet alanı + bonus bölgeleri ────────────────────────────
+    // BİSİM 2025-08'de sabit istasyonları kaldırdı; uç artık nokta listesi
+    // değil bölge döndürüyor. Web hâlâ `data.stations` okuduğu için katman
+    // sessizce boştu — sayaç "(0)" yazıyordu ve kimse fark etmiyordu.
+    //
+    // İki ayrı geometri çizilir, ikisi ayrı soruya cevap verir:
+    //   hizmet alanı → "bisikleti nereye bırakabilirim" (dışına bırakılamaz)
+    //   bonus bölge  → "nereye bırakırsam ödül kazanırım"
+    // Alan YAKLAŞIKTIR: bisiklet yolu geometrisinin tamponlu dışbükey kabuğu.
+    // Dışbükey olduğu için körfezin suyunu da kapsıyor; bu yüzden hem harita
+    // üstünde kalıcı bir etiketle hem de tıklama popup'ıyla söyleniyor.
+    const BISIM_API = `${API_BASE}/bisim/stations`;
+    const BISIM_YESIL = "#4ade80";
+
+    let bisimEtiketi = null;
+    function bisimEtiketiniAyarla(goster) {
+      if (goster && !bisimEtiketi) {
+        bisimEtiketi = L.control({ position: "bottomleft" });
+        bisimEtiketi.onAdd = () => {
+          const d = L.DomUtil.create("div");
+          d.style.cssText =
+            "background:rgba(15,17,23,0.85); color:#cbd5e1; font-size:11px;" +
+            "padding:5px 8px; border-radius:6px; border:1px solid rgba(74,222,128,0.4);" +
+            "font-family:'DM Sans',sans-serif; line-height:1.4; max-width:230px;";
+          d.innerHTML =
+            `<b style="color:${BISIM_YESIL}">BİSİM hizmet alanı</b><br>` +
+            "Yaklaşık sınır — resmî değildir.";
+          return d;
+        };
+        bisimEtiketi.addTo(map);
+      } else if (!goster && bisimEtiketi) {
+        map.removeControl(bisimEtiketi);
+        bisimEtiketi = null;
       }
     }
 
-    document.getElementById("parkingToggle").onclick = () => {
-      parkingVisible = !parkingVisible;
-      document.getElementById("parkingToggle").classList.toggle("active", parkingVisible);
-      loadParking();
-    };
+    const bisimKatmani = katmanKur({
+      dugme: "bisimToggle",
+      sayac: "bisimCount",
+      kapaninca: () => bisimEtiketiniAyarla(false),
+      yukleyici: async () => {
+        const res = await fetch(BISIM_API);
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        const d = await res.json();
+        return { bolgeler: d.bolgeler || [], hizmetAlani: d.hizmetAlani || null };
+      },
+      sayacMetni: (d) => `(${d.bolgeler.length} bonus bölgesi)`,
+      ciz: ({ bolgeler, hizmetAlani }) => {
+        const nesneler = [];
 
-    // İlk yükleme: sayıyı göster (markerları çizme, kullanıcı toggle'la açacak)
-    loadParking();
-    setInterval(() => { if (parkingVisible) loadParking(); }, 60 * 1000);
-
-    /* ── BİSİM istasyonları ve bisiklet parkları ─────────────────────────
-       Bunlar rota motoruna beslenen iki ayrı kaynak:
-         /bisim/stations      → kiralama istasyonları (GBFS akışının kaynağı)
-         /parking/bike-racks  → OSM'den gelen bisiklet park demirleri
-       BİSİM'in anlık doluluk verisi 2025-07'den beri yayınlanmıyor; kapasite
-       biliniyorsa gösterilir, bisiklet sayısı gösterilmez — uydurulmaz. */
-    const BISIM_API     = `${API_BASE}/bisim/stations`;
-    const BIKEPARK_API  = `${API_BASE}/parking/bike-racks`;
-
-    function noktaIkonu(renk, simge, boyut = 22) {
-      return L.divIcon({
-        className: "",
-        html: `<div style="
-          width:${boyut}px; height:${boyut}px;
-          background:#0f1117; border:2px solid ${renk}; border-radius:50%;
-          box-shadow:0 2px 5px rgba(0,0,0,0.4);
-          display:flex; align-items:center; justify-content:center;
-          font-size:${Math.round(boyut * 0.5)}px;
-        ">${simge}</div>`,
-        iconSize: [boyut, boyut],
-        iconAnchor: [boyut / 2, boyut / 2],
-        popupAnchor: [0, -boyut / 2],
-      });
-    }
-
-    function katmanKur({ dugme, sayac, api, renk, simge, baslik, popup }) {
-      let isaretler = [];
-      let acik = false;
-
-      async function yukle() {
-        try {
-          const res = await fetch(api);
-          if (!res.ok) throw new Error("HTTP " + res.status);
-          const data = await res.json();
-          const liste = data.stations || data.spots || [];
-          document.getElementById(sayac).textContent = `(${liste.length})`;
-
-          isaretler.forEach((m) => map.removeLayer(m));
-          isaretler = [];
-          if (!acik) return;
-
-          liste.forEach((x) => {
-            if (x.lat == null || x.lon == null) return;
-            const m = L.marker([x.lat, x.lon], { icon: noktaIkonu(renk, simge) })
-              .bindPopup(`<b>${x.name || baslik}</b><br>${popup(x)}`);
-            m.addTo(map);
-            isaretler.push(m);
-          });
-        } catch (e) {
-          document.getElementById(sayac).textContent = "(yüklenemedi)";
-          console.warn(baslik + " katmanı:", e.message);
+        // Alan önce çizilir ki bonus daireleri ve işaretleri üstünde kalsın.
+        for (const halka of hizmetAlani?.parcalar || []) {
+          nesneler.push(
+            L.polygon(halka.map(([lon, lat]) => [lat, lon]), {
+              color: BISIM_YESIL, weight: 2, opacity: 0.7,
+              fillColor: BISIM_YESIL, fillOpacity: 0.06,
+            }).bindPopup(
+              `<div class="bisim-popup">
+                 <div class="bp-name">🚲 BİSİM hizmet alanı</div>
+                 <div style="font-size:12px; color:#444; line-height:1.5">
+                   Bisikleti bu alanın içinde her yere bırakabilirsin.<br>
+                   <b>Bu sınır yaklaşıktır</b> — bisiklet yolu ağından
+                   türetilmiştir, resmî hizmet sınırı değildir.
+                 </div>
+               </div>`
+            )
+          );
         }
-      }
 
-      document.getElementById(dugme).onclick = () => {
-        acik = !acik;
-        document.getElementById(dugme).classList.toggle("active", acik);
-        yukle();
-      };
-      yukle();
-      return () => acik;
+        for (const b of bolgeler) {
+          const yaklasikKonum = b.guven && b.guven !== "yuksek";
+          nesneler.push(
+            L.circle([b.lat, b.lon], {
+              radius: b.yaricapM ?? 300,
+              color: BISIM_YESIL, weight: 1.5, opacity: 0.9,
+              fillColor: BISIM_YESIL, fillOpacity: 0.14,
+              dashArray: yaklasikKonum ? "4 4" : null,
+            })
+          );
+          nesneler.push(
+            L.marker([b.lat, b.lon], { icon: noktaIkonu(BISIM_YESIL, "🚲") }).bindPopup(
+              `<div class="bisim-popup">
+                 <div class="bp-name">🚲 ${b.ad}</div>
+                 <div class="bp-row"><span class="bp-label">İlçe</span><span class="bp-val">${b.ilce}</span></div>
+                 <div style="font-size:12px; color:#444; margin-top:6px; line-height:1.5">
+                   Bırakınca <b>bonus</b> kazandıran bölge.
+                   ${yaklasikKonum ? "<br><span style='opacity:.7'>Konumu yaklaşık.</span>" : ""}
+                 </div>
+               </div>`
+            )
+          );
+        }
+
+        bisimEtiketiniAyarla(true);
+        return nesneler;
+      },
+    });
+
+    // ── BİSİKLET KİLİTLEME NOKTALARI ─────────────────────────────────────
+    // Kaynak /parking/bike-racks DEĞİL: o yalnız OSM'nin amenity=bicycle_parking
+    // düğümlerini veriyor (87 nokta, neredeyse hepsi sahil/rekreasyon, hiçbiri
+    // raylı istasyonda). OTP'nin bisikleti GERÇEKTEN park edebileceği yerler
+    // /parking/otp-lots?vehicle=bicycle — raylı duraklar + P+R otoparkları
+    // dahil ~130 nokta. Mobil zaten bu ucu kullanıyor (Services/routeService.js
+    // fetchBikePrStations); web eski uçta kalmıştı ve kullanıcı rotanın
+    // kullandığı park noktasını haritada bulamıyordu.
+    const BIKEPARK_API = `${API_BASE}/parking/otp-lots?vehicle=bicycle`;
+
+    const bisikletParkKatmani = katmanKur({
+      dugme: "bikeParkToggle",
+      sayac: "bikeParkCount",
+      yukleyici: async () => {
+        const res = await fetch(BIKEPARK_API);
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        return (await res.json()).stations || [];
+      },
+      sayacMetni: (liste) => `(${liste.length} kilitleme noktası)`,
+      ciz: (liste) => liste
+        .filter((x) => x.lat != null && x.lon != null)
+        .map((x) =>
+          L.marker([x.lat, x.lon], { icon: noktaIkonu("#a78bfa", "🅿️") }).bindPopup(
+            `<div class="bisim-popup">
+               <div class="bp-name">🅿️ ${x.name || "Bisiklet parkı"}</div>
+               <div style="font-size:12px; color:#444; line-height:1.5">
+                 Bisikletini buraya kilitleyip toplu taşımaya geçebilirsin.
+               </div>
+             </div>`
+          )
+        ),
+    });
+
+    // ── MOD → KATMAN ─────────────────────────────────────────────────────
+    // Tek karar noktası. Mobildeki useEffect'lerin karşılığı; kural tablosu
+    // orayla birebir aynı kalmalı, yoksa iki istemci ayrışır.
+    function katmanlariModaGoreAyarla() {
+      const profil = getProfile();                 // park_and_ride'ı da çözer
+      const bisikletTipi = getBikeType();
+      const bisiklet = profil === "bicycle";
+
+      bisimKatmani.ayarla(bisiklet && bisikletTipi === "RENT");
+      bisikletParkKatmani.ayarla(bisiklet && bisikletTipi === "PARK");
+      otoparkKatmani.ayarla(profil === "park_and_ride");
     }
 
-    const bisimAcikMi = katmanKur({
-      dugme: "bisimToggle", sayac: "bisimCount", api: BISIM_API,
-      renk: "#4ade80", simge: "🚲", baslik: "BİSİM istasyonu",
-      popup: (x) => (x.capacity ? `Kapasite: ${x.capacity} yuva` : "Kapasite bilgisi yok") +
-                    "<br><span style='opacity:.7'>Anlık doluluk yayınlanmıyor</span>",
-    });
+    katmanlariModaGoreAyarla();
 
-    const bikeParkAcikMi = katmanKur({
-      dugme: "bikeParkToggle", sayac: "bikeParkCount", api: BIKEPARK_API,
-      renk: "#a78bfa", simge: "🅿️", baslik: "Bisiklet parkı",
-      popup: (x) => (x.capacity ? `${x.capacity} bisiklet` : "Kapasite bilgisi yok") +
-                    (x.covered === true ? "<br>Üstü kapalı" : ""),
-    });
   </script>
 </body>
 </html>

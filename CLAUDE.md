@@ -100,12 +100,57 @@ treated as `PARK` on both sides (`buildModesInput` and `resolveProfileKey`).
 
 The `modes` query param (e.g. `BUS`, `TRAM`, `RAIL`, `FERRY`) filters which transit submodes OTP considers. Default is all four.
 
-**Hard walking cap.** A route with any single WALK leg longer than 20 minutes is
-never shown, in any mode (`YURUYUS_BACAK_TAVANI_SN` in `utils/routeScoring.js`).
-This has no exception — not even the "show the best candidate rather than an empty
-screen" fallback. When it empties the list, `useRouteSearch` says why. The old cap
-was 5000 m of distance and missed the real cases: the same journey had a 19-minute
-opening walk on plain transit and a 28-minute one in BİSİM mode, both under 5 km.
+**Tiered walking cap.** A route with any single WALK leg longer than 20 minutes
+(`YURUYUS_BACAK_TAVANI_SN` in `utils/routeScoring.js`) is not shown *while a route
+under the cap exists*. When no route respects it, walking that far is genuinely
+unavoidable and an empty screen helps nobody: `rankItineraries` falls to a second
+tier, returns the least-walking candidates flagged `yuruyusZorunlu`, and both
+clients say so in words (`notice` in `useRouteSearch`, the status line on the web).
+Measured: this exception fires in 1 of 55 mode-scenarios.
+
+The cap is a *preference* limit, not physics — which is why it bends. Mode purpose
+(`MOD_AMACI`) is a *promise* and does not: if no itinerary does the job of the
+selected mode the list stays empty. Conflating the two is what blanked the screen
+for reasons the user could not act on.
+
+**When a mode honestly cannot help**, the empty list is the right answer but a
+dead end on its own — users re-ran the same search. `modBosSebebi` states the
+reason in measured numbers ("Bisiklet bu yolculuğu 9.6 dk uzatıyor", "Araç
+15.9 km, toplu taşıma 0.9 km") and returns the plain-transit alternative's
+duration, which both clients offer as a one-tap exit. The number comes from the
+walk-access baseline query the backend already ran (`duzTransitEnIyiSn` — the old
+`bisikletsizEnIyiSn` under a neutral name, now also requested for `park_and_ride`);
+if that query failed the field is null and **no offer is shown**, never a guess.
+
+**Park & Ride asks who carries the journey, not how far the car goes.**
+`transitMeters >= 2000 && transitMeters >= carMeters * PR_TRANSIT_ASGARI_ORAN`
+(0.3). The old rule also demanded `carMeters >= 2000` — a half that was never
+measured, added for symmetry, and it produced false negatives: on Karşıyaka →
+Bornova four itineraries drove 1.1 km to the Karşıyaka İskele lot and rode
+8.6–14.2 km of transit, and all four were dropped for "the car leg is under 2 km".
+A short drive to the lot is Park & Ride working, not failing.
+
+The ratio was calibrated, not guessed. `transit >= car` (ratio 1.0) was tried
+first and cut through the middle of the data: it dropped a real 33-minute P+R on
+Alsancak → Balçova (9.0 km car + 4.3 km transit, recommendation fell to 51 min)
+and rejected a Narlıdere → Çiğli itinerary by 200 metres (14.6 vs 14.4 km).
+Sorting the transit/car ratio of all 30 itineraries with transit ≥ 2 km shows a
+gap: 0.08 and 0.17 (28.8 km and 13.7 km of driving against 2.3 km of transit),
+then nothing until 0.38. Any threshold in that gap behaves identically; 0.3 is its
+middle. Empty results go from 5 scenarios to 4 — kuzey-dogu and guney-merkez open,
+uzak-kuzey closes — and no fast card is lost from the scenarios that already
+worked.
+
+A third scoring term backs the cap up: the longest walk leg is penalised
+quadratically as it approaches 20 minutes (`uzunBacakPts`). A linear penalty did
+not protect the space just under the cap — a 19-minute leg slipped through on a
+few minutes of time advantage. Measured on Alsancak → Balçova in BİSİM mode, the
+recommended card moved from a 16-minute longest walk to a 3-minute one, costing
+3.6 minutes of journey time.
+
+The old cap was 5000 m of distance and missed the real cases: the same journey had
+a 19-minute opening walk on plain transit and a 28-minute one in BİSİM mode, both
+under 5 km.
 
 ---
 

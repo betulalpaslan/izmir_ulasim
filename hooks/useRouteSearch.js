@@ -2,7 +2,8 @@ import { useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { fetchRoute as apiFetchRoute } from "../Services/routeService";
 import {
-  resolveProfileKey, rankItineraries, selectCandidates, buildRouteResult,
+  resolveProfileKey, rankItineraries, modBosSebebi,
+  selectCandidates, buildRouteResult,
 } from "../utils/routeScoring";
 
 // BİSİM'in gerçek zamanlı doluluk verisi 2025-07-23'ten beri yayınlanmıyor,
@@ -26,13 +27,15 @@ const MOD_BOS_MESAJI = {
     "tarafı anlamlı bir mesafe tutmuyor.",
 };
 
-// Yürüyüş tavanı (tek bacakta 20 dk) her güzergâhı elediğinde gösterilir.
-// Boş liste ile "sunucuya ulaşılamadı" ayırt edilemiyordu; kullanıcı sebebi
-// bilmeden aynı aramayı tekrarlıyordu.
+// EMNİYET AĞI. Yürüyüş tavanı artık listeyi boşaltmıyor: tavanın altında
+// güzergâh yoksa en az yürütenler gösteriliyor ve durum `notice` ile
+// söyleniyor (bkz. utils/routeScoring.js, KATMAN 2). Bu metin yalnız
+// MOD_AMACI tanımsız bir profilde liste boş dönerse kalır — bugün öyle bir
+// yol yok, ama boş listeye mesajsız düşmek eski hatanın kendisiydi:
+// kullanıcı sebebi bilmeden aynı aramayı tekrarlıyordu.
 const YURUYUS_TAVANI_MSG =
-  "Bu yolculuk için bulunan güzergâhların hepsinde tek seferde 20 dakikadan " +
-  "uzun yürüyüş var. Başka bir mod deneyebilir ya da başlangıç/varış noktasını " +
-  "bir durağa yakın seçebilirsiniz.";
+  "Bu yolculuk için gösterilebilecek bir güzergâh bulunamadı. Başka bir mod " +
+  "deneyebilir ya da başlangıç/varış noktasını bir durağa yakın seçebilirsiniz.";
 
 async function saveToHistory(best, fromName, toName, profile) {
   try {
@@ -56,11 +59,16 @@ export function useRouteSearch(fareBase = 35, farePerBoarding = false) {
   // Hata değil, açıklama: sonuç geçerli ama kullanıcının seçtiği moddan
   // farklı bir şey gösteriliyor. Sessizce yapmak yanıltıcı olurdu.
   const [notice, setNotice] = useState(null);
+  // Mod boş döndüğünde teşhis: { kod, alternatifSn }. Arayüz buna bakıp
+  // "Toplu taşıma: 36 dk" çıkış teklifini gösterir; alternatifSn yoksa
+  // (taban sorgusu düşmüşse) teklif hiç görünmez, sayı uydurulmaz.
+  const [modBos, setModBos] = useState(null);
 
   const fetchRoute = async (from, to, prof, fromName = "", toName = "", bikeType = null, carMode = null) => {
     setLoading(true);
     setError(null);
     setNotice(null);
+    setModBos(null);
     setRoutes([]);
 
     const effectiveProf = prof === "car" && carMode === "park_and_ride" ? "park_and_ride" : prof;
@@ -102,18 +110,36 @@ export function useRouteSearch(fareBase = 35, farePerBoarding = false) {
       }
 
       const ranked = rankItineraries(validItineraries, profileKey);
-      // rankItineraries yürüyüş tavanını AŞAN her güzergâhı eler ve geriye
-      // hiçbir şey kalmayabilir — bu bir hata değil, kuralın çalışmasıdır.
-      // Sebebi söylenmezse kullanıcı boş ekranı bağlantı sorunu sanıyor.
-      // rankItineraries iki gerekçeyle boş dönebilir: yürüyüş tavanı, ya da
-      // modun amacına uyan aday kalmaması. İkisi kullanıcı için farklı
-      // şeyler; aynı mesajı vermek yanıltıcı olurdu.
+      // rankItineraries artık YALNIZ tek gerekçeyle boş döner: modun amacına
+      // uyan aday kalmaması. Yürüyüş tavanı listeyi boşaltmıyor — tavanın
+      // altında güzergâh yoksa en az yürütenler `yuruyusZorunlu` işaretiyle
+      // geliyor (bkz. utils/routeScoring.js, KATMAN 2).
+      //
+      // Bu meşru bir sonuç ama tek başına ÇIKMAZ SOKAK: kullanıcı boş ekran
+      // ve genel bir cümle görüp aynı aramayı tekrarlıyordu. Sebep artık
+      // ölçülmüş sayılarla söyleniyor ve düz toplu taşıma alternatifi tek
+      // dokunuş uzağa konuyor.
       if (ranked.length === 0) {
-        setError(MOD_BOS_MESAJI[profileKey] || YURUYUS_TAVANI_MSG);
+        const sebep = modBosSebebi(validItineraries, profileKey);
+        setError(sebep.mesaj || MOD_BOS_MESAJI[profileKey] || YURUYUS_TAVANI_MSG);
+        setModBos({ kod: sebep.kod, alternatifSn: sebep.alternatifSn });
         return null;
       }
-      const candidates = selectCandidates(ranked, profileKey, fareBase, farePerBoarding);
+      const candidates = selectCandidates(ranked, profileKey);
       const routeResults = candidates.map((c) => buildRouteResult(c, fareBase, farePerBoarding, profileKey));
+
+      // Tavanın istisnaya düştüğü durum sessiz kalmamalı: kullanıcı 20
+      // dakikadan uzun yürüyen bir kart görüyorsa bunun bir kural ihlali
+      // değil, seçeneksizlik olduğunu bilmeli. Hata değil bilgi — sonuç
+      // geçerli, yalnız beklenenden zahmetli.
+      if (routeResults.length > 0 && routeResults.every((r) => r.yuruyusZorunlu)) {
+        const enAz = Math.min(...candidates.map((c) => c.walk.maxWalkSec));
+        setNotice(
+          `Bu yolculukta tek seferde en az ${Math.round(enAz / 60)} dakika yürümek ` +
+          "gerekiyor; daha az yürüten güzergâh yok. Başka bir mod ya da bir durağa " +
+          "daha yakın bir başlangıç/varış noktası deneyebilirsiniz."
+        );
+      }
 
       setRoutes(routeResults);
       await saveToHistory(routeResults[0], fromName, toName, prof);
@@ -130,7 +156,9 @@ export function useRouteSearch(fareBase = 35, farePerBoarding = false) {
     }
   };
 
-  const clearRoute = () => { setRoutes([]); setError(null); setNotice(null); };
+  const clearRoute = () => {
+    setRoutes([]); setError(null); setNotice(null); setModBos(null);
+  };
 
-  return { routes, loading, error, notice, fetchRoute, clearRoute };
+  return { routes, loading, error, notice, modBos, fetchRoute, clearRoute };
 }

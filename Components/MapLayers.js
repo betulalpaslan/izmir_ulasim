@@ -1,7 +1,7 @@
 // Harita üstündeki tüm işaretçi ve güzergâh katmanları.
 // HomeScreen yalnızca hangi katmanın görüneceğine karar verir; çizim burada yapılır.
-import { View, Text, StyleSheet } from "react-native";
-import { Callout, Circle, Marker, Polyline } from "react-native-maps";
+import { Alert, View, Text, StyleSheet } from "react-native";
+import { Callout, Circle, Marker, Polygon, Polyline } from "react-native-maps";
 import AppIcon from "./AppIcon";
 
 // Doluluk oranına göre otopark rengi: yeşil < %50, turuncu < %80, kırmızı üstü.
@@ -36,10 +36,37 @@ export function parkingOccupancyText(st) {
 // Bu yüzden nokta değil ALAN çiziliyor: bisiklet hizmet alanı içinde her yere
 // bırakılabilir, bu bölgelere bırakılırsa bonus kazanılır. Tek bir pin
 // göstermek kullanıcıya "yalnız buraya bırakabilirsin" derdi — yanlış olurdu.
-export function BisimMarkers({ stations }) {
-  return stations.flatMap((z) => [
+export function BisimMarkers({ stations, hizmetAlani }) {
+  // Alan bonus dairelerinin ALTINDA çizilir: üstte olsaydı dolgusu daireleri
+  // soluklaştırıp "bonus" ile "sıradan bırakma alanı" ayrımını siliyordu.
+  //
+  // Sınır YAKLAŞIKTIR — bisiklet yolu geometrisinin tamponlu dışbükey kabuğu
+  // (backend: BisimBolgeService.hizmetAlani). Dışbükey olduğu için körfezin
+  // suyunu da kapsıyor; bu yüzden dokununca ne olduğunu söyleyen bir callout
+  // var. Etiketsiz çizmek kullanıcıyı hizmet dışı bir noktaya bırakmaya ve
+  // ceza yemeye götürebilir.
+  const alan = (hizmetAlani?.parcalar || []).map((halka, i) => (
+    <Polygon
+      key={`bisim-alan-${i}`}
+      coordinates={halka.map(([lon, lat]) => ({ latitude: lat, longitude: lon }))}
+      strokeColor="rgba(74,222,128,0.7)"
+      strokeWidth={2}
+      fillColor="rgba(74,222,128,0.06)"
+      tappable
+      onPress={() =>
+        Alert.alert(
+          "BİSİM hizmet alanı",
+          "Bisikleti bu alanın içinde her yere bırakabilirsin.\n\n" +
+            "Bu sınır yaklaşıktır: bisiklet yolu ağından türetilmiştir, " +
+            "resmî hizmet sınırı değildir."
+        )
+      }
+    />
+  ));
+
+  return alan.concat(stations.flatMap((z) => [
     <Circle
-      key={`bisim-alan-${z.id}`}
+      key={`bisim-bonus-${z.id}`}
       center={{ latitude: z.lat, longitude: z.lon }}
       radius={z.yaricapM ?? 300}
       strokeColor="#4ade80"
@@ -58,7 +85,7 @@ export function BisimMarkers({ stations }) {
         <AppIcon name="bike" size={13} color="#4ade80" />
       </View>
     </Marker>,
-  ]);
+  ]));
 }
 
 // İki farklı amaç, iki farklı görünüm:
