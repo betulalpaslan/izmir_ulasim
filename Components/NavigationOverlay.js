@@ -50,7 +50,9 @@ export default function NavigationOverlay({
   }
 
   const leg = progress.currentLeg;
-  const instruction = leg ? getLegInstruction(leg) : { title: "Rotayı izleyin", detail: "" };
+  const instruction = leg
+    ? getLegInstruction(leg, progress.legs, leg.index)
+    : { title: "Rotayı izleyin", detail: "" };
   const legColor = leg?.color ?? theme.active;
 
   return (

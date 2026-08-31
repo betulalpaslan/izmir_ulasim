@@ -138,6 +138,11 @@ export function navigationProgress(routeIndex, location, fromIndex = 0) {
     arrived: remainingMeters <= ARRIVAL_METERS,
     currentLeg,
     nextLeg,
+    // Bacak listesinin tamamı: rehberlik metni bir bacağa tek başına
+    // bakarak kurulamıyor. "Durağa yürü" mü "varışa yürü" mü, bisiklet
+    // park mı edilecek yanına mı alınacak — hepsi komşu bacaklara bağlı
+    // (bkz. utils/routeInstructions.js).
+    legs,
     distanceToLegEnd: Math.max(0, legEndDistance - snap.traveledMeters),
   };
 }

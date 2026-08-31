@@ -1,12 +1,17 @@
 // Harita üstündeki tüm işaretçi ve güzergâh katmanları.
 // HomeScreen yalnızca hangi katmanın görüneceğine karar verir; çizim burada yapılır.
 import { View, Text, StyleSheet } from "react-native";
-import { Callout, Marker, Polyline } from "react-native-maps";
+import { Callout, Circle, Marker, Polyline } from "react-native-maps";
 import AppIcon from "./AppIcon";
 
-// Doluluk oranına göre otopark rengi: yeşil < %50, turuncu < %80, kırmızı üstü
+// Doluluk oranına göre otopark rengi: yeşil < %50, turuncu < %80, kırmızı üstü.
+// Doluluk BİLİNMİYORSA gri — kırmızı değil. 82 otoparkın yalnız 14'ünde sensör
+// var; `occupied ?? (capacity - (free ?? 0))` ifadesi doluluğu bilinmeyen 68
+// otoparkı "capacity - 0 = tamamen dolu" diye hesaplayıp hepsini kırmızı
+// gösteriyordu — kullanıcıya "bu otoparkların hepsi dolu" demek oluyordu.
 export function prMarkerColor(st) {
   if (!st.capacity || st.capacity === 0) return "#6b7280";
+  if (st.occupied == null && st.free == null) return "#6b7280";
   const occupied = st.occupied ?? (st.capacity - (st.free ?? 0));
   const ratio = occupied / st.capacity;
   if (ratio < 0.5) return "#4ade80";
@@ -14,27 +19,46 @@ export function prMarkerColor(st) {
   return "#f87171";
 }
 
+// Üç ayrı durum, üç ayrı cümle — ikisini karıştırmak yanlış bilgi verir:
+//   free = 0     → yer YOK, bunu biliyoruz            → "Dolu"
+//   free = null  → yer olup olmadığını BİLMİYORUZ     → "Kapasite: N"
+//   free > 0     → sayıyı biliyoruz                   → "N boş / M toplam"
+// Marker rengi de bunu izler: kırmızı yalnız birinci durumda çıkar, ikinci
+// durumda gri. Kırmızı bir pin "dolu" diyorsa metin de "Dolu" demeli.
 export function parkingOccupancyText(st) {
+  if (st.free === 0 && st.capacity) return `Dolu — ${st.capacity} yerin tamamı kullanımda`;
   if (st.free != null && st.capacity) return `${st.free} boş / ${st.capacity} toplam`;
-  if (st.capacity) return `Kapasite: ${st.capacity}`;
+  if (st.capacity) return `Kapasite: ${st.capacity} · anlık doluluk yok`;
   return "Doluluk bilgisi yok";
 }
 
+// BİSİM 2025-08'de sabit istasyonları kaldırdı; sistem bölge tabanlı.
+// Bu yüzden nokta değil ALAN çiziliyor: bisiklet hizmet alanı içinde her yere
+// bırakılabilir, bu bölgelere bırakılırsa bonus kazanılır. Tek bir pin
+// göstermek kullanıcıya "yalnız buraya bırakabilirsin" derdi — yanlış olurdu.
 export function BisimMarkers({ stations }) {
-  return stations.map((st) => (
+  return stations.flatMap((z) => [
+    <Circle
+      key={`bisim-alan-${z.id}`}
+      center={{ latitude: z.lat, longitude: z.lon }}
+      radius={z.yaricapM ?? 300}
+      strokeColor="#4ade80"
+      strokeWidth={1.5}
+      fillColor="rgba(74,222,128,0.12)"
+    />,
     <Marker
-      key={`bisim-${st.id}`}
-      coordinate={{ latitude: st.lat, longitude: st.lon }}
+      key={`bisim-${z.id}`}
+      coordinate={{ latitude: z.lat, longitude: z.lon }}
       anchor={{ x: 0.5, y: 0.5 }}
-      title={st.name}
-      description={st.capacity ? `Kapasite: ${st.capacity}` : "BİSİM istasyonu"}
+      title={z.ad}
+      description={`${z.ilce} · bırakınca bonus kazandıran bölge`}
       tracksViewChanges={false}
     >
       <View style={s.bisimMarker}>
         <AppIcon name="bike" size={13} color="#4ade80" />
       </View>
-    </Marker>
-  ));
+    </Marker>,
+  ]);
 }
 
 // İki farklı amaç, iki farklı görünüm:
@@ -103,7 +127,7 @@ export function ParkAndRideMarkers({ stations }) {
         coordinate={{ latitude: st.lat, longitude: st.lon }}
         anchor={{ x: 0.5, y: 0.5 }}
         title={st.name}
-        description={st.capacity > 0 ? `${st.free} boş / ${st.capacity} toplam` : "Otopark"}
+        description={parkingOccupancyText(st)}
         tracksViewChanges={false}
       >
         <View style={[s.prMarker, { borderColor: color }]}>

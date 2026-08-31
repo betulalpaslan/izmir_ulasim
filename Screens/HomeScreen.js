@@ -3,7 +3,7 @@ import { StyleSheet, View, Text, TouchableOpacity, Keyboard } from "react-native
 import MapView, { Marker } from "react-native-maps";
 import { activateKeepAwakeAsync, deactivateKeepAwake } from "expo-keep-awake";
 import {
-  searchAddress, fetchBisimStations, fetchBicycleParkingStations,
+  searchAddress, fetchBisimZones,
   fetchPrStations, fetchBikePrStations, fetchOsmParkingSpots,
 } from "../Services/api";
 import SearchPanel from "../Components/SearchPanel";
@@ -32,7 +32,7 @@ function getTimeContext() {
   const isNight = hour < 6 || hour >= 23;
   const isRush = !isWeekend && ((hour >= 7 && hour <= 9) || (hour >= 17 && hour <= 19));
   const isPeak = !isWeekend && hour >= 10 && hour <= 16;
-  if (isWeekend && hour >= 8 && hour <= 18) return "Hafta sonu - bisiklet veya vapur güzel bir seçim!";
+  if (isWeekend && hour >= 8 && hour <= 18) return "Hafta sonu - bisiklet güzel bir seçim!";
   if (isWeekend) return "Hafta sonu gece - seferler seyrek, sürelere dikkat edin.";
   if (isRush) return "Yoğun saat - metro aktarmasız en hızlı seçenek olabilir.";
   if (isNight) return "Gece saati - bazı hatlar çalışmıyor olabilir.";
@@ -53,7 +53,10 @@ export default function HomeScreen() {
   const [savedPlacesOpen, setSavedPlacesOpen] = useState(false);
 
   const [profile, setProfile] = useState("transit");
-  const [bikeType, setBikeType] = useState(null);
+  // Bisiklet profilinin varsayılanı "kendi bisikletim + aktarma". null bir
+  // seçenek yok: eski üçüncü mod (baştan sona sürüş) kaldırıldı, bkz.
+  // Components/SearchPanel.js BIKE_OPTIONS.
+  const [bikeType, setBikeType] = useState("PARK");
   const [carMode, setCarMode] = useState(null);
   const [bisimStations, setBisimStations] = useState([]);
   const [parkingStations, setParkingStations] = useState([]);
@@ -68,7 +71,7 @@ export default function HomeScreen() {
   const [timeTip] = useState(() => getTimeContext());
 
   const { fareBase, farePerBoarding, profiles, savedPlaces, savePlace } = useSettings();
-  const { routes, loading, error, fetchRoute, clearRoute } = useRouteSearch(fareBase, farePerBoarding);
+  const { routes, loading, error, notice, fetchRoute, clearRoute } = useRouteSearch(fareBase, farePerBoarding);
   const [selectedRouteIdx, setSelectedRouteIdx] = useState(0);
 
   // ── Navigasyon ──────────────────────────────────────────────
@@ -118,13 +121,10 @@ export default function HomeScreen() {
       return;
     }
     if (bikeType === "RENT") {
-      loadLayer(fetchBisimStations, setBisimStations, "BİSİM istasyonları");
+      loadLayer(fetchBisimZones, setBisimStations, "BİSİM bölgeleri");
       setParkingStations([]);
-    } else if (bikeType === "PARK") {
-      loadLayer(fetchBikePrStations, setParkingStations, "Bisiklet park noktaları");
-      setBisimStations([]);
     } else {
-      loadLayer(fetchBicycleParkingStations, setParkingStations, "Bisiklet parkları");
+      loadLayer(fetchBikePrStations, setParkingStations, "Bisiklet park noktaları");
       setBisimStations([]);
     }
   }, [profile, bikeType]);
@@ -458,6 +458,7 @@ export default function HomeScreen() {
                   onSelect={setSelectedRouteIdx}
                   loading={loading}
                   error={error}
+                  notice={notice}
                   timeTip={timeTip}
                   origin={origin}
                   destination={destination}

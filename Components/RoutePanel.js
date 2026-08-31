@@ -3,9 +3,10 @@ import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, StyleSheet
 import AppIcon from "./AppIcon";
 import { useTheme } from "../utils/ThemeContext";
 import { getLegInstruction } from "../utils/routeInstructions";
+import { NON_TRANSIT_MODES } from "../utils/routeScoring";
 import { formatDistance } from "../utils/geo";
 
-export default function RoutePanel({ routes, selectedIdx, onSelect, loading, error, timeTip, origin, destination, onReset, bikeType }) {
+export default function RoutePanel({ routes, selectedIdx, onSelect, loading, error, notice, timeTip, origin, destination, onReset, bikeType }) {
   const { theme } = useTheme();
 
   if (loading) {
@@ -33,6 +34,15 @@ export default function RoutePanel({ routes, selectedIdx, onSelect, loading, err
     );
   }
 
+  // Sonuç geçerli ama seçilen moddan farklı bir şey gösteriliyorsa sebebini
+  // söyle. Sessizce transit rotası göstermek kullanıcıyı yanıltır.
+  const bilgiSeridi = notice ? (
+    <View style={[s.noticeBox, { borderColor: theme.border }]}>
+      <AppIcon name="info" size={14} color={theme.muted} />
+      <Text style={[s.noticeText, { color: theme.muted }]}>{notice}</Text>
+    </View>
+  ) : null;
+
   if (!routes?.length) {
     return (
       <View style={s.stateBox}>
@@ -54,6 +64,7 @@ export default function RoutePanel({ routes, selectedIdx, onSelect, loading, err
 
   return (
     <ScrollView style={s.scroll} showsVerticalScrollIndicator={false} nestedScrollEnabled>
+      {bilgiSeridi}
       {timeTip ? (
         <Text style={[s.timeTipTop, { color: theme.active, backgroundColor: theme.active + "12" }]}>
           {timeTip}
@@ -78,8 +89,19 @@ export default function RoutePanel({ routes, selectedIdx, onSelect, loading, err
           >
             {/* ── Kart başlığı: etiket | süre+meta | ücret | chevron ── */}
             <View style={s.cardHeader}>
-              <View style={[s.tagBadge, { backgroundColor: r.tagColor + "22", borderColor: r.tagColor + "55" }]}>
-                <Text style={[s.tagText, { color: r.tagColor }]}>{r.tag}</Text>
+              {/* Bir güzergâh birden çok üstünlüğe sahip olabilir (aynı anda
+                  hem önerilen hem en hızlı gibi). İkincil etiketler daha
+                  soluk rozetlerde alt alta durur; eskiden bu bilgi hiç
+                  gösterilmiyordu. */}
+              <View style={s.tagSutun}>
+                <View style={[s.tagBadge, { backgroundColor: r.tagColor + "22", borderColor: r.tagColor + "55" }]}>
+                  <Text style={[s.tagText, { color: r.tagColor }]}>{r.tag}</Text>
+                </View>
+                {(r.etiketler || []).filter((e) => e !== r.tag).map((e) => (
+                  <View key={e} style={[s.tagBadge, { borderColor: theme.border }]}>
+                    <Text style={[s.tagText, { color: theme.muted }]}>{e}</Text>
+                  </View>
+                ))}
               </View>
 
               <View style={s.cardMid}>
@@ -141,9 +163,16 @@ export default function RoutePanel({ routes, selectedIdx, onSelect, loading, err
                     🌿 ~{co2}g CO₂ · {co2 < 100 ? "Düşük" : co2 < 300 ? "Orta" : "Yüksek"} emisyon
                   </Text>
                 )}
+                {/* BİSİM dockless: bisiklet bir istasyona bağlı değil, hizmet
+                    alanı içinde her yere bırakılabilir. Metin bu yüzden bir
+                    ALMA NOKTASI adı vermiyor — canlı bisiklet konumu
+                    yayınlanmıyor, backend'in OTP'ye verdiği noktalar bisiklet
+                    yolu koridoru üzerinde örneklenmiş varsayımlar
+                    (bkz. BisimBolgeService.serbestBisikletler). Kullanıcıya
+                    olmayan bir kesinlik vaat etmemek için "civarında" denir. */}
                 {bikeType === "RENT" && bikeLegs.length > 0 && (
                   <Text style={[s.hint, { color: "#4ade80", backgroundColor: "#4ade8012", borderColor: "#4ade8030" }]}>
-                    🚲 {bikeLegs[0].from} · bisiklet kirala → {bikeLegs[bikeLegs.length - 1].to} · bırak
+                    🚲 Civarındaki BİSİM bisikletini al → {bikeLegs[bikeLegs.length - 1].to} yakınında bırak · hizmet alanı içinde her yere bırakabilirsin
                   </Text>
                 )}
                 {r.walkWarning && (
@@ -152,17 +181,52 @@ export default function RoutePanel({ routes, selectedIdx, onSelect, loading, err
                   </Text>
                 )}
 
-                {/* Bacak listesi */}
+                {/* ── Bacak listesi ──
+                    Bunlar SIRAYLA yapılacak adımlardır, seçenek listesi değil.
+                    Kullanıcı bildirimi: ardışık iki otobüs kartı (912 ve 447)
+                    görünce "ikisine de mi biniyorum, birine mi?" diye sordu.
+                    Kartlar eşit boyutlu, aralarında boşluk olan kutulardı ve
+                    hiçbir şey sıralı olduklarını söylemiyordu.
+
+                    Üç işaret eklendi: adım numarası, kartları birbirine bağlayan
+                    çizgi, ve ardışık iki TRANSİT bacağı arasında açık bir
+                    "AKTARMA" şeridi. Aktarma şeridi asıl belirsizliği çözer:
+                    912'den inip 447'ye binileceğini, inilecek durağın adıyla
+                    birlikte söyler. */}
                 {r.legs.map((leg, j) => {
-                  const instruction = getLegInstruction(leg);
+                  // Tüm liste veriliyor: bir yürüyüşün anlamı ARDINDAN
+                  // geleni, bisikletin park mı edildiği yoksa yanına mı
+                  // alındığı ise transitten SONRA bisikletin devam edip
+                  // etmediğini bilmeyi gerektiriyor.
+                  const instruction = getLegInstruction(leg, r.legs, j);
+                  const buTransit  = !NON_TRANSIT_MODES.includes(leg.mode);
+                  const onceTransit = j > 0 && !NON_TRANSIT_MODES.includes(r.legs[j - 1].mode);
+                  // Araya yürüyüş girmeyen iki transit bacağı = aynı durakta
+                  // araç değiştirme. Yürüyüşlü aktarmada zaten bir yürüyüş
+                  // kartı var, ikinci bir şerit gürültü olurdu.
+                  const aktarma = buTransit && onceTransit;
                   return (
-                    <View key={j} style={[s.legCard, { backgroundColor: theme.input, borderColor: theme.border }]}>
+                    <React.Fragment key={j}>
+                      {j > 0 && (aktarma ? (
+                        <View style={s.aktarmaSatir}>
+                          <View style={[s.baglayici, { backgroundColor: theme.border }]} />
+                          <View style={[s.aktarmaRozet, { backgroundColor: theme.input, borderColor: theme.border }]}>
+                            <AppIcon name="refresh" size={9} color={theme.muted} />
+                            <Text style={[s.aktarmaMetin, { color: theme.muted }]} numberOfLines={1}>
+                              Aktarma · {leg.from}
+                            </Text>
+                          </View>
+                        </View>
+                      ) : (
+                        <View style={[s.baglayici, { backgroundColor: theme.border }]} />
+                      ))}
+                    <View style={[s.legCard, j === 0 && s.legCardIlk, { backgroundColor: theme.input, borderColor: theme.border }]}>
                       <View style={[s.legIconBox, { backgroundColor: leg.color + "20" }]}>
                         <AppIcon name={leg.icon} size={16} color={leg.color} />
                       </View>
                       <View style={s.legContent}>
                         <Text style={[s.legMode, { color: leg.color }]}>
-                          {leg.label}{leg.routeName ? ` · ${leg.routeName}` : ""}
+                          {j + 1}. {leg.label}{leg.routeName ? ` · ${leg.routeName}` : ""}
                         </Text>
                         <Text style={[s.legRoute, { color: theme.text }]} numberOfLines={2}>
                           {instruction.title}
@@ -180,6 +244,7 @@ export default function RoutePanel({ routes, selectedIdx, onSelect, loading, err
                         </Text>
                       </View>
                     </View>
+                    </React.Fragment>
                   );
                 })}
               </View>
@@ -197,6 +262,10 @@ const s = StyleSheet.create({
   loadingRow:  { flexDirection: "row", alignItems: "center", gap: 8 },
   statusText:  { fontSize: 13, fontWeight: "600" },
   errorText:   { color: "#f87171", fontSize: 13, fontWeight: "600" },
+  noticeBox:   { flexDirection: "row", alignItems: "center", gap: 7,
+                 paddingHorizontal: 11, paddingVertical: 8, marginBottom: 8,
+                 borderRadius: 8, borderWidth: 1 },
+  noticeText:  { flex: 1, fontSize: 12, fontWeight: "600", lineHeight: 16 },
   timeTip: {
     fontSize: 12, borderWidth: 1,
     borderRadius: 8, padding: 8, lineHeight: 16,
@@ -224,6 +293,7 @@ const s = StyleSheet.create({
     flexDirection: "row", alignItems: "center",
     gap: 7, paddingHorizontal: 9, paddingVertical: 7,
   },
+  tagSutun: { gap: 3, alignItems: "flex-start" },
   tagBadge: {
     borderWidth: 1, borderRadius: 5,
     paddingHorizontal: 5, paddingVertical: 2,
@@ -272,8 +342,20 @@ const s = StyleSheet.create({
   legCard: {
     flexDirection: "row", alignItems: "center", gap: 8,
     borderWidth: 1, borderRadius: 9,
-    padding: 7, marginTop: 3,
+    padding: 7,
   },
+  // Aradaki boşluğu artık bağlayıcı çizgi veriyor; yalnız ilk kartın
+  // üstündeki ipuçlarından ayrılması gerekiyor.
+  legCardIlk: { marginTop: 4 },
+  // Kartları birbirine bağlayan dikey çizgi. marginLeft, kartın iç boşluğu
+  // (7) + kenarlığı (1) + ikon kutusunun yarısı (13) ile hizalı: çizgi
+  // ikonların tam altından geçer.
+  baglayici:    { width: 2, height: 7, marginLeft: 20, borderRadius: 1 },
+  aktarmaSatir: { flexDirection: "row", alignItems: "center", gap: 6 },
+  aktarmaRozet: { flexDirection: "row", alignItems: "center", gap: 4,
+                  borderWidth: 1, borderRadius: 6,
+                  paddingHorizontal: 6, paddingVertical: 2, flexShrink: 1 },
+  aktarmaMetin: { fontSize: 9, fontWeight: "800", letterSpacing: 0.4, flexShrink: 1 },
   legIconBox:  { width: 26, height: 26, borderRadius: 6, alignItems: "center", justifyContent: "center" },
   legContent:  { flex: 1 },
   legMode:     { fontSize: 9, fontWeight: "800", textTransform: "uppercase", letterSpacing: 0.5 },
