@@ -1,14 +1,117 @@
+/* OTOMATİK ÜRETİLDİ — elle düzenleme.
+   Kaynak: D:\Mures\izmir_ulasim\utils
+   Yeniden üretmek: node senaryo/derle.js */
+(function (global) {
+"use strict";
+/* ── polyline.js ── */
+function decodePolyline(encoded) {
+  const points = [];
+  let index = 0, lat = 0, lng = 0;
+  while (index < encoded.length) {
+    let b, shift = 0, result = 0;
+    do { b = encoded.charCodeAt(index++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
+    lat += (result & 1) ? ~(result >> 1) : (result >> 1);
+    shift = 0; result = 0;
+    do { b = encoded.charCodeAt(index++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
+    lng += (result & 1) ? ~(result >> 1) : (result >> 1);
+    points.push({ latitude: lat / 1e5, longitude: lng / 1e5 });
+  }
+  return points;
+}
+/* ── geo.js ── */
+// Coğrafi mesafe ve izdüşüm yardımcıları.
+// Tüm fonksiyonlar saftır — harita/cihaz bağımlılığı yoktur, doğrudan test edilebilir.
+
+const EARTH_RADIUS_M = 6371000;
+const DEG_TO_RAD = Math.PI / 180;
+
+function haversineMeters(p1, p2) {
+  const dLat = (p2.latitude - p1.latitude) * DEG_TO_RAD;
+  const dLon = (p2.longitude - p1.longitude) * DEG_TO_RAD;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(p1.latitude * DEG_TO_RAD) *
+      Math.cos(p2.latitude * DEG_TO_RAD) *
+      Math.sin(dLon / 2) ** 2;
+  return EARTH_RADIUS_M * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+// Bir koordinat dizisinin toplam uzunluğu (metre).
+function pathLengthMeters(points) {
+  let total = 0;
+  for (let i = 1; i < points.length; i++) total += haversineMeters(points[i - 1], points[i]);
+  return total;
+}
+
+// Küçük ölçeklerde (birkaç km) yeterli doğrulukta düzlemsel izdüşüm için
+// enlem/boylamı yerel metre düzlemine çevirir.
+function toLocalMeters(point, originLat) {
+  return {
+    x: point.longitude * DEG_TO_RAD * EARTH_RADIUS_M * Math.cos(originLat * DEG_TO_RAD),
+    y: point.latitude * DEG_TO_RAD * EARTH_RADIUS_M,
+  };
+}
+
+// p noktasının a-b doğru parçası üzerindeki en yakın noktası.
+// t: 0 = a, 1 = b. distance metre cinsindendir.
+function projectOnSegment(p, a, b) {
+  const originLat = a.latitude;
+  const pm = toLocalMeters(p, originLat);
+  const am = toLocalMeters(a, originLat);
+  const bm = toLocalMeters(b, originLat);
+
+  const dx = bm.x - am.x;
+  const dy = bm.y - am.y;
+  const lengthSq = dx * dx + dy * dy;
+
+  // Sıfır uzunluklu parça: a'nın kendisine düşer.
+  const t = lengthSq === 0
+    ? 0
+    : Math.max(0, Math.min(1, ((pm.x - am.x) * dx + (pm.y - am.y) * dy) / lengthSq));
+
+  const point = {
+    latitude: a.latitude + (b.latitude - a.latitude) * t,
+    longitude: a.longitude + (b.longitude - a.longitude) * t,
+  };
+  return { point, t, distance: haversineMeters(p, point) };
+}
+
+// İki nokta arasındaki pusula yönü (0-360, kuzeyden saat yönünde).
+function bearingDegrees(from, to) {
+  const lat1 = from.latitude * DEG_TO_RAD;
+  const lat2 = to.latitude * DEG_TO_RAD;
+  const dLon = (to.longitude - from.longitude) * DEG_TO_RAD;
+  const y = Math.sin(dLon) * Math.cos(lat2);
+  const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
+  return (Math.atan2(y, x) / DEG_TO_RAD + 360) % 360;
+}
+
+// Mesafeyi kullanıcıya gösterilecek biçime çevirir: 850 m / 1,2 km
+function formatDistance(meters) {
+  if (!Number.isFinite(meters) || meters < 0) return "—";
+  // Önce yuvarla: 999 m "1000 m" değil "1,0 km" olarak gösterilmeli
+  const rounded = Math.round(meters / 10) * 10;
+  if (rounded < 1000) return `${rounded} m`;
+  return `${(meters / 1000).toFixed(1).replace(".", ",")} km`;
+}
+
+// Süreyi gösterilecek biçime çevirir: 45 sn / 12 dk / 1 sa 5 dk
+function formatDuration(seconds) {
+  if (!Number.isFinite(seconds) || seconds < 0) return "—";
+  if (seconds < 60) return `${Math.round(seconds)} sn`;
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return `${minutes} dk`;
+  return `${Math.floor(minutes / 60)} sa ${minutes % 60} dk`;
+}
+
+/* ── routeScoring.js ── */
 // OTP'den gelen ham güzergâhları puanlar, sıralar, etiketler ve arayüzün
 // beklediği rota nesnesine dönüştürür.
 // Tamamen saf fonksiyonlardır — React veya ağ bağımlılığı yoktur.
-
-import { decodePolyline } from "./polyline";
-import { haversineMeters } from "./geo";
-
 // VAPUR YOK: İzmir GTFS feed'inde vapur seferi bulunmuyor (route_type=4 hiç
 // geçmiyor), backend de FERRY modunu OTP'ye hiç istemiyor. Karşılığı olmayan
 // bir mod için stil tutmak yanıltıcıydı. Feed geldiğinde geri eklenir.
-export const MODE_STYLE = {
+const MODE_STYLE = {
   WALK:           { color: "#7a8299", icon: "walk",  label: "Yürüyüş" },
   BUS:            { color: "#f97316", icon: "bus",   label: "Otobüs" },
   // RAIL = İZBAN banliyö hattı, SUBWAY = İzmir Metrosu. Aynı ikonu paylaşırlar,
@@ -21,15 +124,15 @@ export const MODE_STYLE = {
   CAR:            { color: "#f97316", icon: "car",   label: "Araba" },
 };
 
-export const NON_TRANSIT_MODES = ["WALK", "BICYCLE", "BICYCLE_RENTAL", "CAR"];
+const NON_TRANSIT_MODES = ["WALK", "BICYCLE", "BICYCLE_RENTAL", "CAR"];
 
-export const CARBON_G_PER_KM = {
+const CARBON_G_PER_KM = {
   CAR: 150, BUS: 80, RAIL: 41, SUBWAY: 41, TRAM: 30,
   WALK: 0, BICYCLE: 0, BICYCLE_RENTAL: 0,
 };
 
 // Skor katsayıları — her mod kendi önceliğini yansıtır
-export const SCORING = {
+const SCORING = {
   // Toplu taşıma: aktarma çok maliyetli (bekleme + yürüyüş), yürüyüş da ağır
   transit:       { durationMin: 1, walkKm: 7,  transferPts: 10, overTargetKm: 45 },
   // ESKİ MOD — resolveProfileKey artık bu anahtarı hiç üretmiyor (bisikletin
@@ -97,10 +200,10 @@ export const SCORING = {
 // YALNIZ BİSİM'e uygulanır. Oradaki sorun süre değil ZAHMET: bisikleti bul,
 // uygulamayı aç, QR okut. 60 dakikalık bir yolculuğun sonunda 972 metre için
 // bu yapılmaz, o sürüş yolculuğu birkaç dakika kısaltsa bile.
-export const BISIKLET_ASGARI_PAY = 0.15;
+const BISIKLET_ASGARI_PAY = 0.15;
 
 // Eski ad — dışarıda bu sabiti bekleyen kod olabilir.
-export const BISIM_ASGARI_PAY = BISIKLET_ASGARI_PAY;
+const BISIM_ASGARI_PAY = BISIKLET_ASGARI_PAY;
 
 // KENDİ BİSİKLETİNDE ÖLÇÜT FARKLI: kazanç.
 //
@@ -139,9 +242,9 @@ export const BISIM_ASGARI_PAY = BISIKLET_ASGARI_PAY;
 // yürüyüşlü sorgu) ve her güzergâha iliştirilmiş halde: itin.bisikletsizEnIyiSn.
 // BİLİNMİYORSA ELEME YAPILMAZ — taban sorgusu düştüyse kullanıcıyı
 // cezalandırmak yanlış olur.
-export const BISIKLET_ASGARI_KAZANC_SN = 3 * 60;
+const BISIKLET_ASGARI_KAZANC_SN = 3 * 60;
 
-export const MOD_AMACI = {
+const MOD_AMACI = {
   bicycle_rent: {
     aciklama: "BİSİM seçildi — sürüş yolculuğun anlamlı bir payı olmalı",
     gorur: (o) =>
@@ -185,7 +288,7 @@ export const MOD_AMACI = {
 // Bu sınır katsayıları düzeltmez, HASARI SINIRLAR: hangi ceza yanlış
 // kalibre olursa olsun kullanıcıya önerilen şey belirli bir yavaşlığın
 // ötesine geçemez. Senaryo süiti (K7) aynı sayıları kullanır.
-export const ONERI_TOLERANSI = {
+const ONERI_TOLERANSI = {
   transit:       1.20,
   // Araba yolculuğunun amacı hız; sapmaya en az tolerans burada.
   park_and_ride: 1.15,
@@ -214,11 +317,11 @@ export const ONERI_TOLERANSI = {
 // 26–45 dk arasındaydı ve toplama 20 dk sınırı koymak o yolculukta kartların
 // TAMAMINI eliyordu. Toplam yürüyüş skorda `walkKm` cezasıyla zaten
 // ağırlıklandırılıyor; asıl dayanılmaz olan tek seferde uzun yürümektir.
-export const YURUYUS_BACAK_TAVANI_SN = 20 * 60;
+const YURUYUS_BACAK_TAVANI_SN = 20 * 60;
 
 // Geriye dönük uyumluluk: dışarıda bu sabiti bekleyen kod olabilir. Artık
 // eleme ölçütü değil — eleme YURUYUS_BACAK_TAVANI_SN üzerinden yapılıyor.
-export const MUTLAK_YURUYUS_TAVANI = 5000;
+const MUTLAK_YURUYUS_TAVANI = 5000;
 
 // Bisiklet bacağının anlamlı sayılması için gereken en kısa mesafe (metre).
 //
@@ -235,13 +338,13 @@ export const MUTLAK_YURUYUS_TAVANI = 5000;
 // Yalnız transit İÇEREN rotalara uygulanır: bisiklet o rotada bir "erişim
 // aracı"dır. Transit yoksa bisiklet zaten yolculuğun kendisidir ve kısa
 // olması meşrudur (500 m öteye gitmek isteyen biri).
-export const BIKE_LEG_MIN = {
+const BIKE_LEG_MIN = {
   bicycle_rent: 500,   // BİSİM: QR okut, kilidi aç, sür, bırak
   bicycle_park: 800,   // kendi bisikletin: yer bul, kilitle, geri gel
 };
 
 // Tek bir yürüyüş bacağı için kabul edilen maksimum mesafe (metre)
-export const WALK_LEG_TARGET = {
+const WALK_LEG_TARGET = {
   transit:       2000,
   bicycle:        600, // bisiklet varken uzun yürüyüş anlamsız
   // 1200 m: OTP çoğu zaman en yakın istasyonu seçmiyor (Konak'ta 249 m'deki
@@ -260,7 +363,7 @@ export const WALK_LEG_TARGET = {
 // bikeType null geldiğinde bicycle_park'a düşülür — backend de aynı şeyi
 // yapıyor. İki taraf ayrı düşerse kullanıcı bir moda göre üretilmiş
 // güzergâhı başka bir modun katsayılarıyla puanlanmış görürdü.
-export function resolveProfileKey(profile, bikeType) {
+function resolveProfileKey(profile, bikeType) {
   if (profile === "bicycle") {
     if (bikeType === "RENT") return "bicycle_rent";
     return "bicycle_park";
@@ -268,7 +371,7 @@ export function resolveProfileKey(profile, bikeType) {
   return profile ?? "transit";
 }
 
-export function calcLegDistanceMeters(leg) {
+function calcLegDistanceMeters(leg) {
   if (typeof leg.distance === "number" && leg.distance > 0) return leg.distance;
   const pts = leg.legGeometry?.points ? decodePolyline(leg.legGeometry.points) : [];
   let total = 0;
@@ -276,14 +379,14 @@ export function calcLegDistanceMeters(leg) {
   return total;
 }
 
-export function calcCarbonGrams(legs) {
+function calcCarbonGrams(legs) {
   return legs.reduce((sum, leg) => {
     const gPerKm = CARBON_G_PER_KM[leg.mode] ?? 0;
     return sum + gPerKm * (calcLegDistanceMeters(leg) / 1000);
   }, 0);
 }
 
-export function rankItineraries(itineraries, profileKey) {
+function rankItineraries(itineraries, profileKey) {
   const w = SCORING[profileKey] || SCORING.transit;
   const maxWalk = WALK_LEG_TARGET[profileKey] ?? 2000;
   const minBike = BIKE_LEG_MIN[profileKey] ?? 0;
@@ -409,7 +512,7 @@ function hatImzasi(itin) {
     .join(">");
 }
 
-export function ayniHattiTekilleştir(ranked) {
+function ayniHattiTekilleştir(ranked) {
   const gorulen = new Set();
   return ranked.filter((r) => {
     const k = hatImzasi(r.itin);
@@ -424,7 +527,7 @@ export function ayniHattiTekilleştir(ranked) {
 // listedeki en hızlıdan ONERI_TOLERANSI katından fazla yavaşsa, sınırı
 // sağlayan en iyi puanlı güzergâh öne alınır. Geri kalan sıra korunur —
 // amaç listeyi yeniden dizmek değil, "Önerilen" etiketini bağlamak.
-export function oneriSinirinaUydur(ranked, profileKey) {
+function oneriSinirinaUydur(ranked, profileKey) {
   const tol = ONERI_TOLERANSI[profileKey];
   if (!tol || ranked.length < 2) return ranked;
 
@@ -453,7 +556,7 @@ export function oneriSinirinaUydur(ranked, profileKey) {
 // Artık liste tek: eleme ölçümle yapılıyor. Bir modda aktarma hep 0 ise
 // "Az Aktarma" kendiliğinden çıkmaz; ücret düz tarifeyse (İzmirim Kart,
 // 90 dk aktarma dahil) "En Ucuz" kendiliğinden çıkmaz.
-export const ADAY_OLCULERI = [
+const ADAY_OLCULERI = [
   { tag: "Önerilen",   tagColor: "#60a5fa", olcu: null },   // sıralamanın birincisi
   { tag: "En Hızlı",   tagColor: "#f59e0b", olcu: (c) => c.walk.duration },
   { tag: "Az Aktarma", tagColor: "#a78bfa", olcu: (c) => c.walk.transfers },
@@ -462,13 +565,13 @@ export const ADAY_OLCULERI = [
 ];
 
 // Geriye dönük uyumluluk: dışarıda CANDIDATE_DEFS bekleyen kod olabilir.
-export const CANDIDATE_DEFS = Object.fromEntries(
+const CANDIDATE_DEFS = Object.fromEntries(
   ["transit", "bicycle", "bicycle_rent", "bicycle_park", "car", "park_and_ride"]
     .map((k) => [k, ADAY_OLCULERI])
 );
 
 // Kaç benzersiz rota kartı gösterileceği — etiketli adaylar + ekstra seçenekler
-export const MAX_ROUTES = {
+const MAX_ROUTES = {
   transit:       5,
   bicycle:       3,
   bicycle_rent:  4,
@@ -478,7 +581,7 @@ export const MAX_ROUTES = {
 };
 
 // Ekstra rotalar için kısa etiket: transit hattı adları yoksa doğrudan mod
-export function routeScenarioLabel(itin) {
+function routeScenarioLabel(itin) {
   const names = itin.legs
     .filter((l) => !NON_TRANSIT_MODES.includes(l.mode) && l.route?.shortName)
     .map((l) => l.route.shortName);
@@ -492,7 +595,7 @@ export function routeScenarioLabel(itin) {
 }
 
 // Dedup key: süre + yürüyüş + kullanılan transit hatlar — farklı hatlar ayrı kart olur
-export function candidateKey(itin, walk) {
+function candidateKey(itin, walk) {
   const lines = itin.legs
     .filter((l) => !NON_TRANSIT_MODES.includes(l.mode))
     .map((l) => l.route?.shortName || "")
@@ -500,7 +603,7 @@ export function candidateKey(itin, walk) {
   return `${Math.round(walk.duration)}_${Math.round(walk.total)}_${lines}`;
 }
 
-export function selectCandidates(ranked, profileKey, fareBase = 0, farePerBoarding = false) {
+function selectCandidates(ranked, profileKey, fareBase = 0, farePerBoarding = false) {
   const withCarbon = ranked.map((r) => ({
     ...r,
     carbon: calcCarbonGrams(r.itin.legs),
@@ -567,12 +670,12 @@ export function selectCandidates(ranked, profileKey, fareBase = 0, farePerBoardi
 // Yolculuk ücreti.
 // Kredi/banka kartı: 90 dk aktarma hakkı yok → her biniş ayrı ücret
 // İzmirim Kart: 90 dk içinde aktarmalar dahil → yolculuk başı sabit ücret
-export function calcJourneyFare(transitLegCount, fareBase, farePerBoarding) {
+function calcJourneyFare(transitLegCount, fareBase, farePerBoarding) {
   if (transitLegCount === 0) return 0;
   return farePerBoarding ? transitLegCount * fareBase : fareBase;
 }
 
-export function buildRouteResult(candidate, fareBase, farePerBoarding, profileKey) {
+function buildRouteResult(candidate, fareBase, farePerBoarding, profileKey) {
   const { itin, walk, tag, tagColor, carbon, etiketler } = candidate;
 
   // Park noktası: ardından transit/yürüyüş gelen vehicle leg'in varışı.
@@ -648,3 +751,119 @@ export function buildRouteResult(candidate, fareBase, farePerBoarding, profileKe
     parkingPoint,
   };
 }
+
+/* ── routeInstructions.js ── */
+// Bacak metinleri. Kullanıcı burada bir VERİ SATIRI değil, YAPILACAK İŞ
+// okumalı: "Alsancak Gar → Çiğli İtfaiye" değil, "912 hattına Alsancak
+// Gar'dan bin · Çiğli İtfaiye'de in".
+//
+// Yer adları OTP'den geldiği gibi cümleye konamıyor. Üç tuzak var, üçü de
+// ekranda görüldü:
+//   • "from" / "to" — sorguya koyduğumuz etiketlerdi ve kartta
+//     "from → Asmaaltı" diye çıkıyordu. Etiketler backend'de "Başlangıç" /
+//     "Varış" olarak düzeltildi, ama ikisi de bir YER ADI değil; cümleye
+//     konursa "Varış noktasına yürü" gibi boş bir metin çıkar.
+//   • "unknown" — OTP'nin adsız düğüm karşılığı
+//   • "BİSİM bisikleti" — serbest kiralık aracın adı; yer değil, araç
+//
+// Bacak tek başına yeterli bağlam taşımıyor, bu yüzden fonksiyon TÜM
+// listeyi görüyor: bir yürüyüşün anlamı ardından geleni, bisikletin park
+// edilip edilmediği ise transitten SONRA bisikletin devam edip etmediğini
+// bilmeyi gerektiriyor.
+
+const TRANSIT_MODES = ["BUS", "RAIL", "SUBWAY", "TRAM"];   // vapur yok — bkz. routeScoring
+const BISIKLET_MODLARI = ["BICYCLE", "BICYCLE_RENTAL"];
+
+const YER_DEGIL = new Set(["from", "to", "unknown", "Başlangıç", "Varış", "BİSİM bisikleti"]);
+
+function yer(ad) {
+  const t = String(ad ?? "").trim();
+  return !t || YER_DEGIL.has(t) ? null : t;
+}
+
+const dk = (leg) => `${Math.max(1, Math.round((leg.duration || 0) / 60))} dk`;
+
+function getLegInstruction(leg, legs = null, index = -1) {
+  const liste = Array.isArray(legs) ? legs : [];
+  const i = index >= 0 ? index : liste.indexOf(leg);
+  const sonraki = i >= 0 ? liste[i + 1] : undefined;
+  const sonMu = i >= 0 ? i === liste.length - 1 : false;
+
+  const nereye = yer(leg.to);
+  const nereden = yer(leg.from);
+
+  if (leg.mode === "WALK") {
+    if (sonraki && TRANSIT_MODES.includes(sonraki.mode)) {
+      return { title: nereye ? `${nereye} durağına yürü` : "Durağa yürü", detail: `${dk(leg)} yürüyüş` };
+    }
+    if (sonraki && sonraki.mode === "BICYCLE_RENTAL") {
+      return { title: "Bisikletin yanına yürü", detail: `${dk(leg)} yürüyüş` };
+    }
+    if (sonMu || !sonraki) {
+      return { title: nereye ? `${nereye} noktasına yürü` : "Varışa yürü", detail: `${dk(leg)} yürüyüş · son adım` };
+    }
+    return { title: nereye ? `${nereye} noktasına yürü` : "Yürü", detail: `${dk(leg)} yürüyüş` };
+  }
+
+  if (TRANSIT_MODES.includes(leg.mode)) {
+    // Hat numarası olmayan servisler var: İZBAN seferlerinin GTFS'te
+    // short_name'i yok ve "Araca ... bin" diye çıkıyordu. O durumda modun
+    // adı ("Banliyö", "Metro", "Tramvay") çok daha bilgilendirici.
+    const hat = leg.routeName
+      ? `${leg.routeName} hattına`
+      : leg.label ? `${leg.label} hattına` : "Araca";
+    const bin = nereden ? `${hat} ${nereden} durağından bin` : `${hat} bin`;
+    const inis = nereye ? `${nereye} durağında in` : "Son durakta in";
+    // Bisiklet bu araca BİNİYOR mu? Cevap ancak listeye bakınca verilebilir:
+    // bisiklet bacağı transitten SONRA da devam ediyorsa bisiklet yanındadır.
+    // Kullanıcının bilmesi gereken tam olarak bu — bırakacak mı, alacak mı.
+    const oncedenBisiklet = liste.slice(0, i).some((l) => BISIKLET_MODLARI.includes(l.mode));
+    const sonradanBisiklet = liste.slice(i + 1).some((l) => BISIKLET_MODLARI.includes(l.mode));
+    const bisikletYanimda = oncedenBisiklet && sonradanBisiklet;
+    return { title: bin, detail: bisikletYanimda ? `${inis} · bisikletin yanında` : inis };
+  }
+
+  if (leg.mode === "BICYCLE_RENTAL") {
+    if (sonMu || !sonraki) {
+      return { title: "Bisikletle varışa git", detail: `${dk(leg)} sürüş · hizmet alanı içinde bırak` };
+    }
+    if (TRANSIT_MODES.includes(sonraki.mode)) {
+      return {
+        title: nereye ? `Bisikletle ${nereye} durağına git` : "Bisikletle durağa git",
+        detail: `${dk(leg)} sürüş · bisikleti burada bırak`,
+      };
+    }
+    return { title: "Bisikletle devam et", detail: `${dk(leg)} sürüş` };
+  }
+
+  if (leg.mode === "BICYCLE") {
+    if (sonMu || !sonraki) {
+      return { title: "Bisikletle varışa git", detail: `${dk(leg)} sürüş · son adım` };
+    }
+    if (TRANSIT_MODES.includes(sonraki.mode)) {
+      // Bisikleti park mı edecek, yanına mı alacak? Sonrasında yine bisiklet
+      // bacağı varsa yanına alıyordur (metro, tramvay ve İZBAN'a bisiklet
+      // binebiliyor — bkz. izmir_backend/docs/API.md).
+      const yanindaGotururuyor = liste.slice(i + 1).some((l) => BISIKLET_MODLARI.includes(l.mode));
+      return {
+        title: nereye ? `Bisikletle ${nereye} istasyonuna git` : "Bisikletle istasyona git",
+        detail: yanindaGotururuyor
+          ? `${dk(leg)} sürüş · bisikleti yanına al`
+          : `${dk(leg)} sürüş · bisikleti burada kilitle`,
+      };
+    }
+    return { title: nereye ? `Bisikletle ${nereye} noktasına git` : "Bisikletle devam et", detail: `${dk(leg)} sürüş` };
+  }
+
+  if (leg.mode === "CAR") {
+    return {
+      title: nereye ? `${nereye} otoparkına sür` : "Otoparka sür",
+      detail: `${dk(leg)} sürüş · aracı burada bırak`,
+    };
+  }
+
+  return { title: nereye ? `${nereye} noktasına devam et` : "Devam et", detail: dk(leg) };
+}
+
+global.RS = { SCORING, WALK_LEG_TARGET, BIKE_LEG_MIN, MOD_AMACI, MUTLAK_YURUYUS_TAVANI, YURUYUS_BACAK_TAVANI_SN, BISIKLET_ASGARI_PAY, MODE_STYLE, NON_TRANSIT_MODES, resolveProfileKey, calcLegDistanceMeters, rankItineraries, selectCandidates, buildRouteResult, getLegInstruction, CANDIDATE_DEFS, ADAY_OLCULERI, MAX_ROUTES, calcCarbonGrams, candidateKey, calcJourneyFare, ONERI_TOLERANSI, oneriSinirinaUydur, ayniHattiTekilleştir, decodePolyline };
+})(typeof window !== "undefined" ? window : globalThis);

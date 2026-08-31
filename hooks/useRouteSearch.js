@@ -9,10 +9,30 @@ import {
 // bu yüzden backend GBFS feed'inde is_renting=false gönderilir ve OTP kiralama
 // rotası üretmez. Bu bir bağlantı hatası değil, veri kaynağının kesilmesidir —
 // kullanıcıya doğru sebep ve kullanılabilir alternatif gösterilir.
-const BISIM_UNAVAILABLE_MSG =
-  "BİSİM'in anlık bisiklet doluluğu şu anda yayınlanmıyor, bu yüzden kiralama " +
-  "rotası oluşturulamıyor. İstasyonlar haritada görünmeye devam ediyor. " +
-  "Dilerseniz \"Kendi Bisikletim\" seçeneğiyle devam edebilirsiniz.";
+// Mod seçimi bir vaattir: "BİSİM + Aktarma" seçen kullanıcıya BİSİM'siz,
+// "Bisikletim + Aktarma" seçene bisikletsiz güzergâh gösterilmez. Vaat
+// tutulamıyorsa sebebi yazılır — başka bir modun sonucunu o modmuş gibi
+// göstermek yerine.
+const MOD_BOS_MESAJI = {
+  bicycle_rent:
+    "Bu yolculuk için BİSİM'li bir güzergâh kurulamadı — başlangıç ya da varış " +
+    "hizmet alanının dışında kalıyor, ya da bisiklet yolculuğa anlamlı bir katkı " +
+    "sağlamıyor olabilir. Hizmet alanı haritada görünmeye devam ediyor.",
+  bicycle_park:
+    "Bu yolculuk için bisikletli bir güzergâh kurulamadı — bisiklet yolculuğa " +
+    "anlamlı bir katkı sağlamıyor. Toplu taşıma seçeneğine bakabilirsiniz.",
+  park_and_ride:
+    "Bu yolculuk için Park + Devam güzergâhı kurulamadı — araç ya da toplu taşıma " +
+    "tarafı anlamlı bir mesafe tutmuyor.",
+};
+
+// Yürüyüş tavanı (tek bacakta 20 dk) her güzergâhı elediğinde gösterilir.
+// Boş liste ile "sunucuya ulaşılamadı" ayırt edilemiyordu; kullanıcı sebebi
+// bilmeden aynı aramayı tekrarlıyordu.
+const YURUYUS_TAVANI_MSG =
+  "Bu yolculuk için bulunan güzergâhların hepsinde tek seferde 20 dakikadan " +
+  "uzun yürüyüş var. Başka bir mod deneyebilir ya da başlangıç/varış noktasını " +
+  "bir durağa yakın seçebilirsiniz.";
 
 async function saveToHistory(best, fromName, toName, profile) {
   try {
@@ -33,14 +53,18 @@ export function useRouteSearch(fareBase = 35, farePerBoarding = false) {
   const [routes, setRoutes] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  // Hata değil, açıklama: sonuç geçerli ama kullanıcının seçtiği moddan
+  // farklı bir şey gösteriliyor. Sessizce yapmak yanıltıcı olurdu.
+  const [notice, setNotice] = useState(null);
 
   const fetchRoute = async (from, to, prof, fromName = "", toName = "", bikeType = null, carMode = null) => {
     setLoading(true);
     setError(null);
+    setNotice(null);
     setRoutes([]);
 
     const effectiveProf = prof === "car" && carMode === "park_and_ride" ? "park_and_ride" : prof;
-    const profileKey = resolveProfileKey(effectiveProf, bikeType);
+    const secilenKey = resolveProfileKey(effectiveProf, bikeType);
 
     try {
       const data = await apiFetchRoute(from, to, effectiveProf, effectiveProf === "bicycle" ? bikeType : null);
@@ -55,22 +79,40 @@ export function useRouteSearch(fareBase = 35, farePerBoarding = false) {
         return null;
       }
 
-      // BİSİM kiralama modunda yalnızca bisiklet kiralama bacağı olan rotalar gösterilir.
+      const profileKey = secilenKey;
+
+      // Mod saflığı: bisiklet modlarında ARAÇSIZ güzergâh gösterilmez.
+      // BİSİM'de kiralık bisiklet, kendi bisikletinde bisiklet bacağı şart.
+      // (Backend'in eski "bisikletsiz yedek" sorgusu tam da bu yüzden
+      // kaldırıldı — bkz. services/OtpService.js.)
+      const ARANAN = {
+        bicycle_rent: (l) => l.mode === "BICYCLE_RENTAL",
+        bicycle_park: (l) => l.mode === "BICYCLE" || l.mode === "BICYCLE_RENTAL",
+      };
       let validItineraries = itineraries;
-      if (profileKey === "bicycle_rent") {
-        validItineraries = itineraries.filter((itin) =>
-          itin.legs.some((l) => l.mode === "BICYCLE_RENTAL")
-        );
+      const aranan = ARANAN[profileKey];
+      if (aranan) {
+        validItineraries = itineraries.filter((itin) => itin.legs.some(aranan));
         if (validItineraries.length === 0) {
-          const modes = [...new Set(itineraries.flatMap((i) => i.legs.map((l) => l.mode)))];
-          console.warn("BİSİM: OTP rota döndü ama BICYCLE_RENTAL yok. Modlar:", modes);
-          setError(BISIM_UNAVAILABLE_MSG);
+          const modlar = [...new Set(itineraries.flatMap((i) => i.legs.map((l) => l.mode)))];
+          console.warn(`${profileKey}: OTP rota döndü ama araç yok. Modlar:`, modlar);
+          setError(MOD_BOS_MESAJI[profileKey]);
           return null;
         }
       }
 
       const ranked = rankItineraries(validItineraries, profileKey);
-      const candidates = selectCandidates(ranked, profileKey);
+      // rankItineraries yürüyüş tavanını AŞAN her güzergâhı eler ve geriye
+      // hiçbir şey kalmayabilir — bu bir hata değil, kuralın çalışmasıdır.
+      // Sebebi söylenmezse kullanıcı boş ekranı bağlantı sorunu sanıyor.
+      // rankItineraries iki gerekçeyle boş dönebilir: yürüyüş tavanı, ya da
+      // modun amacına uyan aday kalmaması. İkisi kullanıcı için farklı
+      // şeyler; aynı mesajı vermek yanıltıcı olurdu.
+      if (ranked.length === 0) {
+        setError(MOD_BOS_MESAJI[profileKey] || YURUYUS_TAVANI_MSG);
+        return null;
+      }
+      const candidates = selectCandidates(ranked, profileKey, fareBase, farePerBoarding);
       const routeResults = candidates.map((c) => buildRouteResult(c, fareBase, farePerBoarding, profileKey));
 
       setRoutes(routeResults);
@@ -88,7 +130,7 @@ export function useRouteSearch(fareBase = 35, farePerBoarding = false) {
     }
   };
 
-  const clearRoute = () => { setRoutes([]); setError(null); };
+  const clearRoute = () => { setRoutes([]); setError(null); setNotice(null); };
 
-  return { routes, loading, error, fetchRoute, clearRoute };
+  return { routes, loading, error, notice, fetchRoute, clearRoute };
 }

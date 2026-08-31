@@ -26,13 +26,14 @@ export async function fetchRoute(from, to, profile, bikeType = null) {
 // arasında özel kiralama dükkânları ve kaldırılmış istasyonlar da vardı.
 // Backend operator=BİSİM süzgecini uygular ve kapasiteyi tamamlar.
 //
-// NOT: Bu uç anlık doluluk döndürmez — her istasyona bikes: null yazar.
-// BİSİM'in gerçek zamanlı verisi 2025-07-23'ten beri yayınlanmıyor.
-// (Eskiden ayrıca bir fetchBisimRealtimeStations vardı; aynı ucu çağırıyor,
-// yalnızca timeout'u farklıydı. Artık timeout burada.)
-export async function fetchBisimStations() {
+// NOT: BİSİM 2025-08'de sabit istasyonları kaldırdı; sistem bölge tabanlı.
+// Bu uç artık BÖLGE döndürür, istasyon değil: bisiklet hizmet alanı içinde
+// her yere bırakılabilir, bu bölgelere bırakılırsa bonus kazanılır.
+// Dolayısıyla "doluluk" diye bir alan yok — olmadığı için de uydurulmuyor.
+// Alanlar: { id, ad, ilce, lat, lon, yaricapM, guven }
+export async function fetchBisimZones() {
   const data = await apiGet(`${API_URL}/bisim/stations`, { timeoutMs: 10000 });
-  return data.stations || [];
+  return data.bolgeler || [];
 }
 
 // OSM'den kapalı ve yeraltı otoparkları + isimli açık otoparklar.
@@ -57,10 +58,14 @@ export async function fetchPrStations() {
   return data.stations || [];
 }
 
-// Bisiklet PARK+TAŞIMA: OTP'nin bisiklet parkı için gerçekten değerlendirdiği
-// yerler — 2026-08 ölçümünde 87 gerçek OSM bisiklet parkı. Bir süre burada
-// İZELMAN'ın 6 araba otoparkı da görünüyordu (router-config aynı feed'i
-// BICYCLE_PARK_API olarak da besliyordu); o updater kaldırıldı.
+// Bisikletim + Aktarma katmanı: OTP'nin bisiklet parkı için GERÇEKTEN
+// değerlendirdiği yerler. İki kaynaktan gelirler:
+//   • OSM'nin amenity=bicycle_parking düğümleri (87 nokta, sahil ağırlıklı)
+//   • backend'in /parking/bike-feed'i — raylı sistem istasyonları
+// İkincisi 2026-08'de eklendi: OSM'de metro istasyonlarında bisiklet parkı
+// yoktu ve OTP bisikleti istasyonun kilometrelerce beriside bırakıp kalan
+// yolu otobüsle kapatıyordu (bkz. ParkingService.bisikletParkYerleri).
+// Katman böylece rotanın kullanabileceği noktaların tamamını gösterir.
 export async function fetchBikePrStations() {
   const data = await apiGet(`${API_URL}/parking/otp-lots?vehicle=bicycle`);
   return data.stations || [];

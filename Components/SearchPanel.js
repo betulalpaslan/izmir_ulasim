@@ -6,10 +6,18 @@ import SearchBar from "./SearchBar";
 import AppIcon from "./AppIcon";
 import { useTheme } from "../utils/ThemeContext";
 
+// Bisiklet profilinin iki modu. İkisi de AKTARMALIDIR: bisiklet burada
+// yolculuğun kendisi değil, toplu taşımaya erişme aracıdır.
+//
+// Üçüncü bir seçenek ("Kendi Bisikletim" — baştan sona sürüş) vardı ve
+// kaldırıldı. Ölçüldü: Narlıdere → Çiğli'de o mod tek bir kart üretiyordu,
+// 137 dakikalık 33.5 km'lik kesintisiz sürüş. Doğru bir yanıttı ama kimsenin
+// yapacağı bir yolculuk değildi; üstelik aktarmalı adayları listeden
+// itiyordu. Baştan sona bisikletle gitmek isteyen kullanıcı için ayrı bir
+// moda gerek yok.
 const BIKE_OPTIONS = [
-  { key: "RENT", icon: "bike", label: "Kirala" },
-  { key: null,   icon: "bike", label: "Kendi Bisikletim" },
-  { key: "PARK", icon: "bus",  label: "Park + Taşıma" },
+  { key: "PARK", icon: "bike", label: "Bisikletim + Aktarma" },
+  { key: "RENT", icon: "bike", label: "BİSİM + Aktarma" },
 ];
 
 export default function SearchPanel({
