@@ -15,9 +15,12 @@ import { useTheme } from "../utils/ThemeContext";
 // yapacağı bir yolculuk değildi; üstelik aktarmalı adayları listeden
 // itiyordu. Baştan sona bisikletle gitmek isteyen kullanıcı için ayrı bir
 // moda gerek yok.
+// Etiketler web arayüzüyle BİREBİR aynı olmalı (izmir_ulasim/web/index.html,
+// data-bike düğmeleri): aynı modun iki istemcide iki farklı adı olduğunda
+// kullanıcı ikisini ayrı özellik sanıyor.
 const BIKE_OPTIONS = [
-  { key: "PARK", icon: "bike", label: "Bisikletim + Aktarma" },
-  { key: "RENT", icon: "bike", label: "BİSİM + Aktarma" },
+  { key: "PARK", icon: "bike", label: "Kişisel Bisiklet" },
+  { key: "RENT", icon: "bike", label: "BİSİM" },
 ];
 
 export default function SearchPanel({

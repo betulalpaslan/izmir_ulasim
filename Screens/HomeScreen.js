@@ -24,6 +24,10 @@ import { useNavigationMode } from "../hooks/useNavigationMode";
 const IZMIR_REGION = { latitude: 38.428, longitude: 27.16, latitudeDelta: 0.08, longitudeDelta: 0.08 };
 const MAP_PADDING = { top: 120, right: 60, bottom: 300, left: 60 };
 
+// BİSİM katmanının boş hâli. Ayrı bir sabit çünkü katman üç yerde temizleniyor
+// ve biri `[]` bırakırsa hizmet alanı haritada asılı kalıyor.
+const BISIM_BOS = { bolgeler: [], hizmetAlani: null };
+
 function getTimeContext() {
   const now = new Date();
   const hour = now.getHours();
@@ -58,7 +62,9 @@ export default function HomeScreen() {
   // Components/SearchPanel.js BIKE_OPTIONS.
   const [bikeType, setBikeType] = useState("PARK");
   const [carMode, setCarMode] = useState(null);
-  const [bisimStations, setBisimStations] = useState([]);
+  // BİSİM katmanı iki geometri taşır: bonus bölgeleri ve hizmet alanı.
+  // Boş hâli de aynı şekilde olmalı, yoksa katman kapanınca alan asılı kalıyor.
+  const [bisim, setBisim] = useState({ bolgeler: [], hizmetAlani: null });
   const [parkingStations, setParkingStations] = useState([]);
   const [prStations, setPrStations] = useState([]);
   const [osmParking, setOsmParking] = useState([]);
@@ -71,7 +77,7 @@ export default function HomeScreen() {
   const [timeTip] = useState(() => getTimeContext());
 
   const { fareBase, farePerBoarding, profiles, savedPlaces, savePlace } = useSettings();
-  const { routes, loading, error, notice, fetchRoute, clearRoute } = useRouteSearch(fareBase, farePerBoarding);
+  const { routes, loading, error, notice, modBos, fetchRoute, clearRoute } = useRouteSearch(fareBase, farePerBoarding);
   const [selectedRouteIdx, setSelectedRouteIdx] = useState(0);
 
   // ── Navigasyon ──────────────────────────────────────────────
@@ -115,17 +121,17 @@ export default function HomeScreen() {
 
   useEffect(() => {
     if (profile !== "bicycle") {
-      setBisimStations([]);
+      setBisim(BISIM_BOS);
       setParkingStations([]);
       setLayerError(null);
       return;
     }
     if (bikeType === "RENT") {
-      loadLayer(fetchBisimZones, setBisimStations, "BİSİM bölgeleri");
+      loadLayer(fetchBisimZones, setBisim, "BİSİM bölgeleri");
       setParkingStations([]);
     } else {
       loadLayer(fetchBikePrStations, setParkingStations, "Bisiklet park noktaları");
-      setBisimStations([]);
+      setBisim(BISIM_BOS);
     }
   }, [profile, bikeType]);
 
@@ -175,6 +181,16 @@ export default function HomeScreen() {
     if (allCoords.length > 1) {
       mapRef.current?.fitToCoordinates(allCoords, { edgePadding: MAP_PADDING, animated: true });
     }
+  };
+
+  // Seçilen mod bu yolculukta işini göremediğinde sunulan çıkış: düz toplu
+  // taşımaya geç ve aynı yolculuğu yeniden ara. Profil GERÇEKTEN değişir —
+  // kullanıcı transit sonucuna baktığını sekmeden de görür; sessizce başka
+  // modun sonucunu göstermek vaadi bozardı.
+  const handleAlternative = () => {
+    if (!origin || !destination) return;
+    setProfile("transit");
+    doFetchRoute(origin, destination, "transit", originText, destText);
   };
 
   const doFetchRoute = (from, to, prof, fromName = "", toName = "", bType = bikeType, cMode = carMode) => {
@@ -347,7 +363,7 @@ export default function HomeScreen() {
         {origin && <Marker coordinate={origin} pinColor="#4ade80" title="Başlangıç" />}
         {destination && <Marker coordinate={destination} pinColor="#f87171" title="Varış" />}
 
-        <BisimMarkers stations={bisimStations} />
+        <BisimMarkers stations={bisim.bolgeler} hizmetAlani={bisim.hizmetAlani} />
         {/* "Park + Taşıma" ile "Kendi Bisikletim" farklı kaynaklardan beslenir;
             ayırt edilebilmeleri için ayrı renkle çizilirler. */}
         <BikeParkingMarkers stations={parkingStations} variant={bikeType === "PARK" ? "pr" : "own"} />
@@ -459,6 +475,8 @@ export default function HomeScreen() {
                   loading={loading}
                   error={error}
                   notice={notice}
+                  modBos={modBos}
+                  onAlternative={handleAlternative}
                   timeTip={timeTip}
                   origin={origin}
                   destination={destination}

@@ -6,7 +6,7 @@ import { getLegInstruction } from "../utils/routeInstructions";
 import { NON_TRANSIT_MODES } from "../utils/routeScoring";
 import { formatDistance } from "../utils/geo";
 
-export default function RoutePanel({ routes, selectedIdx, onSelect, loading, error, notice, timeTip, origin, destination, onReset, bikeType }) {
+export default function RoutePanel({ routes, selectedIdx, onSelect, loading, error, notice, timeTip, origin, destination, onReset, bikeType, modBos, onAlternative }) {
   const { theme } = useTheme();
 
   if (loading) {
@@ -21,9 +21,28 @@ export default function RoutePanel({ routes, selectedIdx, onSelect, loading, err
   }
 
   if (error) {
+    // Seçilen mod bu yolculukta işini göremiyorsa "Tekrar dene" işe yaramaz —
+    // aynı arama aynı sonucu verir. Ölçülmüş bir alternatif varsa çıkış olarak
+    // sunulur. Mod kartı DEĞİLDİR ve öyle görünmemeli: kullanıcı bunu seçerek
+    // moddan çıktığını bilmeli, yoksa vaat sessizce bozulmuş olur.
+    const alternatifDk =
+      modBos?.alternatifSn != null ? Math.round(modBos.alternatifSn / 60) : null;
     return (
       <View style={s.stateBox}>
         <Text style={s.errorText}>{error}</Text>
+        {alternatifDk != null && onAlternative && (
+          <TouchableOpacity
+            style={[s.actionBtn, { backgroundColor: theme.input, borderColor: "#60a5fa" }]}
+            onPress={onAlternative}
+          >
+            <View style={s.actionContent}>
+              <AppIcon name="bus" size={15} color="#60a5fa" />
+              <Text style={[s.actionText, { color: "#60a5fa" }]}>
+                Toplu taşıma: {alternatifDk} dk
+              </Text>
+            </View>
+          </TouchableOpacity>
+        )}
         <TouchableOpacity style={[s.actionBtn, { backgroundColor: theme.input, borderColor: theme.border }]} onPress={onReset}>
           <View style={s.actionContent}>
             <AppIcon name="refresh" size={15} color={theme.muted} />

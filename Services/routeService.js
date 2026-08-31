@@ -31,9 +31,17 @@ export async function fetchRoute(from, to, profile, bikeType = null) {
 // her yere bırakılabilir, bu bölgelere bırakılırsa bonus kazanılır.
 // Dolayısıyla "doluluk" diye bir alan yok — olmadığı için de uydurulmuyor.
 // Alanlar: { id, ad, ilce, lat, lon, yaricapM, guven }
+// İki geometri birden döner ve ikisi ayrı soruya cevap verir:
+//   bolgeler    → bırakınca bonus kazandıran alanlar
+//   hizmetAlani → bisikletin bırakılabileceği alanın kendisi (dışına
+//                 bırakılamaz). Dockless modelin bütün anlamı bu; alan
+//                 çizilmeden kullanıcı yalnız 11 daire görüyor ve bisikleti
+//                 başka bir yere bırakabileceğini bilmiyordu.
+// Alan YAKLAŞIKTIR (bisiklet yolu ağından türetilmiş tamponlu kabuk), bu
+// yüzden ekranda öyle etiketlenmeli — bkz. BisimMarkers.
 export async function fetchBisimZones() {
   const data = await apiGet(`${API_URL}/bisim/stations`, { timeoutMs: 10000 });
-  return data.bolgeler || [];
+  return { bolgeler: data.bolgeler || [], hizmetAlani: data.hizmetAlani || null };
 }
 
 // OSM'den kapalı ve yeraltı otoparkları + isimli açık otoparklar.
