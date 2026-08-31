@@ -1,5 +1,5 @@
 export {
-  fetchRoute, fetchBisimStations, fetchBicycleParkingStations,
+  fetchRoute, fetchBisimZones, fetchBicycleParkingStations,
   fetchPrStations, fetchBikePrStations, fetchOsmParkingSpots,
 } from "./routeService";
 export { searchAddress } from "./geocodingService";
