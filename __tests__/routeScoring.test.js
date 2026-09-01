@@ -2,6 +2,7 @@ import {
   resolveProfileKey, calcCarbonGrams, calcJourneyFare,
   rankItineraries, selectCandidates, buildRouteResult, candidateKey, BIKE_LEG_MIN,
   oneriSinirinaUydur, ayniHattiTekilleştir, ONERI_TOLERANSI, ADAY_OLCULERI,
+  calcBisimFare, BISIM_TARIFESI, BILET_TARIFESI, biletTarifesi, ucretYazi,
 } from "../utils/routeScoring";
 
 // OTP'nin döndürdüğü biçime yakın sahte güzergâh üretici.
@@ -190,22 +191,31 @@ describe("rankItineraries", () => {
     expect(rankItineraries([bisikletli(4320, 4860)], "bicycle_park")).toHaveLength(1);
   });
 
-  // Asıl derdimiz: 282 m'lik bisiklet bacağı yolculuğu 6.2 dakika UZATIYORDU
-  // (Konak → Bornova). Kazanç negatif olduğu için elenir.
-  it("bisiklet yolculuğu uzatıyorsa elenir", () => {
-    expect(rankItineraries([bisikletli(3018, 2646)], "bicycle_park")).toHaveLength(0);
+  // Ölçüt kazançtan KAYIP TAVANINA döndü: bisikleti yanında olan biri
+  // yarışa çıkmıyor, sürüş yolculuğu bir miktar uzatabilir.
+  it("yolculuğu tavanın altında uzatıyorsa kalır", () => {
+    // 6.2 dakika uzatıyor (Konak → Bornova ölçümü) — tavan 15 dakika.
+    expect(rankItineraries([bisikletli(3018, 2646)], "bicycle_park")).toHaveLength(1);
   });
 
-  it("kazanç eşiğin altındaysa elenir", () => {
-    // 1.5 dakika kazanç — eşik 3 dakika. Ölçümde 0.8 ve 1.4 dakikalık
-    // kazançlar vardı ve bisikleti çıkarmayı haklı çıkarmıyorlar.
-    expect(rankItineraries([bisikletli(4530, 4620)], "bicycle_park")).toHaveLength(0);
+  it("küçük kazanç artık elemez", () => {
+    // 1.5 dakika kazanç. Eski 3 dakikalık kazanç eşiğinde eleniyordu.
+    expect(rankItineraries([bisikletli(4530, 4620)], "bicycle_park")).toHaveLength(1);
   });
 
-  // Eşik tam 3 dakikada geçer. Ölçümde iki senaryo (Konak → Karşıyaka ve
-  // Karşıyaka → Bornova) tam +3.1 dakikayla burada duruyor.
-  it("tam eşik kadar kazanç yeterlidir", () => {
-    expect(rankItineraries([bisikletli(4440, 4620)], "bicycle_park")).toHaveLength(1);
+  // Kullanıcının bildirdiği hal: 0.6 dakikalık uzatma yüzünden mod
+  // tamamen kapanıyordu.
+  it("yarım dakikalık uzatma modu kapatmaz", () => {
+    expect(rankItineraries([bisikletli(2682, 2646)], "bicycle_park")).toHaveLength(1);
+  });
+
+  // Tavan tam 15 dakikada geçer.
+  it("tam tavan kadar uzatma kabul edilir", () => {
+    expect(rankItineraries([bisikletli(2646 + 900, 2646)], "bicycle_park")).toHaveLength(1);
+  });
+
+  it("tavanı aşan uzatma elenir", () => {
+    expect(rankItineraries([bisikletli(2646 + 901, 2646)], "bicycle_park")).toHaveLength(0);
   });
 
   // Taban sorgusu düşmüş olabilir. Bilinmeyen bir sayı yüzünden kullanıcıyı
@@ -364,6 +374,58 @@ describe("selectCandidates", () => {
   });
 });
 
+describe("BİSİM tarifesi", () => {
+  // Yayımlanan tarife: dakika 1,50 TL · ilk 5 dk 10,00 TL · 1 saat 92,50 TL.
+  // Üçüncü rakam açılış bloğunun ilk 5 dakikayı KAPSADIĞINI kanıtlıyor:
+  // 10 + 55 × 1,50 = 92,50. Blok üstüne 60 dakika sayılsaydı 100,00 çıkardı.
+  it("ilk 5 dakika tek blok ücrettir", () => {
+    expect(calcBisimFare(60)).toBe(10);
+    expect(calcBisimFare(5 * 60)).toBe(10);
+  });
+
+  it("5. dakikadan sonra dakika başına ücretlenir", () => {
+    expect(calcBisimFare(6 * 60)).toBe(11.5);
+    expect(calcBisimFare(60 * 60)).toBe(92.5);   // yayımlanan 1 saat fiyatı
+  });
+
+  it("başlanan dakika tam sayılır", () => {
+    expect(calcBisimFare(5 * 60 + 1)).toBe(11.5);
+  });
+
+  it("sürüş yoksa ücret yoktur", () => {
+    expect(calcBisimFare(0)).toBe(0);
+    expect(calcBisimFare(undefined)).toBe(0);
+  });
+
+  it("ön provizyon tarifede ayrı durur — ücret değildir", () => {
+    expect(BISIM_TARIFESI.provizyon).toBe(47.5);
+  });
+});
+
+describe("bilet tarifesi", () => {
+  it("yayımlanan A tarifesini taşır", () => {
+    const beklenen = { tam: 35, genc: 17.5, ogretmen: 23.5, yas60: 29, kredikarti: 39 };
+    for (const [id, tutar] of Object.entries(beklenen)) {
+      expect(biletTarifesi(id).base).toBe(tutar);
+    }
+    expect(BILET_TARIFESI).toHaveLength(5);
+  });
+
+  it("yalnız kredi/banka kartında aktarma hakkı yoktur", () => {
+    const perBoarding = BILET_TARIFESI.filter((b) => b.perBoarding).map((b) => b.id);
+    expect(perBoarding).toEqual(["kredikarti"]);
+  });
+
+  it("bilinmeyen kimlik tam bilete düşer — ücret hiç hesaplanmadan kalmaz", () => {
+    expect(biletTarifesi("olmayan").id).toBe("tam");
+  });
+
+  it("tutarı Türkçe ondalıkla yazar, tam sayıda kuruş göstermez", () => {
+    expect(ucretYazi(17.5)).toBe("17,50");
+    expect(ucretYazi(35)).toBe("35");
+  });
+});
+
 describe("buildRouteResult", () => {
   const rota = guzergah(1800, [
     bacak("WALK", 300, 400),
@@ -385,6 +447,35 @@ describe("buildRouteResult", () => {
   it("İzmirim Kart ile tek ücret, kredi kartı ile biniş başına ücret uygular", () => {
     expect(buildRouteResult(aday(), 35, false, "transit").cost).toBe(35);
     expect(buildRouteResult(aday(), 39, true, "transit").cost).toBe(78); // 2 biniş
+  });
+
+  it("BİSİM kiralaması bilete eklenir, provizyon eklenmez", () => {
+    // 12 dakikalık BİSİM: 10 + 7 × 1,50 = 20,50 TL. Üstüne tam bilet 35,00.
+    const bisimliRota = guzergah(1500, [
+      bacak("BICYCLE_RENTAL", 720, 3000),
+      bacak("BUS", 600, 4000, "169"),
+      bacak("WALK", 180, 220),
+    ]);
+    const [siralanan] = rankItineraries([bisimliRota], "bicycle_rent");
+    const sonuc = buildRouteResult(
+      { ...siralanan, carbon: 0, tag: "Önerilen", tagColor: "#60a5fa" },
+      35, false, "bicycle_rent"
+    );
+
+    expect(sonuc.ucretDetay.bilet).toBe(35);
+    expect(sonuc.ucretDetay.bisim).toBe(20.5);
+    expect(sonuc.ucretDetay.bisimDakika).toBe(12);
+    expect(sonuc.cost).toBe(55.5);
+    // Provizyon bloke edilip iade edilir: toplama girmez, ayrı taşınır.
+    expect(sonuc.ucretDetay.provizyon).toBe(47.5);
+    expect(sonuc.cost).toBeLessThan(sonuc.cost + sonuc.ucretDetay.provizyon);
+  });
+
+  it("BİSİM yoksa provizyon notu da yoktur", () => {
+    const sonuc = buildRouteResult(aday(), 35, false, "transit");
+    expect(sonuc.ucretDetay.bisim).toBe(0);
+    expect(sonuc.ucretDetay.provizyon).toBe(0);
+    expect(sonuc.cost).toBe(35);
   });
 
   it("her bacağa arayüz için renk, ikon ve etiket ekler", () => {

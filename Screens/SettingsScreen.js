@@ -7,20 +7,51 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "@react-navigation/native";
 import AppIcon from "../Components/AppIcon";
 import { useTheme } from "../utils/ThemeContext";
+import { BILET_TARIFESI, BISIM_TARIFESI, ucretYazi } from "../utils/routeScoring";
 
-// İzmir A Tarifesi — İzmirim Kart (90 dk aktarma dahil) ve Kredi Kartı (her binişte ayrı)
-const PASSENGERS = [
-  { id: "tam",        icon: "user",      name: "Tam",              desc: "İzmirim Kart · 90 dk aktarma dahil", fare: "35,00 ₺", base: 35,   perBoarding: false },
-  { id: "genc",       icon: "student",   name: "Genç",             desc: "7-25 yaş · 90 dk aktarma dahil",     fare: "17,50 ₺", base: 17.5, perBoarding: false },
-  { id: "ogretmen",   icon: "work",      name: "Öğretmen",         desc: "İzmirim Kart · 90 dk aktarma dahil", fare: "23,50 ₺", base: 23.5, perBoarding: false },
-  { id: "yas60",      icon: "userCog",   name: "60 Yaş",           desc: "İzmirim Kart · 90 dk aktarma dahil", fare: "29,00 ₺", base: 29,   perBoarding: false },
-  { id: "kredikarti", icon: "userCircle",name: "Kredi / Banka Kartı", desc: "Her binişte ayrı ücret · aktarma hakkı yok", fare: "39,00 ₺", base: 39, perBoarding: true },
+// İzmir A Tarifesi. RAKAMLAR BURADA DEĞİL: tarife utils/routeScoring.js'te
+// tek yerde duruyor, bu ekran yalnız ikon eşlemesini ekliyor. Rakamı
+// kopyalamak zaten bir kere ters tepmişti — onboarding ekranı "Yetişkin
+// 25,00 ₺" derken ayarlar aynı bilete 35,00 ₺ diyordu.
+const YOLCU_IKONU = {
+  tam: "user", genc: "student", ogretmen: "work",
+  yas60: "userCog", kredikarti: "userCircle",
+};
+const PASSENGERS = BILET_TARIFESI.map((b) => ({
+  id: b.id,
+  icon: YOLCU_IKONU[b.id] || "user",
+  name: b.ad,
+  desc: b.aciklama,
+  fare: `${ucretYazi(b.base)} ₺`,
+  base: b.base,
+  perBoarding: b.perBoarding,
+}));
+
+// BİSİM tarifesi bir AYAR değil, bilgi: kullanıcı seçmiyor, sürüş süresine
+// göre hesaplanıyor. Rota kartındaki ücretin neden bilet fiyatından yüksek
+// çıktığı burada karşılığını buluyor.
+const BISIM_SATIRLARI = [
+  { l: `İlk ${BISIM_TARIFESI.acilisDakika} dakika`, v: `${ucretYazi(BISIM_TARIFESI.acilisUcreti)} ₺` },
+  { l: "Sonraki her dakika", v: `${ucretYazi(BISIM_TARIFESI.dakikaUcreti)} ₺` },
+  { l: "1 saat sürüş", v: `${ucretYazi(BISIM_TARIFESI.acilisUcreti + (60 - BISIM_TARIFESI.acilisDakika) * BISIM_TARIFESI.dakikaUcreti)} ₺` },
 ];
 
 const VEHICLES = [
-  { id: "bicycle", icon: "bike", name: "Bisikletim var", color: "#4ade80", hint: "Bisiklet rotaları açılır" },
+  { id: "bicycle", icon: "bike", name: "Bisikletim var", color: "#22c55e", hint: "Bisiklet rotaları açılır" },
   { id: "car",     icon: "car", name: "Arabam var",     color: "#f97316", hint: "Araba ve Park+Taşı rotaları açılır" },
 ];
+
+// Onboarding eskiden student/adult/senior yazıyordu, bu ekran tam/genc/…
+// bekliyor. Eşleştirmeyen kimlik hiçbir kartı seçili göstermiyordu — eski
+// kurulumlar boş bir yolcu tipi listesiyle karşılaşmasın diye çevriliyor.
+const ESKI_YOLCU_TIPI = { student: "genc", adult: "tam", senior: "yas60" };
+
+function eskiYolcuTipiniCevir(prefs) {
+  const yeni = ESKI_YOLCU_TIPI[prefs?.passengerType];
+  if (!yeni) return prefs;
+  const tarife = PASSENGERS.find((p) => p.id === yeni);
+  return { ...prefs, passengerType: yeni, fareBase: tarife.base, farePerBoarding: tarife.perBoarding };
+}
 
 function buildProfiles(hasVehicle) {
   const profiles = ["transit"];
@@ -38,7 +69,7 @@ export default function SettingsScreen({ navigation }) {
       (async () => {
         try {
           const raw = await AsyncStorage.getItem("userPrefs");
-          if (raw) setPrefs(JSON.parse(raw));
+          if (raw) setPrefs(eskiYolcuTipiniCevir(JSON.parse(raw)));
         } catch {}
       })();
     }, [])
@@ -152,6 +183,21 @@ export default function SettingsScreen({ navigation }) {
           );
         })}
 
+        <Text style={[s.sectionTitle, { color: theme.text, marginTop: 24 }]}>BİSİM Tarifesi</Text>
+        <Text style={[s.sectionHint, { color: theme.muted }]}>Standart bisiklet · rota kartındaki ücrete eklenir</Text>
+        <View style={[s.fareCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+          {BISIM_SATIRLARI.map((r) => (
+            <View key={r.l} style={s.fareRow}>
+              <Text style={[s.fareLabel, { color: theme.muted }]}>{r.l}</Text>
+              <Text style={[s.fareValue, { color: theme.text }]}>{r.v}</Text>
+            </View>
+          ))}
+          <Text style={[s.fareNote, { color: theme.muted }]}>
+            Kiralamada kredi kartından {ucretYazi(BISIM_TARIFESI.provizyon)} ₺ ön provizyon bloke edilir.
+            İade edildiği için rota ücretine dahil değildir.
+          </Text>
+        </View>
+
         <Text style={[s.sectionTitle, { color: theme.text, marginTop: 24 }]}>Araçlarım</Text>
         <Text style={[s.sectionHint, { color: theme.muted }]}>Sahip olduğunuz araçlara göre rota seçenekleri eklenir</Text>
         {VEHICLES.map((v) => {
@@ -206,50 +252,58 @@ export default function SettingsScreen({ navigation }) {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#0f1117" },
+  container: { flex: 1, backgroundColor: "#14111f" },
   header: {
     paddingHorizontal: 24, paddingTop: 16, paddingBottom: 20,
-    borderBottomWidth: 1, borderBottomColor: "#2a2f3d",
+    borderBottomWidth: 1, borderBottomColor: "#322a4a",
   },
-  headerTitle: { color: "#e8eaf0", fontSize: 24, fontWeight: "800" },
+  headerTitle: { color: "#ece9f7", fontSize: 24, fontWeight: "800" },
   scroll: { flex: 1 },
   scrollContent: { padding: 20, paddingBottom: 60 },
   loadingBox: { flex: 1, alignItems: "center", justifyContent: "center" },
-  loadingText: { color: "#7a8299", fontSize: 16 },
+  loadingText: { color: "#9b93b8", fontSize: 16 },
 
-  sectionTitle: { color: "#e8eaf0", fontSize: 16, fontWeight: "800", marginBottom: 4 },
-  sectionHint: { color: "#7a8299", fontSize: 12, marginBottom: 14 },
+  sectionTitle: { color: "#ece9f7", fontSize: 16, fontWeight: "800", marginBottom: 4 },
+  sectionHint: { color: "#9b93b8", fontSize: 12, marginBottom: 14 },
 
   optionCard: {
     flexDirection: "row", alignItems: "center", gap: 14,
-    backgroundColor: "#181c25", borderWidth: 1, borderColor: "#2a2f3d",
+    backgroundColor: "#1e1a2e", borderWidth: 1, borderColor: "#322a4a",
     borderRadius: 14, padding: 14, marginBottom: 10,
   },
-  optionCardActive: { borderColor: "#60a5fa40", backgroundColor: "#60a5fa06" },
+  optionCardActive: { borderColor: "#8b5cf640", backgroundColor: "#8b5cf606" },
   optionIconBox: {
     width: 44, height: 44, borderRadius: 12,
-    backgroundColor: "#0f1117", borderWidth: 1, borderColor: "#2a2f3d",
+    backgroundColor: "#14111f", borderWidth: 1, borderColor: "#322a4a",
     alignItems: "center", justifyContent: "center",
   },
-  optionIconBoxActive: { borderColor: "#60a5fa40", backgroundColor: "#60a5fa10" },
+  optionIconBoxActive: { borderColor: "#8b5cf640", backgroundColor: "#8b5cf610" },
   optionInfo: { flex: 1 },
-  optionName: { color: "#e8eaf0", fontSize: 15, fontWeight: "700" },
-  optionDesc: { color: "#7a8299", fontSize: 12, marginTop: 2 },
+  optionName: { color: "#ece9f7", fontSize: 15, fontWeight: "700" },
+  optionDesc: { color: "#9b93b8", fontSize: 12, marginTop: 2 },
   radio: {
     width: 22, height: 22, borderRadius: 11,
-    borderWidth: 2, borderColor: "#2a2f3d",
+    borderWidth: 2, borderColor: "#322a4a",
     alignItems: "center", justifyContent: "center",
   },
-  radioActive: { borderColor: "#60a5fa" },
-  radioDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: "#60a5fa" },
+  radioActive: { borderColor: "#8b5cf6" },
+  radioDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: "#8b5cf6" },
+
+  fareCard: {
+    borderWidth: 1, borderRadius: 14, padding: 16, gap: 10,
+  },
+  fareRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  fareLabel: { fontSize: 13 },
+  fareValue: { fontSize: 15, fontWeight: "800" },
+  fareNote: { fontSize: 11, lineHeight: 16, marginTop: 4 },
 
   toggleCard: {
     flexDirection: "row", alignItems: "center", gap: 14,
-    backgroundColor: "#181c25", borderWidth: 1, borderColor: "#2a2f3d",
+    backgroundColor: "#1e1a2e", borderWidth: 1, borderColor: "#322a4a",
     borderRadius: 14, padding: 14, marginBottom: 10,
   },
 
-  divider: { height: 1, backgroundColor: "#2a2f3d", marginVertical: 24 },
+  divider: { height: 1, backgroundColor: "#322a4a", marginVertical: 24 },
 
   dangerBtn: {
     backgroundColor: "#f871711a", borderWidth: 1, borderColor: "#f8717130",
@@ -260,17 +314,17 @@ const s = StyleSheet.create({
   dangerDesc: { color: "#f8717170", fontSize: 12, marginTop: 6, textAlign: "center" },
 
   aboutBox: {
-    backgroundColor: "#181c25", borderWidth: 1, borderColor: "#2a2f3d",
+    backgroundColor: "#1e1a2e", borderWidth: 1, borderColor: "#322a4a",
     borderRadius: 14, padding: 20, alignItems: "center", gap: 6,
   },
-  aboutName: { color: "#e8eaf0", fontSize: 18, fontWeight: "800" },
-  aboutVersion: { color: "#7a8299", fontSize: 12 },
-  aboutLine: { color: "#7a8299", fontSize: 13, textAlign: "center" },
+  aboutName: { color: "#ece9f7", fontSize: 18, fontWeight: "800" },
+  aboutVersion: { color: "#9b93b8", fontSize: 12 },
+  aboutLine: { color: "#9b93b8", fontSize: 13, textAlign: "center" },
   aboutTags: { flexDirection: "row", gap: 8, marginTop: 8 },
   aboutTag: {
     flexDirection: "row", alignItems: "center", gap: 6,
-    backgroundColor: "#0f1117", borderWidth: 1, borderColor: "#2a2f3d",
+    backgroundColor: "#14111f", borderWidth: 1, borderColor: "#322a4a",
     borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4,
   },
-  aboutTagText: { color: "#7a8299", fontSize: 12 },
+  aboutTagText: { color: "#9b93b8", fontSize: 12 },
 });

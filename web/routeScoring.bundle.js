@@ -113,17 +113,26 @@ function formatDuration(seconds) {
 // VAPUR YOK: İzmir GTFS feed'inde vapur seferi bulunmuyor (route_type=4 hiç
 // geçmiyor), backend de FERRY modunu OTP'ye hiç istemiyor. Karşılığı olmayan
 // bir mod için stil tutmak yanıltıcıydı. Feed geldiğinde geri eklenir.
+// Renkler mor–turuncu paletle ortak (bkz. utils/theme.js) ve AÇIK/KOYU
+// zeminin ikisinde de okunacak doygunlukta seçildi: bu değerler hem koyu
+// temada `renk + "18"` tint'in üstünde hem de webdeki beyaz panelde
+// kullanılıyor.
+//
+// OTOBÜS İLE ARABA AYNI RENKTEYDİ (#f97316) — Park & Ride kartında iki
+// bacak yan yana geldiğinde şeritte ayırt edilemiyorlardı.
 const MODE_STYLE = {
-  WALK:           { color: "#7a8299", icon: "walk",  label: "Yürüyüş" },
-  BUS:            { color: "#f97316", icon: "bus",   label: "Otobüs" },
+  WALK:           { color: "#8b8aa8", icon: "walk",  label: "Yürüyüş" },
+  BUS:            { color: "#8b5cf6", icon: "bus",   label: "Otobüs" },
   // RAIL = İZBAN banliyö hattı, SUBWAY = İzmir Metrosu. Aynı ikonu paylaşırlar,
   // bu yüzden renkleri ayrı tutulur; aksi hâlde kart şeridinde ayırt edilemezler.
-  RAIL:           { color: "#4f46e5", icon: "train", label: "Banliyö" },
-  SUBWAY:         { color: "#60a5fa", icon: "train", label: "Metro" },
-  TRAM:           { color: "#a78bfa", icon: "tram",  label: "Tramvay" },
-  BICYCLE:        { color: "#4ade80", icon: "bike",  label: "Bisiklet" },
-  BICYCLE_RENTAL: { color: "#4ade80", icon: "bike",  label: "BİSİM" },
-  CAR:            { color: "#f97316", icon: "car",   label: "Araba" },
+  RAIL:           { color: "#ec4899", icon: "train", label: "Banliyö" },
+  SUBWAY:         { color: "#22a6f0", icon: "train", label: "Metro" },
+  TRAM:           { color: "#f59e0b", icon: "tram",  label: "Tramvay" },
+  BICYCLE:        { color: "#22c55e", icon: "bike",  label: "Bisiklet" },
+  // BİSİM kendi bisikletinden ayrı bir ton: kart şeridinde hangisinin
+  // kiralık olduğu renkten okunsun.
+  BICYCLE_RENTAL: { color: "#10b981", icon: "bike",  label: "BİSİM" },
+  CAR:            { color: "#fb7a3c", icon: "car",   label: "Araba" },
 };
 
 const NON_TRANSIT_MODES = ["WALK", "BICYCLE", "BICYCLE_RENTAL", "CAR"];
@@ -213,23 +222,21 @@ const BISIKLET_ASGARI_PAY = 0.15;
 // Eski ad — dışarıda bu sabiti bekleyen kod olabilir.
 const BISIM_ASGARI_PAY = BISIKLET_ASGARI_PAY;
 
-// KENDİ BİSİKLETİNDE ÖLÇÜT FARKLI: kazanç.
+// KENDİ BİSİKLETİNDE ÖLÇÜT: KAYIP TAVANI.
 //
-// Oran eşiği burada yanlış şeyi ölçüyordu. Bisikletin zaten yanındadır,
-// aranacak bir araç ve iade edilecek bir kiralama yoktur; tek soru "bu sürüş
-// beni daha erken vardırıyor mu". Ölçüldü — Narlıdere → Çiğli:
-//   72 dk  bisiklet 6 dk → M1 direkt      (bisiklet payı %8)
-//   81 dk  bisikletsiz en iyi
-// Bisiklet 9 DAKİKA kazandırıyor ama %15 kuralına takılıp eleniyordu ve mod
-// saflığı geldiğinden beri yedeği de olmadığı için kullanıcı boş ekran
-// görüyordu.
+// Önce oran eşiği vardı, yanlış şeyi ölçüyordu. Sonra "en az 3 dakika
+// kazandırmalı" kuralına geçildi — o da yanlış tarafa kaçtı: bisikleti
+// yanında olan biri yarışa çıkmıyor. Ölçümdeki uç örnek Konak → Bornova'da
+// bisikletli güzergâh yolculuğu 0.6 DAKİKA uzatıyordu ve mod tamamen
+// kapanıyordu; kullanıcıya "36 saniye yüzünden bisiklete binemezsin"
+// demek anlamsız.
 //
-// Ters yön de aynı ölçüyle yakalanıyor — asıl derdimiz oydu (Konak →
-// Bornova): 282 metrelik bisiklet bacağı yolculuğu 6.2 dakika UZATIYORDU.
-// Kazanç negatif olduğu için elenir.
+// Kendi bisikletinde aranacak araç, QR, kilit açma, iade yok. Süre tek
+// değer de değil: hareket, ücretsizlik, beklememe, aktarma belirsizliğinin
+// olmaması. Bu yüzden ölçüt kazanç değil KAYIP TAVANI: bisiklet yolculuğu
+// bir miktar uzatabilir, yeter ki uzatma katlanılır olsun.
 //
-// EŞİK NEDEN 3 DAKİKA. On senaryoda bisikletin bisikletsize göre en iyi
-// kazancı ölçüldü ve dağılım ÇİFT TEPELİ çıktı:
+// TAVAN 15 DAKİKA. Ölçülen on senaryoda bisikletin bisikletsize göre farkı:
 //
 //   +23.0  uzak-kuzey          +3.1  korfez-karsi
 //   +10.5  merkez-dogu         +3.1  kuzey-dogu
@@ -237,20 +244,20 @@ const BISIM_ASGARI_PAY = BISIKLET_ASGARI_PAY;
 //    +9.2  narlidere-cigli     +0.8  guneybati-merkez
 //    +9.1  uzak-guney          -9.6  sahil-guneybati
 //
-// Ya 9 dakikanın üstünde, ya 3 dakikanın altında; arada hiçbir şey yok.
-// Bu yüzden 4 ile 8 arasındaki HER eşik aynı sonucu veriyor (5 senaryo) —
-// tek gerçek karar noktası 3 dakika. Orada Konak → Karşıyaka (32 dk
-// bisikletsiz, 29 dk bisikletli, 14 km sürüş) ve Karşıyaka → Bornova geri
-// geliyor; ikisi de "bisiklet işe yaramıyor" denecek yolculuklar değil.
+// Eski 3 dakika eşiği alttaki dördünü (+1.4, +0.8 ve ölçüm sonrası eklenen
+// -0.6, -6.2 gibi küçük kayıplar) eliyordu. 15 dakika tavanıyla bunların
+// hepsi geçer, -9.6'lık sahil-guneybati da geçer; eleme yalnız bisikletin
+// yolculuğu gerçekten çekilmez hale getirdiği durumda kalır.
 //
-// 0'a indirilemez: 0.8 ve 1.4 dakikalık kazançlar ölçüm gürültüsü kadar ve
-// bisikleti çıkarmayı haklı çıkarmıyor.
+// Sıfır tavan (yani "hiç uzatmasın") kuralı eski haline döndürür; sınırsız
+// olması ise modu kuralsız bırakır — 40 dakika uzatan bir güzergâhı
+// "bisikletim + aktarma" diye sunmak yine yalan olur.
 //
 // Taban çizgisi backend'den geliyor (services/OtpService.js, ayrı bir
 // yürüyüşlü sorgu) ve her güzergâha iliştirilmiş halde: itin.bisikletsizEnIyiSn.
 // BİLİNMİYORSA ELEME YAPILMAZ — taban sorgusu düştüyse kullanıcıyı
 // cezalandırmak yanlış olur.
-const BISIKLET_ASGARI_KAZANC_SN = 3 * 60;
+const BISIKLET_AZAMI_KAYIP_SN = 15 * 60;
 
 // P+R'de transitin araca göre asgari oranı. Gerekçesi ve ölçümü aşağıda,
 // MOD_AMACI.park_and_ride'ın üstünde.
@@ -264,11 +271,11 @@ const MOD_AMACI = {
       o.bikeSaniye >= o.duration * BISIKLET_ASGARI_PAY,
   },
   bicycle_park: {
-    aciklama: "Bisikletim + aktarma seçildi — bisiklet yolculuğu belirgin kısaltmalı",
+    aciklama: "Bisikletim + aktarma seçildi — bisiklet yolculuğu aşırı uzatmamalı",
     gorur: (o) =>
       o.bikeMeters >= (BIKE_LEG_MIN.bicycle_park ?? 0) &&
       (o.bisikletsizEnIyiSn == null ||
-        o.duration <= o.bisikletsizEnIyiSn - BISIKLET_ASGARI_KAZANC_SN),
+        o.duration <= o.bisikletsizEnIyiSn + BISIKLET_AZAMI_KAYIP_SN),
   },
   // "Sadece bisiklet" modu ölçüldüğünde 8 güzergâhın 7'sinde HİÇ bisiklet
   // yoktu — düz transit rotalarıydı, yani mod kullanıcıya yalan söylüyordu.
@@ -644,12 +651,16 @@ function modBosSebebi(itineraries, profileKey) {
     const taban = scored[0].walk.duzTransitEnIyiSn;
     if (taban != null) {
       const kazanc = taban - Math.min(...scored.map((r) => r.walk.duration));
-      return kazanc < 0
-        ? { kod: "bisiklet-yavas",
-            mesaj: `Bisiklet bu yolculuğu ${dk(-kazanc)} dk uzatıyor.`, alternatifSn }
-        : { kod: "bisiklet-katkisiz",
-            mesaj: `Bisiklet yalnız ${dk(kazanc)} dk kazandırıyor ` +
-                   `(eşik ${dk(BISIKLET_ASGARI_KAZANC_SN)} dk).`, alternatifSn };
+      // Artık yalnız TAVANI AŞAN uzatma eler. Küçük kayıplar mod açıkken
+      // gösterilir, dolayısıyla buraya ancak gerçekten uzun bir uzatmayla
+      // gelinir; sayıyı ve sınırı birlikte söylemek gerekiyor.
+      if (kazanc < -BISIKLET_AZAMI_KAYIP_SN) {
+        return { kod: "bisiklet-yavas",
+                 mesaj: `Bisiklet bu yolculuğu ${dk(-kazanc)} dk uzatıyor ` +
+                        `(kabul sınırı ${dk(BISIKLET_AZAMI_KAYIP_SN)} dk).`, alternatifSn };
+      }
+      // Buraya düşmek elemenin kazanç ölçütünden GELMEDİĞİ anlamına gelir.
+      return { ...bos, kod: "bisiklet-katkisiz", alternatifSn };
     }
     return { ...bos, kod: "bisiklet-katkisiz", alternatifSn };
   }
@@ -869,7 +880,71 @@ function selectCandidates(ranked, profileKey) {
   return result;
 }
 
-// Yolculuk ücreti.
+// ─── ÜCRET: TARİFELER ──────────────────────────────────────────────────
+// TARİFE TEK YERDE. Aynı rakamlar daha önce üç yerde ayrı ayrı yazılıydı
+// (mobil SettingsScreen, mobil OnBoardingScreen, web index.html) ve
+// birbirini tutmuyordu: onboarding "Yetişkin 25,00 ₺" derken ayarlar aynı
+// bilete 35,00 ₺ diyordu. Tarife veridir, arayüz değil — üç ekran da
+// buradan okur.
+//
+// İzmirim Kart'ta 90 dakika içindeki aktarmalar tek ücrete dahildir.
+// Kredi/banka kartında aktarma hakkı yoktur, her biniş ayrı ücretlenir —
+// `perBoarding` bunu ayırt eder.
+const BILET_TARIFESI = [
+  { id: "tam",        ad: "Tam",                 base: 35,   perBoarding: false, aciklama: "İzmirim Kart · 90 dk aktarma dahil" },
+  { id: "genc",       ad: "Genç Kart (Öğrenci)", base: 17.5, perBoarding: false, aciklama: "7-25 yaş · 90 dk aktarma dahil" },
+  { id: "ogretmen",   ad: "Öğretmen Kartı",      base: 23.5, perBoarding: false, aciklama: "İzmirim Kart · 90 dk aktarma dahil" },
+  { id: "yas60",      ad: "60 Yaş Kartı",        base: 29,   perBoarding: false, aciklama: "İzmirim Kart · 90 dk aktarma dahil" },
+  { id: "kredikarti", ad: "Kredi / Banka Kartı", base: 39,   perBoarding: true,  aciklama: "Her binişte ayrı ücret · aktarma hakkı yok" },
+];
+
+const VARSAYILAN_BILET = "tam";
+
+function biletTarifesi(id) {
+  return BILET_TARIFESI.find((b) => b.id === id) || BILET_TARIFESI[0];
+}
+
+// BİSİM — Standart Bisiklet.
+//
+// Açılış bloğu ilk 5 dakikayı KAPSAR, üstüne eklenmez: 5 dakika 10,00 TL,
+// 6. dakika 11,50 TL. Yayımlanan "1 saat 92,50 TL" bunu doğruluyor
+// (10 + 55 × 1,50 = 92,50); açılış bedelinin üstüne 60 dakika daha
+// sayılsaydı 100,00 TL çıkardı.
+const BISIM_TARIFESI = {
+  acilisDakika: 5,
+  acilisUcreti: 10,
+  dakikaUcreti: 1.5,
+  // Kiralamada karttan çekilen ön provizyon. Yolculuğun MALİYETİ DEĞİL:
+  // bloke edilir ve iade edilir. Bu yüzden toplama girmiyor, ayrı bir not
+  // olarak taşınıyor — toplama eklemek 10 dakikalık bir sürüşü dört katı
+  // pahalı gösterirdi.
+  provizyon: 47.5,
+};
+
+// Başlanan dakika ücretlendirilir (Math.ceil): kiralama sistemleri
+// dakikanın altını bölmez.
+function calcBisimFare(saniye) {
+  if (!saniye || saniye <= 0) return 0;
+  const dk = Math.ceil(saniye / 60);
+  const { acilisDakika, acilisUcreti, dakikaUcreti } = BISIM_TARIFESI;
+  if (dk <= acilisDakika) return acilisUcreti;
+  return acilisUcreti + (dk - acilisDakika) * dakikaUcreti;
+}
+
+// Kuruş kalıntısını temizler: 1,5 × 3 gibi çarpımlar kayan noktada
+// 4.499999999999999 üretebiliyor.
+function kurusYuvarla(tutar) {
+  return Math.round(tutar * 100) / 100;
+}
+
+// Ekranda gösterilecek biçim — Türkçe ondalık ayracı virgül, tam sayı
+// tutarlarda kuruş yazılmaz (35 ₺, 17,50 ₺).
+function ucretYazi(tutar) {
+  const v = kurusYuvarla(tutar);
+  return Number.isInteger(v) ? String(v) : v.toFixed(2).replace(".", ",");
+}
+
+// Toplu taşıma bileti.
 // Kredi/banka kartı: 90 dk aktarma hakkı yok → her biniş ayrı ücret
 // İzmirim Kart: 90 dk içinde aktarmalar dahil → yolculuk başı sabit ücret
 function calcJourneyFare(transitLegCount, fareBase, farePerBoarding) {
@@ -930,6 +1005,17 @@ function buildRouteResult(candidate, fareBase, farePerBoarding, profileKey) {
     .reduce((s, l) => s + l.distanceMeters, 0);
 
   const transitLegs = legs.filter((l) => !NON_TRANSIT_MODES.includes(l.mode));
+
+  // ÜCRET İKİ KALEMDİR. Toplu taşıma bileti BİSİM kiralamasını kapsamıyor;
+  // kart eskiden yalnız bileti yazdığı için BİSİM modunda gösterilen rakam
+  // gerçeğin altındaydı — 40 dakikalık bir sürüşte 35,00 TL yazıyordu,
+  // gerçekte 35,00 + 62,50 = 97,50 TL.
+  const bisimSaniye = legs
+    .filter((l) => l.mode === "BICYCLE_RENTAL")
+    .reduce((s, l) => s + l.duration, 0);
+  const bisimUcreti  = calcBisimFare(bisimSaniye);
+  const biletUcreti  = calcJourneyFare(transitLegs.length, fareBase, farePerBoarding);
+
   const maxWalk = WALK_LEG_TARGET[profileKey] ?? 2000;
   // İki ayrı uyarı, iki ayrı şey. "Hedefin üstünde" bir konfor notudur;
   // "zorunlu" ise kuralın istisnaya düştüğünü söyler — kullanıcı 20 dakikadan
@@ -952,7 +1038,17 @@ function buildRouteResult(candidate, fareBase, farePerBoarding, profileKey) {
     // Arayüz bunu liste düzeyinde de kullanır (bkz. hooks/useRouteSearch.js):
     // TÜM kartlar zorunluysa listenin başına ayrı bir bilgi satırı yazılır.
     yuruyusZorunlu: !!yuruyusZorunlu,
-    cost: Math.round(calcJourneyFare(transitLegs.length, fareBase, farePerBoarding)),
+    cost: kurusYuvarla(biletUcreti + bisimUcreti),
+    // Kalemler ayrı taşınıyor: arayüz "35,00 + BİSİM 62,50" diye dökebilsin,
+    // toplamı yeniden hesaplamak zorunda kalmasın.
+    ucretDetay: {
+      bilet: kurusYuvarla(biletUcreti),
+      bisim: kurusYuvarla(bisimUcreti),
+      bisimDakika: bisimSaniye > 0 ? Math.ceil(bisimSaniye / 60) : 0,
+      // Provizyon toplama DAHİL DEĞİL (bkz. BISIM_TARIFESI); yalnız BİSİM
+      // içeren yolculukta gösterilir.
+      provizyon: bisimSaniye > 0 ? BISIM_TARIFESI.provizyon : 0,
+    },
     tag,
     tagColor,
     carbonGrams: Math.round(carbon),
@@ -1076,5 +1172,5 @@ function getLegInstruction(leg, legs = null, index = -1) {
   return { title: nereye ? `${nereye} noktasına devam et` : "Devam et", detail: dk(leg) };
 }
 
-global.RS = { SCORING, WALK_LEG_TARGET, BIKE_LEG_MIN, MOD_AMACI, PR_TRANSIT_ASGARI_ORAN, MUTLAK_YURUYUS_TAVANI, YURUYUS_BACAK_TAVANI_SN, BISIKLET_ASGARI_PAY, MODE_STYLE, NON_TRANSIT_MODES, resolveProfileKey, calcLegDistanceMeters, rankItineraries, modBosSebebi, selectCandidates, buildRouteResult, getLegInstruction, CANDIDATE_DEFS, ADAY_OLCULERI, MAX_ROUTES, calcCarbonGrams, candidateKey, calcJourneyFare, ONERI_TOLERANSI, oneriSinirinaUydur, ayniHattiTekilleştir, decodePolyline };
+global.RS = { SCORING, WALK_LEG_TARGET, BIKE_LEG_MIN, MOD_AMACI, PR_TRANSIT_ASGARI_ORAN, MUTLAK_YURUYUS_TAVANI, YURUYUS_BACAK_TAVANI_SN, BISIKLET_ASGARI_PAY, MODE_STYLE, NON_TRANSIT_MODES, resolveProfileKey, calcLegDistanceMeters, rankItineraries, modBosSebebi, selectCandidates, buildRouteResult, getLegInstruction, CANDIDATE_DEFS, ADAY_OLCULERI, MAX_ROUTES, calcCarbonGrams, candidateKey, calcJourneyFare, BILET_TARIFESI, VARSAYILAN_BILET, biletTarifesi, BISIM_TARIFESI, calcBisimFare, kurusYuvarla, ucretYazi, ONERI_TOLERANSI, oneriSinirinaUydur, ayniHattiTekilleştir, decodePolyline };
 })(typeof window !== "undefined" ? window : globalThis);

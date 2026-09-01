@@ -3,9 +3,9 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "@react-navigation/native";
 
 export const ALL_PROFILES = [
-  { id: "bicycle", icon: "bike", label: "Bisiklet", color: "#4ade80" },
+  { id: "bicycle", icon: "bike", label: "Bisiklet", color: "#22c55e" },
   { id: "car",     icon: "car",  label: "Araba",    color: "#f97316" },
-  { id: "transit", icon: "bus",  label: "Transit",  color: "#60a5fa" },
+  { id: "transit", icon: "bus",  label: "Transit",  color: "#8b5cf6" },
 ];
 
 const SAVED_PLACES_DEFAULT = [

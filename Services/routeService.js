@@ -60,9 +60,15 @@ export async function fetchBicycleParkingStations() {
   return data.stations || [];
 }
 
-// Araba P+R: zengin doluluk + yakın durak bilgisiyle
-export async function fetchPrStations() {
-  const data = await apiGet(`${API_URL}/parking/stations`);
+// Otopark katmanı. İki modda da aynı uç, KÜME FARKLI:
+//   kapsam yok    → P+R süzgecinden geçen 52 otopark. Rota gerçekten birine
+//                   park ediyor; harita OTP'ye beslenen listeyle aynı olmalı.
+//   kapsam=tumu   → envanterin tamamı, 82 otopark. Düz arabada rota hiçbir
+//                   yere park etmiyor, otopark yalnız bilgi; orada "raylı
+//                   sisteme yakın mı" ölçütü anlamsız ve yalnız o yüzden
+//                   elenen 30 otopark araba için gayet geçerli park yeri.
+export async function fetchPrStations({ tumu = false } = {}) {
+  const data = await apiGet(`${API_URL}/parking/stations${tumu ? "?kapsam=tumu" : ""}`);
   return data.stations || [];
 }
 

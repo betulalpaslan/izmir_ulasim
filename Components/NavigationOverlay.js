@@ -36,7 +36,7 @@ export default function NavigationOverlay({
     return (
       <View style={[s.wrap, { backgroundColor: theme.surface, borderColor: theme.border }]}>
         <View style={s.arrivedRow}>
-          <AppIcon name="check" size={22} color="#4ade80" />
+          <AppIcon name="check" size={22} color="#22c55e" />
           <Text style={[s.arrivedText, { color: theme.text }]}>Varış noktasına ulaştınız</Text>
         </View>
         <TouchableOpacity
@@ -157,5 +157,5 @@ const s = StyleSheet.create({
   stopBtn: { borderWidth: 1, borderRadius: 9, paddingHorizontal: 14, paddingVertical: 8 },
   stopBtnFilled: { borderWidth: 0, alignItems: "center" },
   stopText: { fontSize: 12, fontWeight: "800" },
-  stopTextFilled: { fontSize: 13, fontWeight: "800", color: "#0f1117" },
+  stopTextFilled: { fontSize: 13, fontWeight: "800", color: "#14111f" },
 });

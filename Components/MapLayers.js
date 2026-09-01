@@ -14,7 +14,7 @@ export function prMarkerColor(st) {
   if (st.occupied == null && st.free == null) return "#6b7280";
   const occupied = st.occupied ?? (st.capacity - (st.free ?? 0));
   const ratio = occupied / st.capacity;
-  if (ratio < 0.5) return "#4ade80";
+  if (ratio < 0.5) return "#22c55e";
   if (ratio < 0.8) return "#f97316";
   return "#f87171";
 }
@@ -69,7 +69,7 @@ export function BisimMarkers({ stations, hizmetAlani }) {
       key={`bisim-bonus-${z.id}`}
       center={{ latitude: z.lat, longitude: z.lon }}
       radius={z.yaricapM ?? 300}
-      strokeColor="#4ade80"
+      strokeColor="#22c55e"
       strokeWidth={1.5}
       fillColor="rgba(74,222,128,0.12)"
     />,
@@ -82,7 +82,7 @@ export function BisimMarkers({ stations, hizmetAlani }) {
       tracksViewChanges={false}
     >
       <View style={s.bisimMarker}>
-        <AppIcon name="bike" size={13} color="#4ade80" />
+        <AppIcon name="bike" size={13} color="#22c55e" />
       </View>
     </Marker>,
   ]));
@@ -267,7 +267,7 @@ export function RouteOverlay({ route }) {
 export function UserPuck({ point, heading = 0, offRoute = false }) {
   if (!point) return null;
   // Rota dışındayken renk değişir: konum artık rotaya oturtulmuş değil, ham GPS
-  const color = offRoute ? "#f59e0b" : "#2563eb";
+  const color = offRoute ? "#f59e0b" : "#6d3bf5";
   return (
     <Marker
       // tracksViewChanges kapalıyken Android imleci ilk hâliyle bitmap'e alır;
@@ -294,29 +294,29 @@ const s = StyleSheet.create({
   bisimMarker: {
     width: 22, height: 22, borderRadius: 11, borderWidth: 1.5,
     alignItems: "center", justifyContent: "center",
-    backgroundColor: "#0f1117", borderColor: "#4ade80",
+    backgroundColor: "#14111f", borderColor: "#22c55e",
   },
   parkingMarker: {
     width: 22, height: 22, borderRadius: 11, borderWidth: 1.5,
     alignItems: "center", justifyContent: "center",
-    backgroundColor: "#0f1117",
+    backgroundColor: "#14111f",
   },
   prMarker: {
     width: 22, height: 22, borderRadius: 11, borderWidth: 1.5,
     alignItems: "center", justifyContent: "center",
-    backgroundColor: "#0f1117",
+    backgroundColor: "#14111f",
   },
   prMarkerLabel: { fontSize: 10, fontWeight: "800" },
   parkingCallout: {
     minWidth: 150, maxWidth: 220,
     paddingHorizontal: 12, paddingVertical: 9, borderRadius: 8,
-    backgroundColor: "#0f1117", borderWidth: 1, borderColor: "#334155",
+    backgroundColor: "#14111f", borderWidth: 1, borderColor: "#334155",
   },
   parkingCalloutTitle: { color: "#f8fafc", fontSize: 12, fontWeight: "800" },
   parkingCalloutMeta: { color: "#cbd5e1", fontSize: 11, fontWeight: "700", marginTop: 4 },
   parkingCalloutTags: { flexDirection: "row", flexWrap: "wrap", gap: 4, marginTop: 5 },
   parkingCalloutTag: {
-    fontSize: 10, fontWeight: "700", color: "#60a5fa", backgroundColor: "#60a5fa18",
+    fontSize: 10, fontWeight: "700", color: "#8b5cf6", backgroundColor: "#8b5cf618",
     paddingHorizontal: 5, paddingVertical: 2, borderRadius: 4,
   },
   activeParkMarker: {
@@ -328,7 +328,7 @@ const s = StyleSheet.create({
   osmPMarker: {
     width: 20, height: 20, borderRadius: 4, borderWidth: 1.5,
     alignItems: "center", justifyContent: "center",
-    backgroundColor: "#0f1117", borderColor: "#94a3b8",
+    backgroundColor: "#14111f", borderColor: "#94a3b8",
   },
   osmPMarkerUnderground: { borderColor: "#a78bfa" },
   osmPLabel: { fontSize: 9, fontWeight: "800", color: "#94a3b8" },

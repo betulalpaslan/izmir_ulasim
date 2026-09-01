@@ -4,14 +4,14 @@ import MapView, { Marker } from "react-native-maps";
 import { activateKeepAwakeAsync, deactivateKeepAwake } from "expo-keep-awake";
 import {
   searchAddress, fetchBisimZones,
-  fetchPrStations, fetchBikePrStations, fetchOsmParkingSpots,
+  fetchPrStations, fetchBikePrStations,
 } from "../Services/api";
 import SearchPanel from "../Components/SearchPanel";
 import RoutePanel from "../Components/RoutePanel";
 import NavigationOverlay from "../Components/NavigationOverlay";
 import AppIcon from "../Components/AppIcon";
 import {
-  BisimMarkers, BikeParkingMarkers, OsmParkingMarkers,
+  BisimMarkers, BikeParkingMarkers,
   ParkAndRideMarkers, ActiveParkingMarker, RouteOverlay, UserPuck,
 } from "../Components/MapLayers";
 import { describeLayerError } from "../utils/layerStatus";
@@ -67,7 +67,6 @@ export default function HomeScreen() {
   const [bisim, setBisim] = useState({ bolgeler: [], hizmetAlani: null });
   const [parkingStations, setParkingStations] = useState([]);
   const [prStations, setPrStations] = useState([]);
-  const [osmParking, setOsmParking] = useState([]);
   const [panelCollapsed, setPanelCollapsed] = useState(false);
   // Harita katmanı yüklenemediğinde gösterilecek uyarı. Katmanlar eskiden
   // .catch(() => {}) ile yükleniyordu: hata yutulur, liste boş kalırdı ve
@@ -137,15 +136,29 @@ export default function HomeScreen() {
 
   useEffect(() => { setSelectedRouteIdx(0); }, [routes]);
 
+  // Otopark katmanı arabanın İKİ ALT MODUNDA DA açılır, kümesi değişir:
+  // P+R'de rotanın gerçekten kullandığı 52 otopark, düz sürüşte envanterin
+  // tamamı (82). Düz sürüşte rota hiçbir yere park etmiyor — otopark orada
+  // yalnız "varınca nereye bırakabilirim" bilgisi.
   useEffect(() => {
-    if (profile !== "car" || carMode !== "park_and_ride") { setPrStations([]); return; }
-    loadLayer(fetchPrStations, setPrStations, "Park + Devam otoparkları");
+    if (profile !== "car") { setPrStations([]); return; }
+    const prMi = carMode === "park_and_ride";
+    loadLayer(
+      () => fetchPrStations({ tumu: !prMi }),
+      setPrStations,
+      prMi ? "Park + Devam otoparkları" : "Otoparklar"
+    );
   }, [profile, carMode]);
 
-  useEffect(() => {
-    if (profile !== "car" || carMode === "park_and_ride") { setOsmParking([]); return; }
-    loadLayer(fetchOsmParkingSpots, setOsmParking, "Otoparklar");
-  }, [profile, carMode]);
+  // Düz arabada eskiden AYRI bir OSM katmanı vardı (/parking/osm). Kaldırıldı:
+  // o uç Overpass'a bağlı ve ölçüldüğünde 502 dönüyordu ("veri hiçbir
+  // kaynaktan alınamadı"), yani katman sessizce boştu — kullanıcı araba
+  // seçtiğinde hiçbir otopark görmüyordu. Yerine yukarıdaki İZELMAN envanteri
+  // geçti: 82 otopark, 13'ünde canlı doluluk, ve web ile aynı kaynak.
+  //
+  // Overpass geri gelirse iki kaynak BİRLEŞTİRİLEBİLİR — OSM'de İZELMAN'da
+  // olmayan yeraltı/kapalı otoparklar var. `fetchOsmParkingSpots` ve
+  // `OsmParkingMarkers` o gün için serviste duruyor.
 
   // Navigasyon sırasında ekran kapanmasın
   useEffect(() => {
@@ -360,14 +373,13 @@ export default function HomeScreen() {
         showsMyLocationButton={false}
         userInterfaceStyle="light"
       >
-        {origin && <Marker coordinate={origin} pinColor="#4ade80" title="Başlangıç" />}
+        {origin && <Marker coordinate={origin} pinColor="#22c55e" title="Başlangıç" />}
         {destination && <Marker coordinate={destination} pinColor="#f87171" title="Varış" />}
 
         <BisimMarkers stations={bisim.bolgeler} hizmetAlani={bisim.hizmetAlani} />
         {/* "Park + Taşıma" ile "Kendi Bisikletim" farklı kaynaklardan beslenir;
             ayırt edilebilmeleri için ayrı renkle çizilirler. */}
         <BikeParkingMarkers stations={parkingStations} variant={bikeType === "PARK" ? "pr" : "own"} />
-        <OsmParkingMarkers spots={osmParking} />
         <ParkAndRideMarkers stations={prStations} />
         <ActiveParkingMarker point={mapRoute?.parkingPoint} />
         <RouteOverlay route={mapRoute} />
@@ -412,7 +424,7 @@ export default function HomeScreen() {
           onPress={recenterNavigation}
           activeOpacity={0.85}
         >
-          <AppIcon name="locate" size={20} color={navFollow ? theme.muted : "#0f1117"} />
+          <AppIcon name="locate" size={20} color={navFollow ? theme.muted : "#14111f"} />
           {!navFollow && <Text style={s.recenterText}>Ortala</Text>}
         </TouchableOpacity>
       )}
@@ -492,7 +504,7 @@ export default function HomeScreen() {
                     disabled={permission === "denied"}
                   >
                     <View style={s.navBtnContent}>
-                      <AppIcon name="navigation" size={16} color="#0f1117" />
+                      <AppIcon name="navigation" size={16} color="#14111f" />
                       <Text style={s.navBtnText}>
                         {permission === "denied" ? "Konum izni gerekli" : "Navigasyonu Başlat"}
                       </Text>
@@ -539,7 +551,7 @@ const s = StyleSheet.create({
     shadowColor: "#000", shadowOpacity: 0.4, shadowRadius: 6, shadowOffset: { height: 2 },
     elevation: 6,
   },
-  recenterText: { fontSize: 13, fontWeight: "800", color: "#0f1117" },
+  recenterText: { fontSize: 13, fontWeight: "800", color: "#14111f" },
   bottomPanel: {
     position: "absolute", bottom: 0, left: 0, right: 0,
     borderTopLeftRadius: 18, borderTopRightRadius: 18,
@@ -554,7 +566,7 @@ const s = StyleSheet.create({
   handle: { width: 32, height: 3, borderRadius: 2, alignSelf: "center", marginBottom: 10 },
   navBtn: { marginTop: 8, borderRadius: 10, paddingVertical: 11, alignItems: "center" },
   navBtnContent: { flexDirection: "row", alignItems: "center", gap: 7 },
-  navBtnText: { fontSize: 13, fontWeight: "900", color: "#0f1117" },
+  navBtnText: { fontSize: 13, fontWeight: "900", color: "#14111f" },
   resetBtn: { marginTop: 8, borderWidth: 1, borderRadius: 9, paddingVertical: 7, alignItems: "center" },
   resetContent: { flexDirection: "row", alignItems: "center", gap: 6 },
   resetText: { fontSize: 12, fontWeight: "700" },

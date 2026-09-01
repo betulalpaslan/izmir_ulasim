@@ -69,7 +69,7 @@ const ICONS = {
   x: X,
 };
 
-export default function AppIcon({ name, size = 20, color = "#e8eaf0", strokeWidth = 2.2, style }) {
+export default function AppIcon({ name, size = 20, color = "#ece9f7", strokeWidth = 2.2, style }) {
   const Icon = ICONS[name] || MapPin;
   return <Icon size={size} color={color} strokeWidth={strokeWidth} style={style} />;
 }

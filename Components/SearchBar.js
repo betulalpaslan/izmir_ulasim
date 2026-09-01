@@ -39,6 +39,6 @@ const s = StyleSheet.create({
     borderRadius: 9, paddingHorizontal: 10, paddingVertical: 1, marginBottom: 4,
   },
   dot: { width: 7, height: 7, borderRadius: 3.5 },
-  input: { flex: 1, color: "#e8eaf0", fontSize: 13, fontWeight: "600", paddingVertical: 5 },
+  input: { flex: 1, color: "#ece9f7", fontSize: 13, fontWeight: "600", paddingVertical: 5 },
   iconBtn: { padding: 4 },
 });

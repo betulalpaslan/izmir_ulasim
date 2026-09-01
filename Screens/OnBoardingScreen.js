@@ -5,30 +5,49 @@ import {
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import AppIcon from "../Components/AppIcon";
 import { useTheme } from "../utils/ThemeContext";
+import { BILET_TARIFESI, VARSAYILAN_BILET, ucretYazi } from "../utils/routeScoring";
 
 const T = {
-  bg: "#0f1117", surface: "#181c25", border: "#2a2f3d",
-  text: "#e8eaf0", muted: "#7a8299",
-  bike: "#4ade80", car: "#f97316", transit: "#60a5fa",
+  bg: "#14111f", surface: "#1e1a2e", border: "#322a4a",
+  text: "#ece9f7", muted: "#9b93b8",
+  bike: "#22c55e", car: "#f97316", transit: "#8b5cf6",
 };
 
 const VEHICLES = [
-  { id: "bicycle", icon: "bike", name: "Bisikletim var", desc: "Kendi bisikletinizi kullanabilirsiniz", accent: "#4ade80" },
+  { id: "bicycle", icon: "bike", name: "Bisikletim var", desc: "Kendi bisikletinizi kullanabilirsiniz", accent: "#22c55e" },
   { id: "car",     icon: "car", name: "Arabam var",     desc: "Park et + devam et seçeneği açılır",    accent: "#f97316" },
-  { id: "none",    icon: "bus", name: "Sadece toplu taşıma", desc: "Yürü + otobüs / metro / tramvay", accent: "#60a5fa" },
+  { id: "none",    icon: "bus", name: "Sadece toplu taşıma", desc: "Yürü + otobüs / metro / tramvay", accent: "#8b5cf6" },
 ];
 
-const PASSENGERS = [
-  { id: "student", icon: "student", name: "Öğrenci",       desc: "İndirimli ücret", multiplier: 0.7, fare: "17.50 ₺" },
-  { id: "adult",   icon: "user", name: "Yetişkin (tam)", desc: "Standart ücret",  multiplier: 1.0, fare: "25.00 ₺" },
-  { id: "senior",  icon: "userCog", name: "65 yaş üstü",   desc: "Ücretsiz / indirimli", multiplier: 0.0, fare: "Ücretsiz" },
-];
+// Bu ekran kendi yolcu tipi listesini tutuyordu ve iki bakımdan yanlıştı:
+//   • Rakamlar tarifeyle uyuşmuyordu — "Yetişkin 25,00 ₺" yazıyordu, oysa
+//     tam bilet 35,00 ₺; öğrenci 17,50 ₺ doğruydu ama ayarlar ekranında
+//     aynı bilet "Genç" adıyla duruyordu.
+//   • Kimlikler (student/adult/senior) SettingsScreen'in kimlikleriyle
+//     (tam/genc/…) tutmuyordu ve buradan `fareMultiplier` yazılıyordu,
+//     oysa ücreti hesaplayan taraf `fareBase` + `farePerBoarding` okuyor.
+//     Sonuç: onboarding'de "Öğrenci" seçmek ücreti HİÇ değiştirmiyordu,
+//     herkes 35,00 ₺ görüyordu.
+// Liste artık tarifenin kendisi.
+const YOLCU_IKONU = {
+  tam: "user", genc: "student", ogretmen: "work",
+  yas60: "userCog", kredikarti: "userCircle",
+};
+const PASSENGERS = BILET_TARIFESI.map((b) => ({
+  id: b.id,
+  icon: YOLCU_IKONU[b.id] || "user",
+  name: b.ad,
+  desc: b.aciklama,
+  fare: `${ucretYazi(b.base)} ₺`,
+  base: b.base,
+  perBoarding: b.perBoarding,
+}));
 
 export default function OnboardingScreen({ navigation }) {
   const { theme } = useTheme();
   const [step, setStep] = useState(0);
   const [vehicles, setVehicles] = useState(new Set());
-  const [passenger, setPassenger] = useState("adult");
+  const [passenger, setPassenger] = useState(VARSAYILAN_BILET);
 
   const toggleVehicle = (id) => {
     setVehicles((prev) => {
@@ -47,7 +66,10 @@ export default function OnboardingScreen({ navigation }) {
     const prefs = {
       hasVehicle: { bicycle: vehicles.has("bicycle"), car: vehicles.has("car") },
       passengerType: passenger,
-      fareMultiplier: info.multiplier,
+      // useSettings/hooks bu iki alanı okuyor; `fareMultiplier` hiçbir yerde
+      // tüketilmiyordu.
+      fareBase: info.base,
+      farePerBoarding: info.perBoarding,
       visibleProfiles: profiles,
       onboardingDone: true,
     };
@@ -111,7 +133,9 @@ export default function OnboardingScreen({ navigation }) {
                   </View>
                   <View style={s.cardText}>
                     <Text style={[s.cardName, { color: theme.text }, sel && { color: T.transit }]}>{p.name}</Text>
-                    <Text style={[s.cardDesc, { color: theme.muted }]}>{p.desc} — {p.fare}</Text>
+                    <Text style={[s.cardDesc, { color: theme.muted }]} numberOfLines={2}>
+                      {p.desc} — <Text style={{ color: theme.text }}>{p.fare}</Text>
+                    </Text>
                   </View>
                   <View style={[s.check, { borderColor: theme.border }, sel && { borderColor: T.transit, backgroundColor: T.transit }]}>
                     {sel && <AppIcon name="check" size={13} color="#fff" strokeWidth={3} />}

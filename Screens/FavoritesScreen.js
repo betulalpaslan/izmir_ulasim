@@ -96,7 +96,7 @@ export default function FavoritesScreen() {
         {savedPlaces.map((place) => (
           <View key={place.id} style={[s.placeCard, { backgroundColor: theme.surface, borderColor: theme.border }, place.address && s.placeCardFilled]}>
             <View style={[s.placeIconBox, { backgroundColor: theme.input, borderColor: theme.border }, place.address && s.placeIconBoxFilled]}>
-              <AppIcon name={place.icon} size={22} color={place.address ? "#4ade80" : theme.muted} />
+              <AppIcon name={place.icon} size={22} color={place.address ? "#22c55e" : theme.muted} />
             </View>
             <View style={s.placeInfo}>
               <Text style={[s.placeLabel, { color: theme.text }]}>{place.label}</Text>
@@ -164,26 +164,26 @@ export default function FavoritesScreen() {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#0f1117" },
+  container: { flex: 1, backgroundColor: "#14111f" },
   header: {
     flexDirection: "row", alignItems: "center", gap: 10,
     paddingHorizontal: 24, paddingTop: 16, paddingBottom: 20,
-    borderBottomWidth: 1, borderBottomColor: "#2a2f3d",
+    borderBottomWidth: 1, borderBottomColor: "#322a4a",
   },
-  headerTitle: { color: "#e8eaf0", fontSize: 24, fontWeight: "800" },
+  headerTitle: { color: "#ece9f7", fontSize: 24, fontWeight: "800" },
   badge: {
-    backgroundColor: "#60a5fa20", borderWidth: 1, borderColor: "#60a5fa50",
+    backgroundColor: "#8b5cf620", borderWidth: 1, borderColor: "#8b5cf650",
     borderRadius: 12, paddingHorizontal: 8, paddingVertical: 2,
   },
-  badgeText: { color: "#60a5fa", fontSize: 12, fontWeight: "800" },
+  badgeText: { color: "#8b5cf6", fontSize: 12, fontWeight: "800" },
   scroll: { flex: 1 },
   scrollContent: { padding: 20, paddingBottom: 50 },
   sectionHeaderRow: {
     flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start",
     marginTop: 28, marginBottom: 0,
   },
-  sectionTitle: { color: "#e8eaf0", fontSize: 16, fontWeight: "800", marginBottom: 4 },
-  sectionHint: { color: "#7a8299", fontSize: 12, marginBottom: 14 },
+  sectionTitle: { color: "#ece9f7", fontSize: 16, fontWeight: "800", marginBottom: 4 },
+  sectionHint: { color: "#9b93b8", fontSize: 12, marginBottom: 14 },
   clearHistoryBtn: {
     paddingVertical: 4, paddingHorizontal: 10,
     backgroundColor: "#f871711a", borderWidth: 1, borderColor: "#f8717140",
@@ -193,20 +193,20 @@ const s = StyleSheet.create({
 
   placeCard: {
     flexDirection: "row", alignItems: "center", gap: 14,
-    backgroundColor: "#181c25", borderWidth: 1, borderColor: "#2a2f3d",
+    backgroundColor: "#1e1a2e", borderWidth: 1, borderColor: "#322a4a",
     borderRadius: 14, padding: 14, marginBottom: 10,
   },
-  placeCardFilled: { borderColor: "#2a2f3d" },
+  placeCardFilled: { borderColor: "#322a4a" },
   placeIconBox: {
     width: 44, height: 44, borderRadius: 12,
-    backgroundColor: "#0f1117", borderWidth: 1, borderColor: "#2a2f3d",
+    backgroundColor: "#14111f", borderWidth: 1, borderColor: "#322a4a",
     alignItems: "center", justifyContent: "center",
   },
-  placeIconBoxFilled: { borderColor: "#4ade8030", backgroundColor: "#4ade8008" },
+  placeIconBoxFilled: { borderColor: "#22c55e30", backgroundColor: "#22c55e08" },
   placeInfo: { flex: 1 },
-  placeLabel: { color: "#e8eaf0", fontSize: 15, fontWeight: "700" },
-  placeAddr: { color: "#7a8299", fontSize: 12, marginTop: 2 },
-  placeEmpty: { color: "#3a3f4d", fontSize: 12, marginTop: 2, fontStyle: "italic" },
+  placeLabel: { color: "#ece9f7", fontSize: 15, fontWeight: "700" },
+  placeAddr: { color: "#9b93b8", fontSize: 12, marginTop: 2 },
+  placeEmpty: { color: "#4a4166", fontSize: 12, marginTop: 2, fontStyle: "italic" },
   clearBtn: {
     width: 28, height: 28, borderRadius: 14,
     backgroundColor: "#f8717115", borderWidth: 1, borderColor: "#f8717130",
@@ -214,27 +214,27 @@ const s = StyleSheet.create({
   },
   emptyDot: {
     width: 28, height: 28, borderRadius: 14,
-    borderWidth: 1, borderColor: "#2a2f3d", borderStyle: "dashed",
+    borderWidth: 1, borderColor: "#322a4a", borderStyle: "dashed",
   },
 
   historyCard: {
-    backgroundColor: "#181c25", borderWidth: 1, borderColor: "#2a2f3d",
+    backgroundColor: "#1e1a2e", borderWidth: 1, borderColor: "#322a4a",
     borderRadius: 14, padding: 14, marginBottom: 10,
   },
   historyLine: { flexDirection: "row", alignItems: "center", gap: 10 },
-  historyDotGreen: { width: 8, height: 8, borderRadius: 4, backgroundColor: "#4ade80" },
+  historyDotGreen: { width: 8, height: 8, borderRadius: 4, backgroundColor: "#22c55e" },
   historyDotRed: { width: 8, height: 8, borderRadius: 4, backgroundColor: "#f87171" },
-  historyConnector: { width: 1, height: 10, backgroundColor: "#2a2f3d", marginLeft: 3.5, marginVertical: 3 },
-  historyPlace: { color: "#e8eaf0", fontSize: 13, fontWeight: "600", flex: 1 },
-  historyMeta: { marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: "#2a2f3d" },
-  historyMetaText: { color: "#7a8299", fontSize: 11 },
+  historyConnector: { width: 1, height: 10, backgroundColor: "#322a4a", marginLeft: 3.5, marginVertical: 3 },
+  historyPlace: { color: "#ece9f7", fontSize: 13, fontWeight: "600", flex: 1 },
+  historyMeta: { marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: "#322a4a" },
+  historyMetaText: { color: "#9b93b8", fontSize: 11 },
 
   emptyHistory: { alignItems: "center", paddingVertical: 40, gap: 10 },
   emptyIconBox: {
     width: 58, height: 58, borderRadius: 18,
-    backgroundColor: "#181c25", borderWidth: 1, borderColor: "#2a2f3d",
+    backgroundColor: "#1e1a2e", borderWidth: 1, borderColor: "#322a4a",
     alignItems: "center", justifyContent: "center",
   },
-  emptyTitle: { color: "#7a8299", fontSize: 16, fontWeight: "700" },
-  emptySubtext: { color: "#3a3f4d", fontSize: 13, textAlign: "center", lineHeight: 20 },
+  emptyTitle: { color: "#9b93b8", fontSize: 16, fontWeight: "700" },
+  emptySubtext: { color: "#4a4166", fontSize: 13, textAlign: "center", lineHeight: 20 },
 });

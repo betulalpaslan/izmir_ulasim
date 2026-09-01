@@ -52,8 +52,8 @@ export default function SearchPanel({
                 activeOpacity={0.8}
               >
                 <View style={s.subToggleContent}>
-                  <AppIcon name={icon} size={12} color={active ? "#4ade80" : theme.muted} />
-                  <Text style={[s.subToggleText, { color: active ? "#4ade80" : theme.muted }]}>{label}</Text>
+                  <AppIcon name={icon} size={12} color={active ? "#22c55e" : theme.muted} />
+                  <Text style={[s.subToggleText, { color: active ? "#22c55e" : theme.muted }]}>{label}</Text>
                 </View>
               </TouchableOpacity>
             );
@@ -88,7 +88,7 @@ export default function SearchPanel({
           onChangeText={(t) => onChangeText(t, "origin")}
           onFocus={() => onFocusField("origin")}
           placeholder="Nereden?"
-          dotColor="#4ade80"
+          dotColor="#22c55e"
           rightIcon={hasUserLocation ? "locate" : null}
           onRightPress={onLocateMe}
         />
@@ -127,7 +127,7 @@ export default function SearchPanel({
                   onLongPress={() => onSavePlace(p.id)}
                   activeOpacity={0.75}
                 >
-                  <AppIcon name={p.icon} size={16} color={p.address ? "#4ade80" : theme.muted} />
+                  <AppIcon name={p.icon} size={16} color={p.address ? "#22c55e" : theme.muted} />
                   <View style={{ flex: 1 }}>
                     <Text style={[s.placeLabel, { color: theme.text }]}>{p.label}</Text>
                     {p.address ? (
@@ -202,7 +202,7 @@ const s = StyleSheet.create({
     borderWidth: 1, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 6,
     minWidth: "47%", flex: 1,
   },
-  placeChipFilled: { borderColor: "#4ade8030" },
+  placeChipFilled: { borderColor: "#22c55e30" },
   placeLabel: { fontSize: 12, fontWeight: "700" },
   placeAddr: { fontSize: 10, marginTop: 1 },
   placeEmpty: { fontSize: 9, marginTop: 1, fontStyle: "italic" },
@@ -211,7 +211,7 @@ const s = StyleSheet.create({
     flex: 1, paddingVertical: 5, borderRadius: 7,
     borderWidth: 1, alignItems: "center",
   },
-  subToggleActive: { borderColor: "#4ade8060", backgroundColor: "#4ade8012" },
+  subToggleActive: { borderColor: "#22c55e60", backgroundColor: "#22c55e12" },
   subToggleCarActive: { borderColor: "#f9731660", backgroundColor: "#f9731612" },
   subToggleContent: { flexDirection: "row", alignItems: "center", gap: 4 },
   subToggleText: { fontSize: 11, fontWeight: "700" },

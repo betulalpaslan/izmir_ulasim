@@ -3,7 +3,7 @@ import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, StyleSheet
 import AppIcon from "./AppIcon";
 import { useTheme } from "../utils/ThemeContext";
 import { getLegInstruction } from "../utils/routeInstructions";
-import { NON_TRANSIT_MODES } from "../utils/routeScoring";
+import { NON_TRANSIT_MODES, ucretYazi } from "../utils/routeScoring";
 import { formatDistance } from "../utils/geo";
 
 export default function RoutePanel({ routes, selectedIdx, onSelect, loading, error, notice, timeTip, origin, destination, onReset, bikeType, modBos, onAlternative }) {
@@ -32,12 +32,12 @@ export default function RoutePanel({ routes, selectedIdx, onSelect, loading, err
         <Text style={s.errorText}>{error}</Text>
         {alternatifDk != null && onAlternative && (
           <TouchableOpacity
-            style={[s.actionBtn, { backgroundColor: theme.input, borderColor: "#60a5fa" }]}
+            style={[s.actionBtn, { backgroundColor: theme.input, borderColor: "#8b5cf6" }]}
             onPress={onAlternative}
           >
             <View style={s.actionContent}>
-              <AppIcon name="bus" size={15} color="#60a5fa" />
-              <Text style={[s.actionText, { color: "#60a5fa" }]}>
+              <AppIcon name="bus" size={15} color="#8b5cf6" />
+              <Text style={[s.actionText, { color: "#8b5cf6" }]}>
                 Toplu taşıma: {alternatifDk} dk
               </Text>
             </View>
@@ -93,7 +93,7 @@ export default function RoutePanel({ routes, selectedIdx, onSelect, loading, err
       {routes.map((r, i) => {
         const expanded = selectedIdx === i;
         const co2 = r.carbonGrams;
-        const carbonColor = co2 < 100 ? "#4ade80" : co2 < 300 ? "#f97316" : "#f87171";
+        const carbonColor = co2 < 100 ? "#22c55e" : co2 < 300 ? "#f97316" : "#f87171";
         const bikeLegs = r.legs.filter((l) => l.mode === "BICYCLE" || l.mode === "BICYCLE_RENTAL");
 
         return (
@@ -132,8 +132,8 @@ export default function RoutePanel({ routes, selectedIdx, onSelect, loading, err
                 </Text>
               </View>
 
-              <Text style={[s.cardCost, { color: r.cost === 0 ? "#4ade80" : "#f97316" }]}>
-                {r.cost === 0 ? "Ücretsiz" : `${r.cost} ₺`}
+              <Text style={[s.cardCost, { color: r.cost === 0 ? "#22c55e" : "#f97316" }]}>
+                {r.cost === 0 ? "Ücretsiz" : `${ucretYazi(r.cost)} ₺`}
               </Text>
               <AppIcon
                 name={expanded ? "chevronUp" : "chevronDown"}
@@ -163,11 +163,11 @@ export default function RoutePanel({ routes, selectedIdx, onSelect, loading, err
                 {/* Özet grid */}
                 <View style={s.summaryRow}>
                   {[
-                    { l: "Süre",    v: `${Math.round(r.totalDuration / 60)} dk`, color: "#60a5fa" },
+                    { l: "Süre",    v: `${Math.round(r.totalDuration / 60)} dk`, color: "#8b5cf6" },
                     // Aktarma sayısı zaten kart başlığında; burada toplam mesafeye yer açıldı
                     { l: "Mesafe",  v: `${r.totalDistance} km`,                  color: "#a78bfa" },
-                    { l: "Yürüyüş", v: `${r.walkDistance} km`,                   color: "#4ade80" },
-                    { l: "Ücret",   v: r.cost === 0 ? "Ücretsiz" : `${r.cost} ₺`, color: "#f97316" },
+                    { l: "Yürüyüş", v: `${r.walkDistance} km`,                   color: "#22c55e" },
+                    { l: "Ücret",   v: r.cost === 0 ? "Ücretsiz" : `${ucretYazi(r.cost)} ₺`, color: "#f97316" },
                   ].map((c, k) => (
                     <View key={k} style={[s.summaryCard, { backgroundColor: theme.input, borderColor: theme.border }]}>
                       <Text style={[s.summaryValue, { color: c.color }]}>{c.v}</Text>
@@ -175,6 +175,32 @@ export default function RoutePanel({ routes, selectedIdx, onSelect, loading, err
                     </View>
                   ))}
                 </View>
+
+                {/* ÜCRET DÖKÜMÜ — yalnız iki kalem varsa.
+                    BİSİM kiralaması bilete dahil değil; tek bir toplam
+                    rakam "neden bu kadar" sorusunu cevaplamıyordu.
+                    Provizyon ayrı satır: tahsilat değil, bloke. */}
+                {r.ucretDetay?.bisim > 0 && (
+                  <View style={[s.ucretKutu, { backgroundColor: theme.input, borderColor: theme.border }]}>
+                    <View style={s.ucretSatir}>
+                      <Text style={[s.ucretEtiket, { color: theme.muted }]}>Toplu taşıma bileti</Text>
+                      <Text style={[s.ucretDeger, { color: theme.text }]}>{ucretYazi(r.ucretDetay.bilet)} ₺</Text>
+                    </View>
+                    <View style={s.ucretSatir}>
+                      <Text style={[s.ucretEtiket, { color: theme.muted }]}>
+                        BİSİM · {r.ucretDetay.bisimDakika} dk
+                      </Text>
+                      <Text style={[s.ucretDeger, { color: theme.text }]}>{ucretYazi(r.ucretDetay.bisim)} ₺</Text>
+                    </View>
+                    <View style={[s.ucretSatir, s.ucretToplam, { borderTopColor: theme.border }]}>
+                      <Text style={[s.ucretEtiket, { color: theme.text, fontWeight: "800" }]}>Toplam</Text>
+                      <Text style={[s.ucretDeger, { color: "#f97316", fontSize: 15 }]}>{ucretYazi(r.cost)} ₺</Text>
+                    </View>
+                    <Text style={[s.ucretNot, { color: theme.muted }]}>
+                      Kiralamada kartından {ucretYazi(r.ucretDetay.provizyon)} ₺ ön provizyon bloke edilir; iade edilir.
+                    </Text>
+                  </View>
+                )}
 
                 {/* İpuçları */}
                 {co2 > 0 && (
@@ -190,7 +216,7 @@ export default function RoutePanel({ routes, selectedIdx, onSelect, loading, err
                     (bkz. BisimBolgeService.serbestBisikletler). Kullanıcıya
                     olmayan bir kesinlik vaat etmemek için "civarında" denir. */}
                 {bikeType === "RENT" && bikeLegs.length > 0 && (
-                  <Text style={[s.hint, { color: "#4ade80", backgroundColor: "#4ade8012", borderColor: "#4ade8030" }]}>
+                  <Text style={[s.hint, { color: "#22c55e", backgroundColor: "#22c55e12", borderColor: "#22c55e30" }]}>
                     🚲 Civarındaki BİSİM bisikletini al → {bikeLegs[bikeLegs.length - 1].to} yakınında bırak · hizmet alanı içinde her yere bırakabilirsin
                   </Text>
                 )}
@@ -353,6 +379,14 @@ const s = StyleSheet.create({
     fontSize: 8, fontWeight: "700",
     textTransform: "uppercase", letterSpacing: 0.4, marginTop: 1,
   },
+  // Ücret dökümü
+  ucretKutu: { borderWidth: 1, borderRadius: 12, padding: 12, gap: 7, marginTop: 4 },
+  ucretSatir: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  ucretToplam: { borderTopWidth: 1, paddingTop: 7, marginTop: 1 },
+  ucretEtiket: { fontSize: 12 },
+  ucretDeger: { fontSize: 13, fontWeight: "700" },
+  ucretNot: { fontSize: 10, lineHeight: 14, marginTop: 2 },
+
   hint: {
     fontSize: 10, fontWeight: "700",
     borderWidth: 1, borderRadius: 7,

@@ -28,8 +28,8 @@ export default class ErrorBoundary extends React.Component {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#0f1117", padding: 20, paddingTop: 60 },
+  container: { flex: 1, backgroundColor: "#14111f", padding: 20, paddingTop: 60 },
   title: { color: "#f87171", fontSize: 16, fontWeight: "800", marginBottom: 16 },
   message: { color: "#ffffff", fontSize: 14, marginBottom: 12, lineHeight: 22 },
-  stack: { color: "#7a8299", fontSize: 11, lineHeight: 18 },
+  stack: { color: "#9b93b8", fontSize: 11, lineHeight: 18 },
 });

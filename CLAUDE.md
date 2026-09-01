@@ -115,7 +115,7 @@ for reasons the user could not act on.
 
 **When a mode honestly cannot help**, the empty list is the right answer but a
 dead end on its own — users re-ran the same search. `modBosSebebi` states the
-reason in measured numbers ("Bisiklet bu yolculuğu 9.6 dk uzatıyor", "Araç
+reason in measured numbers ("Bisiklet bu yolculuğu 21.4 dk uzatıyor", "Araç
 15.9 km, toplu taşıma 0.9 km") and returns the plain-transit alternative's
 duration, which both clients offer as a one-tap exit. The number comes from the
 walk-access baseline query the backend already ran (`duzTransitEnIyiSn` — the old
