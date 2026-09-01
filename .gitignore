@@ -51,3 +51,6 @@ coverage/
 # elle tutulan yedekler — geçmiş git'te
 *.bak
 *.bak[0-9]
+
+# yedeklerin toplandigi yer (silmeden once bakilir)
+.yedekler/
