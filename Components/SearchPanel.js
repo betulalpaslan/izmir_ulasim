@@ -97,7 +97,7 @@ export default function SearchPanel({
           onPress={onSwap}
           activeOpacity={0.8}
         >
-          <Text style={[s.swapIcon, { color: theme.text }]}>⇄</Text>
+          <AppIcon name="swap" size={13} color={theme.text} />
         </TouchableOpacity>
         <SearchBar
           value={destText}
@@ -184,7 +184,6 @@ const s = StyleSheet.create({
     borderWidth: 1, width: 28, height: 28, borderRadius: 14,
     alignItems: "center", justifyContent: "center",
   },
-  swapIcon: { fontSize: 13 },
   suggestList: { borderRadius: 12, maxHeight: 200, marginTop: 4, borderWidth: 1 },
   suggestItem: {
     flexDirection: "row", alignItems: "center", gap: 10,

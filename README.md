@@ -33,7 +33,9 @@ React Native (Expo) · OpenTripPlanner 2.8.1 · Node.js/Express
 
 Aynı puanlama ve ücret mantığını kullanan bir web arayüzü de var: [web/index.html](web/index.html).
 Mobil ile ortak saf mantık `web/routeScoring.bundle.js` olarak paketlenir, yani iki
-istemci aynı sıralamayı ve aynı tarifeyi gösterir.
+istemci aynı sıralamayı ve aynı tarifeyi gösterir. İkonlar da ortak:
+[utils/icons.js](utils/icons.js) tek sözlük, mobil tarafta lucide bileşenlerine,
+web tarafında `web/lucideIcons.js`'e gömülü aynı lucide geometrisine bağlanır.
 
 ---
 
@@ -52,6 +54,7 @@ npm start                 # Expo geliştirme sunucusu
 | `npm run ios` | iOS simülatör/cihaz |
 | `npm test` | Jest test paketi |
 | `npm run test:watch` | Testleri izleme modunda çalıştırır |
+| `npm run ikon` | Web'in ikon dosyasını üretir (`utils/icons.js` değişince) |
 
 ### Ortam değişkenleri
 

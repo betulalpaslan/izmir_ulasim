@@ -202,11 +202,18 @@ export default function RoutePanel({ routes, selectedIdx, onSelect, loading, err
                   </View>
                 )}
 
-                {/* İpuçları */}
+                {/* İpuçları.
+                    İkonlar emoji değil AppIcon: aynı kartın üstünde bacak
+                    şeridi lucide çiziyordu, ipuçları emoji basıyordu — iki
+                    ayrı ikon dili yan yana duruyordu. Emoji ayrıca cihaza
+                    göre değişiyor ve rengi metinden bağımsız. */}
                 {co2 > 0 && (
-                  <Text style={[s.hint, { color: carbonColor, backgroundColor: carbonColor + "15", borderColor: carbonColor + "40" }]}>
-                    🌿 ~{co2}g CO₂ · {co2 < 100 ? "Düşük" : co2 < 300 ? "Orta" : "Yüksek"} emisyon
-                  </Text>
+                  <View style={[s.hint, { backgroundColor: carbonColor + "15", borderColor: carbonColor + "40" }]}>
+                    <AppIcon name="leaf" size={12} color={carbonColor} />
+                    <Text style={[s.hintText, { color: carbonColor }]}>
+                      ~{co2}g CO₂ · {co2 < 100 ? "Düşük" : co2 < 300 ? "Orta" : "Yüksek"} emisyon
+                    </Text>
+                  </View>
                 )}
                 {/* BİSİM dockless: bisiklet bir istasyona bağlı değil, hizmet
                     alanı içinde her yere bırakılabilir. Metin bu yüzden bir
@@ -216,14 +223,18 @@ export default function RoutePanel({ routes, selectedIdx, onSelect, loading, err
                     (bkz. BisimBolgeService.serbestBisikletler). Kullanıcıya
                     olmayan bir kesinlik vaat etmemek için "civarında" denir. */}
                 {bikeType === "RENT" && bikeLegs.length > 0 && (
-                  <Text style={[s.hint, { color: "#22c55e", backgroundColor: "#22c55e12", borderColor: "#22c55e30" }]}>
-                    🚲 Civarındaki BİSİM bisikletini al → {bikeLegs[bikeLegs.length - 1].to} yakınında bırak · hizmet alanı içinde her yere bırakabilirsin
-                  </Text>
+                  <View style={[s.hint, { backgroundColor: "#22c55e12", borderColor: "#22c55e30" }]}>
+                    <AppIcon name="bike" size={12} color="#22c55e" />
+                    <Text style={[s.hintText, { color: "#22c55e" }]}>
+                      Civarındaki BİSİM bisikletini al → {bikeLegs[bikeLegs.length - 1].to} yakınında bırak · hizmet alanı içinde her yere bırakabilirsin
+                    </Text>
+                  </View>
                 )}
                 {r.walkWarning && (
-                  <Text style={[s.hint, { color: "#f97316", backgroundColor: "#f9731612", borderColor: "#f9731630" }]}>
-                    ⚠ {r.walkWarning}
-                  </Text>
+                  <View style={[s.hint, { backgroundColor: "#f9731612", borderColor: "#f9731630" }]}>
+                    <AppIcon name="alert" size={12} color="#f97316" />
+                    <Text style={[s.hintText, { color: "#f97316" }]}>{r.walkWarning}</Text>
+                  </View>
                 )}
 
                 {/* ── Bacak listesi ──
@@ -387,11 +398,14 @@ const s = StyleSheet.create({
   ucretDeger: { fontSize: 13, fontWeight: "700" },
   ucretNot: { fontSize: 10, lineHeight: 14, marginTop: 2 },
 
+  // İkon ilk satırın hizasında dursun diye flex-start; metin sarınca ikon
+  // dikeyde ortalanıp kaymasın.
   hint: {
-    fontSize: 10, fontWeight: "700",
+    flexDirection: "row", alignItems: "flex-start", gap: 5,
     borderWidth: 1, borderRadius: 7,
-    padding: 6, lineHeight: 15,
+    padding: 6,
   },
+  hintText: { flex: 1, fontSize: 10, fontWeight: "700", lineHeight: 15 },
   legCard: {
     flexDirection: "row", alignItems: "center", gap: 8,
     borderWidth: 1, borderRadius: 9,

@@ -1,4 +1,5 @@
 import {
+  ArrowUpDown,
   Bike,
   BriefcaseBusiness,
   Bus,
@@ -6,10 +7,17 @@ import {
   Check,
   ChevronDown,
   ChevronUp,
+  CircleQuestionMark,
   CircleUserRound,
+  CircleX,
+  Clock,
   Footprints,
+  Gauge,
   GraduationCap,
+  Hourglass,
   House,
+  Info,
+  Leaf,
   LocateFixed,
   Map,
   MapPin,
@@ -17,14 +25,17 @@ import {
   Pause,
   Play,
   RefreshCw,
+  Repeat,
   RotateCcw,
+  Search,
   Settings,
   Ship,
   ShoppingCart,
+  SquareParking,
   Star,
   Sun,
   Target,
-  Train,
+  TrainFront,
   TramFront,
   TriangleAlert,
   Trash2,
@@ -32,7 +43,12 @@ import {
   UserRoundCog,
   X,
 } from "lucide-react-native";
+import { ICON_FALLBACK, ICON_STROKE } from "../utils/icons";
 
+// Anahtarlar utils/icons.js'teki ICON_SET ile BİREBİR aynı olmak zorunda: o
+// tablo web'in çizim verisini üretiyor, burası mobilin bileşenlerini bağlıyor.
+// Ayrışmayı __tests__/icons.test.js yakalar. İçe aktarımlar tek tek yazılı —
+// `import *` paketteki 1500 ikonu birden pakete sokar.
 const ICONS = {
   alert: TriangleAlert,
   bike: Bike,
@@ -42,34 +58,48 @@ const ICONS = {
   check: Check,
   chevronDown: ChevronDown,
   chevronUp: ChevronUp,
+  clock: Clock,
+  error: CircleX,
+  fast: Gauge,
+  help: CircleQuestionMark,
+  home: House,
+  hourglass: Hourglass,
+  info: Info,
+  leaf: Leaf,
   locate: LocateFixed,
   map: Map,
   mapPin: MapPin,
   navigation: Navigation,
+  parking: SquareParking,
   pause: Pause,
   play: Play,
   refresh: RefreshCw,
   reset: RotateCcw,
+  search: Search,
   settings: Settings,
   ship: Ship,
   shop: ShoppingCart,
   star: Star,
   student: GraduationCap,
   sun: Sun,
+  swap: ArrowUpDown,
   target: Target,
-  train: Train,
+  // TrainFront, TramFront'tan ayrı bir çizim. Burası `Train` yazıyordu ve
+  // lucide 1.x'te o ad TramFront'un takma adı: banliyö/metro ile tramvay
+  // ekranda aynı ikonu paylaşıyordu.
+  train: TrainFront,
   tram: TramFront,
+  transfer: Repeat,
   trash: Trash2,
   user: UserRound,
-  userCog: UserRoundCog,
   userCircle: CircleUserRound,
+  userCog: UserRoundCog,
   walk: Footprints,
   work: BriefcaseBusiness,
-  home: House,
   x: X,
 };
 
-export default function AppIcon({ name, size = 20, color = "#ece9f7", strokeWidth = 2.2, style }) {
-  const Icon = ICONS[name] || MapPin;
+export default function AppIcon({ name, size = 20, color = "#ece9f7", strokeWidth = ICON_STROKE, style }) {
+  const Icon = ICONS[name] || ICONS[ICON_FALLBACK];
   return <Icon size={size} color={color} strokeWidth={strokeWidth} style={style} />;
 }

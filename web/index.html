@@ -12,14 +12,17 @@
        genişlikleri sabit olduğu için süre/mesafe değerleri güncellenirken
        satır zıplamıyor. -->
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;600;700&display=swap" rel="stylesheet" />
-  <!-- İkonlar. Iconify'ın custom element'i seçildi, Lucide/Iconify'ın tarayıcı
-       yapan paketleri değil: onlar her DOM yazımından sonra createIcons()
-       çağrısını şart koşuyor ve bu dosyada 12 innerHTML noktası + dinamik
-       Leaflet marker/popup'ları var; biri unutulunca ikon sessizce kaybolurdu.
-       Custom element innerHTML ile basılınca da kendini yükseltir.
-       Üç set karışık kullanılıyor (bkz. IKON_SETI ve I_* sabitleri):
-       ana set streamline-cyber-color'da yürüme, tramvay ve otopark yok. -->
-  <script src="https://cdn.jsdelivr.net/npm/iconify-icon@2/dist/iconify-icon.min.js"></script>
+  <!-- İkonlar. Burası Iconify'ı CDN'den çekip streamline-cyber-color setini
+       basıyordu; mobil uygulama ise lucide kullanıyor ve iki arayüz aynı
+       otobüsü iki ayrı çizimle gösteriyordu. Artık ikisi de TEK tablodan
+       besleniyor: utils/icons.js. Bu dosya, o tablodaki ikonların lucide
+       geometrisini gömülü taşır (npm run ikon ile üretilir), yani ağ
+       gerekmez ve uzaktaki bir set sürüm atladığında ikonlar ayrışamaz.
+       Dinamik yazımlarda ikon() doğrudan SVG metni döndürür — createIcons()
+       gibi sonradan çağrılması gereken bir adım yok; statik işaretlemedeki
+       <i data-ikon> düğümleri açılışta bir kez LucideIkon.ciz() ile
+       çizilir. -->
+  <script src="lucideIcons.js"></script>
 
   <style>
     /* ──────────────────────────────────────────────────────────────
@@ -89,8 +92,16 @@
 
     /* Boyut font-size'dan gelir: emoji de öyle davranıyordu, dolayısıyla
        ikonu saran mevcut kuralların (.leg-icon, .profile-tab .icon …)
-       hiçbiri değişmek zorunda kalmadı. */
-    iconify-icon { display: inline-block; vertical-align: -0.15em; line-height: 1; }
+       hiçbiri değişmek zorunda kalmadı. Iconify'ın custom element'i de
+       1em çiziyordu; SVG'ye geçerken aynı davranış korundu.
+       Renk: stroke="currentColor" — ikon, içinde durduğu metnin rengini
+       alır. Mobilde AppIcon'a verilen color ile aynı davranış. */
+    .ikon {
+      display: inline-block;
+      width: 1em; height: 1em;
+      vertical-align: -0.15em;
+      flex-shrink: 0;
+    }
 
     /* ── SIDEBAR ── */
     /* Kenarlık yerine gölge: panel haritanın üstünde duruyor, yanına
@@ -474,7 +485,7 @@
       gap: 10px;
       line-height: 1.5;
     }
-    #status iconify-icon { font-size: 15px; flex-shrink: 0; margin-top: 1px; }
+    #status .ikon { font-size: 15px; margin-top: 1px; }
 
     /* ── ÖZET ── */
     /* Son Rotalar — web_demo.html'den taşındı. Aynı localStorage anahtarını
@@ -640,10 +651,10 @@
                 />
                 <div class="autocomplete-list" id="fromList"></div>
               </div>
-              <button class="gps-btn" id="gpsBtn" title="Mevcut konumumu kullan"><iconify-icon icon="streamline-cyber-color:location-pin-1"></iconify-icon></button>
+              <button class="gps-btn" id="gpsBtn" title="Mevcut konumumu kullan"><i data-ikon="locate"></i></button>
             </div>
 
-            <button class="swap-btn" id="swapBtn" title="Yönü çevir"><iconify-icon icon="streamline-cyber-color:synchronize-loop"></iconify-icon></button>
+            <button class="swap-btn" id="swapBtn" title="Yönü çevir"><i data-ikon="swap"></i></button>
 
             <!-- BİTİŞ -->
             <div class="search-row">
@@ -662,8 +673,8 @@
 
           </div>
           <div class="small-actions">
-            <button class="small-btn" id="resetBtn"><iconify-icon icon="streamline-cyber-color:bin-2"></iconify-icon> Temizle</button>
-            <button class="small-btn" id="rerouteBtn"><iconify-icon icon="streamline-cyber-color:synchronize-2"></iconify-icon> Yeniden Ara</button>
+            <button class="small-btn" id="resetBtn"><i data-ikon="trash"></i> Temizle</button>
+            <button class="small-btn" id="rerouteBtn"><i data-ikon="refresh"></i> Yeniden Ara</button>
           </div>
         </div>
       </div>
@@ -673,17 +684,17 @@
         <div class="section-title">Ulaşım Profili</div>
         <div class="profile-tabs">
           <div class="profile-tab" data-profile="bicycle">
-            <span class="icon"><iconify-icon icon="streamline-cyber-color:bicycle-1"></iconify-icon></span>
+            <span class="icon"><i data-ikon="bike"></i></span>
             <span class="label">Bisiklet</span>
             <span class="sublabel">Tek başına / Park+Transit</span>
           </div>
           <div class="profile-tab" data-profile="car">
-            <span class="icon"><iconify-icon icon="streamline-cyber-color:car-4"></iconify-icon></span>
+            <span class="icon"><i data-ikon="car"></i></span>
             <span class="label">Araba</span>
             <span class="sublabel">Tek başına / P+R</span>
           </div>
           <div class="profile-tab active" data-profile="transit">
-            <span class="icon"><iconify-icon icon="streamline-cyber-color:bus-2"></iconify-icon></span>
+            <span class="icon"><i data-ikon="bus"></i></span>
             <span class="label">Toplu Taşıma</span>
             <span class="sublabel">Yürü &amp; transit</span>
           </div>
@@ -694,8 +705,8 @@
       <div class="panel" id="panel-bicycle">
         <div class="section-title">Sürüş Türü</div>
         <div class="seg-group">
-          <button class="seg-btn active" data-bike="PARK"><iconify-icon icon="streamline-cyber-color:bicycle-1"></iconify-icon> Kişisel Bisiklet</button>
-          <button class="seg-btn" data-bike="RENT"><iconify-icon icon="streamline-color:parking-sign"></iconify-icon><iconify-icon icon="streamline-cyber-color:bicycle-1"></iconify-icon> BİSİM</button>
+          <button class="seg-btn active" data-bike="PARK"><i data-ikon="bike"></i> Kişisel Bisiklet</button>
+          <button class="seg-btn" data-bike="RENT"><i data-ikon="parking"></i><i data-ikon="bike"></i> BİSİM</button>
         </div>
         <!-- Metin JS'ten gelir (BISIKLET_ANLATIM): iki seçenek iki ayrı şey
              yapıyor, tek sabit cümle ikisini birden anlatamıyordu. -->
@@ -706,11 +717,11 @@
       <div class="panel" id="panel-car">
         <div class="section-title">Sürüş Türü</div>
         <div class="seg-group">
-          <button class="seg-btn car-seg active" data-cartype="DIRECT"><iconify-icon icon="streamline-cyber-color:car-4"></iconify-icon> Sadece Araba</button>
-          <button class="seg-btn car-seg" data-cartype="PARK_RIDE"><iconify-icon icon="streamline-color:parking-sign"></iconify-icon><iconify-icon icon="streamline-cyber-color:bus-2"></iconify-icon> Park &amp; Ride</button>
+          <button class="seg-btn car-seg active" data-cartype="DIRECT"><i data-ikon="car"></i> Sadece Araba</button>
+          <button class="seg-btn car-seg" data-cartype="PARK_RIDE"><i data-ikon="parking"></i><i data-ikon="bus"></i> Park &amp; Ride</button>
         </div>
         <div class="info-box">
-          <iconify-icon icon="streamline-color:parking-sign"></iconify-icon> <b>P+R modu:</b> Arabayla en yakın katlı otoparka gider, oradan toplu taşımaya geçersin.
+          <i data-ikon="parking"></i> <b>P+R modu:</b> Arabayla en yakın katlı otoparka gider, oradan toplu taşımaya geçersin.
         </div>
       </div>
 
@@ -723,9 +734,9 @@
       <div>
         <div class="section-title">Araçlar</div>
         <div class="chip-group" id="modeChips">
-          <div class="chip active" data-mode="BUS"><iconify-icon icon="streamline-cyber-color:bus-2"></iconify-icon> Otobüs</div>
-          <div class="chip active" data-mode="RAIL"><iconify-icon icon="streamline-cyber-color:train-2"></iconify-icon> Raylı</div>
-          <div class="chip active" data-mode="TRAM"><iconify-icon icon="streamline-color:high-speed-train-front"></iconify-icon> Tramvay</div>
+          <div class="chip active" data-mode="BUS"><i data-ikon="bus"></i> Otobüs</div>
+          <div class="chip active" data-mode="RAIL"><i data-ikon="train"></i> Raylı</div>
+          <div class="chip active" data-mode="TRAM"><i data-ikon="tram"></i> Tramvay</div>
         </div>
       </div>
 
@@ -733,7 +744,7 @@
       <div>
         <div class="section-title">Kalkış Zamanı</div>
         <div style="display:flex; gap:8px;">
-          <button class="zaman-btn aktif" id="zamanSimdi"><iconify-icon icon="streamline-cyber-color:clock-1"></iconify-icon> Şimdi</button>
+          <button class="zaman-btn aktif" id="zamanSimdi"><i data-ikon="clock"></i> Şimdi</button>
           <input type="datetime-local" id="zamanSecici"
                  style="flex:1; min-width:0; background:var(--surface2); color:var(--text);
                         border:none; border-radius:999px; padding:9px 14px; font-size:12px;
@@ -746,10 +757,10 @@
       <div>
         <div class="section-title">Tercih</div>
         <div class="pref-group">
-          <button class="pref-btn active" data-pref="recommended"><iconify-icon icon="streamline-cyber-color:badge-star-2"></iconify-icon> Önerilen</button>
-          <button class="pref-btn" data-pref="fastest"><iconify-icon icon="streamline-color:fastforward-clock"></iconify-icon> En Hızlı</button>
-          <button class="pref-btn" data-pref="leastTransfers"><iconify-icon icon="streamline-cyber-color:loop-diamond"></iconify-icon> Az Aktarma</button>
-          <button class="pref-btn" data-pref="leastWalking"><iconify-icon icon="streamline-emojis:man-walking-1"></iconify-icon> Az Yürüyüş</button>
+          <button class="pref-btn active" data-pref="recommended"><i data-ikon="star"></i> Önerilen</button>
+          <button class="pref-btn" data-pref="fastest"><i data-ikon="fast"></i> En Hızlı</button>
+          <button class="pref-btn" data-pref="leastTransfers"><i data-ikon="transfer"></i> Az Aktarma</button>
+          <button class="pref-btn" data-pref="leastWalking"><i data-ikon="walk"></i> Az Yürüyüş</button>
         </div>
       </div>
 
@@ -763,15 +774,16 @@
       </div>
 
       <!-- ARA -->
-      <button class="search-btn profile-transit" id="searchBtn"><iconify-icon icon="streamline-cyber-color:synchronize-find-search"></iconify-icon> Rota Ara</button>
+      <button class="search-btn profile-transit" id="searchBtn"><i data-ikon="search"></i> Rota Ara</button>
 
       <!-- DURUM -->
       <!-- Metin ayrı bir span'de tutuluyor ve textContent'le yazılıyor:
            applyPreference buraya backend'den gelen teshis.mesaj'ı basıyor,
            kutunun tamamını innerHTML'e açmak gereksiz bir enjeksiyon yüzeyi
-           olurdu. İkon ayrı düğüm, setStatus yalnız icon niteliğini değiştirir. -->
+           olurdu. İkon ayrı bir sarmalayıcıda: setStatus yalnız onun içini
+           yeniler, metne dokunmaz. -->
       <div id="status">
-        <iconify-icon id="statusIkon" icon="streamline-cyber-color:location-pin-1"></iconify-icon>
+        <span id="statusIkon"><i data-ikon="mapPin"></i></span>
         <span id="statusMetin">Haritadan iki nokta seçin.</span>
       </div>
 
@@ -780,17 +792,17 @@
         <div class="section-title">Harita Katmanları</div>
         <div class="layer-group">
           <button class="layer-btn" id="parkingToggle">
-            <iconify-icon icon="streamline-color:parking-sign"></iconify-icon>
+            <i data-ikon="parking"></i>
             <span>Otoparklar</span>
             <span class="layer-count" id="parkingCount"></span>
           </button>
           <button class="layer-btn" id="bisimToggle">
-            <iconify-icon icon="streamline-cyber-color:bicycle-1"></iconify-icon>
+            <i data-ikon="bike"></i>
             <span>BİSİM istasyonları</span>
             <span class="layer-count" id="bisimCount"></span>
           </button>
           <button class="layer-btn" id="bikeParkToggle">
-            <iconify-icon icon="streamline-color:parking-sign"></iconify-icon>
+            <i data-ikon="parking"></i>
             <span>Bisiklet park noktaları</span>
             <span class="layer-count" id="bikeParkCount"></span>
           </button>
@@ -820,6 +832,15 @@
 
   <script src="routeScoring.bundle.js"></script>
   <script>
+    /* Statik işaretlemedeki <i data-ikon> düğümleri SVG'ye çevrilir; dinamik
+       üretilen her yer ikon()'u zaten SVG metni olarak gömdüğü için tek çağrı
+       bu. EN BAŞTA duruyor, bilerek: aşağıda bir şey patlarsa (Leaflet CDN'i
+       gelmediyse `L` tanımsızdır ve harita kurulumu ilk satırlarda atar)
+       arayüz ikonsuz kalmasın — ikon çizimi hiçbir şeye bağlı değil.
+       Iconify'ın custom element'i kendi kendine yükseldiği için bu sıra
+       eskiden önemsizdi. */
+    LucideIkon.ciz(document);
+
     /* Backend adresi. Varsayılan lokal geliştirme; ?api= ile değiştirilebilir:
          web/index.html?api=https://izmirbackend-production.up.railway.app
        Silinen web_demo.html doğrudan Railway'e bakıyordu ve bu bir tuzaktı —
@@ -852,16 +873,16 @@
     const bilet = () => window.RS.biletTarifesi(biletId);
 
     // ── İKONLAR ──
-    // Ana set streamline-cyber-color; yürüme, tramvay ve otopark o sette YOK
-    // (500 ikonun tamamı tarandı), üçü başka Streamline setlerinden geliyor.
-    const IKON_SETI = "streamline-cyber-color";
-    const I_WALK = "streamline-emojis:man-walking-1";
-    const I_PARK = "streamline-color:parking-sign";
-    const I_TRAM = "streamline-color:high-speed-train-front";
-    const I_FAST = "streamline-color:fastforward-clock";
-
-    const ikonAd = (ad) => (ad.includes(":") ? ad : `${IKON_SETI}:${ad}`);
-    const ikon   = (ad) => `<iconify-icon icon="${ikonAd(ad)}"></iconify-icon>`;
+    // Ad → çizim eşlemesi TEK yerde: utils/icons.js. Geometri oradan
+    // lucideIcons.js'e gömülüyor (npm run ikon), mobil uygulama da aynı
+    // anahtarları AppIcon üzerinden aynı lucide bileşenlerine bağlıyor —
+    // yani buradaki "bus" ile telefondaki "bus" aynı otobüs.
+    //
+    // Öncesi: üç ayrı Streamline seti CDN'den karıştırılıyordu (ana set
+    // streamline-cyber-color'da yürüme, tramvay ve otopark yoktu). Hiçbiri
+    // mobildeki ikon değildi, ağ yokken hepsi kayboluyordu ve set uzakta
+    // sürüm atladığında iki arayüz sessizce ayrışıyordu.
+    const ikon = (ad) => LucideIkon.svg(ad);
 
     // ── MOD RENKLERİ & LABEL ──
     // Panel mor–turuncuya geçince buradaki koyu toprak tonları oraya ait
@@ -872,17 +893,18 @@
     // Renkler artık BURADA YAZILI DEĞİL: RS.MODE_STYLE'dan geliyor, yani
     // haritadaki çizgi ile mobil uygulamanın kart şeridi tek tablodan
     // besleniyor. İki liste ayrı dururken kaçınılmaz olarak ayrışıyorlardı.
-    // (İkon adları paylaşılamıyor: web Iconify, mobil kendi ikon seti.)
+    // İkon adları da artık MODE_STYLE'dan geliyor — renkle aynı tablodan.
+    // Buradaki liste ayrı dururken kaçınılmaz olarak ayrışmıştı: mobil
+    // tramvayı TramFront ile çizerken web başka bir setin hızlı tren
+    // ikonunu basıyordu.
     const modeColors = Object.fromEntries(
       Object.entries(window.RS.MODE_STYLE).map(([mod, st]) => [mod, st.color])
     );
     // Değerler ikon ADI; işaretlemeye çevirme çizim anında (ikon()) olur.
-    // RAIL ve SUBWAY hâlâ aynı ikonu paylaşıyor — cyber-color'da metro yok.
-    const modeIcons = {
-      WALK: I_WALK,      BICYCLE: "bicycle-1", BICYCLE_RENTAL: "bicycle-1",
-      BUS: "bus-2",      RAIL: "train-2",      TRAM: I_TRAM,
-      SUBWAY: "train-2", CAR: "car-4"
-    };
+    // RAIL ve SUBWAY hâlâ aynı ikonu paylaşıyor, renkleri ayırıyor.
+    const modeIcons = Object.fromEntries(
+      Object.entries(window.RS.MODE_STYLE).map(([mod, st]) => [mod, st.icon])
+    );
     const modeLabels = {
       WALK: "Yürüme", BICYCLE: "Bisiklet", BICYCLE_RENTAL: "Kiralık Bisiklet",
       BUS: "Otobüs", RAIL: "Raylı", TRAM: "Tramvay",
@@ -904,37 +926,37 @@
       // elendi (Narlıdere → Çiğli'de tek kart, 137 dk / 33.5 km kesintisiz)
       // ve backend hiçbir bisiklet modunda direct bacak istemiyor.
       bicycle_rent: [
-        { label: `${ikon(I_WALK)} Yürüme`, color: "#7a739a", bg: "rgba(122,115,154,0.12)" },
+        { label: `${ikon("walk")} Yürüme`, color: "#7a739a", bg: "rgba(122,115,154,0.12)" },
         { label: "→", type: "arrow" },
-        { label: `${ikon("bicycle-1")} BİSİM`, color: "#14a05a", bg: "rgba(20,160,90,0.12)" },
+        { label: `${ikon("bike")} BİSİM`, color: "#14a05a", bg: "rgba(20,160,90,0.12)" },
         { label: "→", type: "arrow" },
-        { label: `${ikon(I_WALK)} Varış`, color: "#7a739a", bg: "rgba(122,115,154,0.12)" },
+        { label: `${ikon("walk")} Varış`, color: "#7a739a", bg: "rgba(122,115,154,0.12)" },
       ],
       bicycle_park: [
-        { label: `${ikon("bicycle-1")} Bisiklet`, color: "#14a05a", bg: "rgba(20,160,90,0.12)" },
+        { label: `${ikon("bike")} Bisiklet`, color: "#14a05a", bg: "rgba(20,160,90,0.12)" },
         { label: "→", type: "arrow" },
-        { label: `${ikon(I_PARK)} Park`, color: "#7a739a", bg: "rgba(122,115,154,0.12)" },
+        { label: `${ikon("parking")} Park`, color: "#7a739a", bg: "rgba(122,115,154,0.12)" },
         { label: "→", type: "arrow" },
-        { label: `${ikon("bus-2")} Transit`, color: "#6d3bf5", bg: "rgba(109,59,245,0.11)" },
+        { label: `${ikon("bus")} Transit`, color: "#6d3bf5", bg: "rgba(109,59,245,0.11)" },
       ],
       car: [
-        { label: `${ikon("car-4")} Araba`, color: "#f97316", bg: "rgba(249,115,22,0.13)" },
+        { label: `${ikon("car")} Araba`, color: "#f97316", bg: "rgba(249,115,22,0.13)" },
         { label: "→", type: "arrow" },
-        { label: `${ikon(I_WALK)} Varış`, color: "#7a739a", bg: "rgba(122,115,154,0.12)" },
+        { label: `${ikon("walk")} Varış`, color: "#7a739a", bg: "rgba(122,115,154,0.12)" },
       ],
       car_pr: [
-        { label: `${ikon("car-4")} Araba`, color: "#f97316", bg: "rgba(249,115,22,0.13)" },
+        { label: `${ikon("car")} Araba`, color: "#f97316", bg: "rgba(249,115,22,0.13)" },
         { label: "→", type: "arrow" },
-        { label: `${ikon(I_PARK)} P+R`, color: "#7a739a", bg: "rgba(122,115,154,0.12)" },
+        { label: `${ikon("parking")} P+R`, color: "#7a739a", bg: "rgba(122,115,154,0.12)" },
         { label: "→", type: "arrow" },
-        { label: `${ikon("bus-2")} Transit`, color: "#6d3bf5", bg: "rgba(109,59,245,0.11)" },
+        { label: `${ikon("bus")} Transit`, color: "#6d3bf5", bg: "rgba(109,59,245,0.11)" },
       ],
       transit: [
-        { label: `${ikon(I_WALK)} Yürüme`, color: "#7a739a", bg: "rgba(122,115,154,0.12)" },
+        { label: `${ikon("walk")} Yürüme`, color: "#7a739a", bg: "rgba(122,115,154,0.12)" },
         { label: "→", type: "arrow" },
-        { label: `${ikon("bus-2")} Transit`, color: "#6d3bf5", bg: "rgba(109,59,245,0.11)" },
+        { label: `${ikon("bus")} Transit`, color: "#6d3bf5", bg: "rgba(109,59,245,0.11)" },
         { label: "→", type: "arrow" },
-        { label: `${ikon(I_WALK)} Yürüme`, color: "#7a739a", bg: "rgba(122,115,154,0.12)" },
+        { label: `${ikon("walk")} Yürüme`, color: "#7a739a", bg: "rgba(122,115,154,0.12)" },
       ]
     };
 
@@ -944,19 +966,21 @@
     // daha iyiyse puanlama öne alıyor — kullanıcının ikisini de bilmesi
     // gerekiyor, yoksa "neden bisikletimi metroya bindirdi" diye soruyor.
     const BISIKLET_ANLATIM = {
-      PARK: ikon("bicycle-1") + " <b>Kişisel Bisiklet:</b> Bisikletini metro, tramvay ve İZBAN'a " +
+      PARK: ikon("bike") + " <b>Kişisel Bisiklet:</b> Bisikletini metro, tramvay ve İZBAN'a " +
             "bindirebilirsin — ya da bir kilitleme noktasına park edip toplu " +
             "taşımayla devam edersin. İkisi de aranır, hızlı olan öne çıkar.",
-      RENT: ikon(I_PARK) + ikon("bicycle-1") + " <b>BİSİM:</b> Hizmet alanı içinde bisikleti alırsın, alanın " +
+      RENT: ikon("parking") + ikon("bike") + " <b>BİSİM:</b> Hizmet alanı içinde bisikleti alırsın, alanın " +
             "içinde her yere bırakabilirsin. Yeşil bonus bölgelerine bırakırsan " +
             "puan kazanırsın. Alan ve bonus bölgeleri haritada işaretli.",
     };
 
     // ── DURUM ──
     // İkon adı ikinci argüman; metin her zaman textContent'te kalır.
-    function setStatus(t, ikonAdi = "location-pin-1") {
+    // İkon ayrı bir sarmalayıcının içinde: SVG düğümün kendisi her yazımda
+    // yenilendiği için id sarmalayıcıda durur.
+    function setStatus(t, ikonAdi = "mapPin") {
       document.getElementById("statusMetin").textContent = t;
-      document.getElementById("statusIkon").setAttribute("icon", ikonAd(ikonAdi));
+      document.getElementById("statusIkon").innerHTML = ikon(ikonAdi);
     }
 
     // applyPreference'ın ürettiği uyarı; çağıran "Rota bulundu" yerine bunu
@@ -992,17 +1016,16 @@
       return parts.join(", ") || item.display_name.split(",").slice(1, 3).join(",").trim();
     }
 
-    function getPlaceIcon(item) {
-      const t = (item.type || "") + (item.class || "");
-      if (t.includes("station") || t.includes("stop")) return ikon("train-2");
-      if (t.includes("hospital") || t.includes("clinic")) return ikon("medical-cross");
-      if (t.includes("school") || t.includes("university")) return ikon("book-open-3");
-      if (t.includes("park") || t.includes("garden")) return ikon("park");
-      if (t.includes("shop") || t.includes("mall")) return ikon("shopping-bag");
-      if (t.includes("restaurant") || t.includes("cafe")) return ikon("coffee-cup-hot-2");
-      if (t.includes("hotel")) return ikon("building-13");
-      if (t.includes("airport")) return ikon("airplane");
-      return ikon("location-pin-1");
+    /* Sonuç türüne göre ikon (hastane, okul, durak…) burada sekiz dala
+       ayrılıyordu ve SEKİZİ DE ÖLÜYDÜ: arama backend'e taşındığında
+       /geocode yanıtı {place_id, lat, lon, display_name}'e indi, `type` ve
+       `class` alanları hiç gönderilmiyor (izmir_backend/services/
+       GeocodingService.js) — yani her sonuç zaten yedek iğneye düşüyordu.
+       Mobil tarafta da öyle. Dallar, karşılığı olmayan sekiz ikonu ikon
+       sözlüğünde yaşatmaktan başka iş görmüyordu. Tür ikonu geri
+       isteniyorsa önce backend'in tür alanını döndürmesi gerekir. */
+    function getPlaceIcon() {
+      return ikon("mapPin");
     }
 
     async function searchAddress(query) {
@@ -1031,7 +1054,7 @@
         const name = item.name || item.display_name.split(",")[0];
         const detail = formatAddress(item);
         div.innerHTML = `
-          <span class="ac-icon">${getPlaceIcon(item)}</span>
+          <span class="ac-icon">${getPlaceIcon()}</span>
           <div>
             <div class="ac-name">${name}</div>
             <div class="ac-detail">${detail}</div>
@@ -1053,7 +1076,7 @@
 
         if (q.length < 2) { list.classList.remove("open"); return; }
 
-        list.innerHTML = `<div class="ac-loading">${ikon("synchronize-find-search")} Aranıyor...</div>`;
+        list.innerHTML = `<div class="ac-loading">${ikon("search")} Aranıyor...</div>`;
         list.classList.add("open");
 
         searchTimers[idx] = setTimeout(async () => {
@@ -1069,7 +1092,7 @@
               if (points[0] && points[1]) fetchRoute();
             });
           } catch {
-            list.innerHTML = `<div class="ac-loading">${ikon('report-problem-warning-triangle')} Arama hatası</div>`;
+            list.innerHTML = `<div class="ac-loading">${ikon("alert")} Arama hatası</div>`;
           }
         }, 400);
       });
@@ -1101,8 +1124,8 @@
 
     // ── GPS: Mevcut konum ──
     document.getElementById("gpsBtn").onclick = () => {
-      if (!navigator.geolocation) { setStatus("Tarayıcı konum desteği yok.", "report-problem-warning-triangle"); return; }
-      setStatus("Konum alınıyor...", "hourglass-2");
+      if (!navigator.geolocation) { setStatus("Tarayıcı konum desteği yok.", "alert"); return; }
+      setStatus("Konum alınıyor...", "hourglass");
       navigator.geolocation.getCurrentPosition(pos => {
         const latlng = { lat: pos.coords.latitude, lng: pos.coords.longitude };
         placeMarker(0, latlng);
@@ -1116,9 +1139,9 @@
           const name = data.address?.road || data.address?.suburb || "Mevcut Konum";
           document.getElementById("fromInput").value = name;
         });
-        setStatus("Konum alındı.", "location-pin-1");
+        setStatus("Konum alındı.", "mapPin");
         if (points[0] && points[1]) fetchRoute();
-      }, () => setStatus("Konum alınamadı.", "report-problem-warning-triangle"));
+      }, () => setStatus("Konum alınamadı.", "alert"));
     };
 
     // ── HARİTA TIKLAMA (fallback) ──
@@ -1164,7 +1187,7 @@
       const dk = Math.round(alternatifSn / 60);
       kap.innerHTML =
         `<button class="small-btn" style="width:100%; background:var(--transit-tint);
-           color:var(--accent-transit); box-shadow:var(--transit-glow);">${ikon("bus-2")} Toplu taşıma ile bak: ${dk} dk</button>`;
+           color:var(--accent-transit); box-shadow:var(--transit-glow);">${ikon("bus")} Toplu taşıma ile bak: ${dk} dk</button>`;
       kap.style.display = "block";
       kap.querySelector("button").onclick = () => {
         const sekme = document.querySelector('.profile-tab[data-profile="transit"]');
@@ -1180,7 +1203,7 @@
       clearRoutesAndSteps();
       document.getElementById("fromInput").value = "";
       document.getElementById("toInput").value = "";
-      setStatus("Başlangıç ve varış noktası girin.", "location-pin-1");
+      setStatus("Başlangıç ve varış noktası girin.", "mapPin");
     }
 
     // ── AKTİF PROFİL ──
@@ -1228,7 +1251,7 @@
       const saat = (iso ? new Date(iso) : new Date()).getHours();
       const gece = saat < 6;
       kutu.style.display = gece ? "block" : "none";
-      if (gece) kutu.innerHTML = ikon("report-problem-warning-triangle") + " Bu saatte toplu taşıma seferleri çalışmıyor — yalnız bisiklet veya yürüme rotası çıkar.";
+      if (gece) kutu.innerHTML = ikon("alert") + " Bu saatte toplu taşıma seferleri çalışmıyor — yalnız bisiklet veya yürüme rotası çıkar.";
     }
 
     document.getElementById("zamanSimdi").onclick = () => {
@@ -1320,7 +1343,7 @@
       const modes    = getActiveModes();
       const bikeType = getBikeType();
 
-      setStatus("Rota aranıyor...", "hourglass-2");
+      setStatus("Rota aranıyor...", "hourglass");
 
       const dateTime = getDateTime();
       const payload = {
@@ -1339,7 +1362,7 @@
         const data = await res.json();
 
         if (!data || !Array.isArray(data.itineraries)) {
-          setStatus("Rota hatası.", "delete-circle-1"); return;
+          setStatus("Rota hatası.", "error"); return;
         }
 
         currentItineraries = data.itineraries;
@@ -1363,7 +1386,7 @@
             setStatus(bikeType === "RENT"
               ? "Bu yolculuk için BİSİM'li güzergâh kurulamadı — başlangıç ya da varış hizmet alanının dışında kalıyor olabilir. Hizmet alanı haritada görünmeye devam ediyor."
               : "Bu yolculuk için bisikletli güzergâh kurulamadı — bisiklet yolculuğa anlamlı bir katkı sağlamıyor.",
-              "report-problem-warning-triangle");
+              "alert");
             return;
           }
           currentItineraries = araclı;
@@ -1371,7 +1394,7 @@
 
         if (currentItineraries.length === 0) {
           clearRoutesAndSteps();
-          setStatus("Uygun rota bulunamadı.", "report-problem-warning-triangle"); return;
+          setStatus("Uygun rota bulunamadı.", "alert"); return;
         }
 
         /* applyPreference eleme sonucu boş kalırsa KENDİ mesajını yazar.
@@ -1379,12 +1402,12 @@
            güzergâhları elediğinde ekranda hiçbir şey yokken "Rota bulundu"
            görünüyordu. */
         if (applyPreference()) {
-          if (sonZorunluYuruyusMsj) setStatus(sonZorunluYuruyusMsj, "report-problem-warning-triangle");
-          else setStatus("Rota bulundu.", "check-double");
+          if (sonZorunluYuruyusMsj) setStatus(sonZorunluYuruyusMsj, "alert");
+          else setStatus("Rota bulundu.", "check");
         }
       } catch (e) {
         console.error(e);
-        setStatus("Sunucu hatası.", "delete-circle-1");
+        setStatus("Sunucu hatası.", "error");
       }
     }
 
@@ -1400,7 +1423,7 @@
       //   node <izmir_backend>/senaryo/derle.js
       if (!RS) {
         setStatus("Puanlama paketi yüklenemedi (routeScoring.bundle.js). " +
-                  "Üretmek için: node izmir_backend/senaryo/derle.js", "hourglass-2");
+                  "Üretmek için: node izmir_backend/senaryo/derle.js", "hourglass");
         return false;
       }
 
@@ -1427,7 +1450,7 @@
           park_and_ride: "Bu yolculuk için Park + Devam güzergâhı kurulamadı — araç ya da toplu taşıma tarafı anlamlı bir mesafe tutmuyor.",
         };
         const teshis = RS.modBosSebebi(currentItineraries, profileKey);
-        setStatus(teshis.mesaj || MSJ[profileKey] || "Gösterilebilecek bir güzergâh bulunamadı.", "report-problem-warning-triangle");
+        setStatus(teshis.mesaj || MSJ[profileKey] || "Gösterilebilecek bir güzergâh bulunamadı.", "alert");
         cikisTeklifiniGoster(teshis.alternatifSn);
         return false;
       }
@@ -1509,7 +1532,7 @@
 
       const b = bilet();
       document.getElementById("biletBilgi").innerHTML =
-        `${ikon("badge-star-2")} <b>${b.ad}</b> — ${b.aciklama}.<br>` +
+        `${ikon("star")} <b>${b.ad}</b> — ${b.aciklama}.<br>` +
         `BİSİM: ilk ${RS.BISIM_TARIFESI.acilisDakika} dk ` +
         `<b>${RS.ucretYazi(RS.BISIM_TARIFESI.acilisUcreti)} TL</b>, ` +
         `sonraki her dakika <b>${RS.ucretYazi(RS.BISIM_TARIFESI.dakikaUcreti)} TL</b> ` +
@@ -1551,7 +1574,7 @@
       choice.it.legs.forEach(leg => {
         const mode  = leg.mode || "UNKNOWN";
         const color = modeColors[mode] || "#7a739a";
-        const icon  = ikon(modeIcons[mode] || "cursor-question-hexagon");
+        const icon  = ikon(modeIcons[mode] || "help");
         const label = modeLabels[mode] || mode;
 
         if (leg.legGeometry?.points) {
@@ -1613,8 +1636,8 @@
         const hist = JSON.parse(localStorage.getItem("routeHistory") || "[]").slice(0, 5);
         if (!hist.length) { el.innerHTML = ""; return; }
         const MODLAR = {
-          transit: `${ikon("bus-2")} Toplu taşıma`, bicycle: `${ikon("bicycle-1")} Bisiklet`,
-          car: `${ikon("car-4")} Araba`, park_and_ride: `${ikon(I_PARK)} Park + Devam`,
+          transit: `${ikon("bus")} Toplu taşıma`, bicycle: `${ikon("bike")} Bisiklet`,
+          car: `${ikon("car")} Araba`, park_and_ride: `${ikon("parking")} Park + Devam`,
         };
         el.innerHTML = `<div class="hist-section"><div class="hist-title">Son Rotalar</div>` +
           hist.map(h => `<div class="hcard"><span class="hroute">${h.orig} → ${h.dest}</span>` +
@@ -1670,7 +1693,7 @@
         document.querySelectorAll(".pref-btn").forEach(b => b.classList.remove("active"));
         btn.classList.add("active");
         if (currentItineraries.length && applyPreference() && sonZorunluYuruyusMsj) {
-          setStatus(sonZorunluYuruyusMsj, "report-problem-warning-triangle");
+          setStatus(sonZorunluYuruyusMsj, "alert");
         }
       };
     });
@@ -1694,7 +1717,7 @@
 
     // ── BAŞLANGIÇ ──
     updateProfileFlow();
-    setStatus("Başlangıç ve varış noktası girin.", "location-pin-1");
+    setStatus("Başlangıç ve varış noktası girin.", "mapPin");
 
     // ──────────────────────────────────────────────────────────
     // HARİTA KATMANLARI
@@ -1708,10 +1731,12 @@
     //   • ELLE TOGGLE — moddan bağımsız bakmak isteyen için korunuyor.
     // ──────────────────────────────────────────────────────────
 
-    // `dolgu` varsayılan olarak koyu zemindir; açık bir zemin verildiğinde
-    // simge de çerçeve rengine çekilir, yoksa açık dolgunun üstünde kaybolur.
+    // Simge çerçeveyle aynı renkte. Eskiden koyu zeminde "inherit" bırakılıyordu:
+    // Iconify ikonu kendi renklerini taşıdığı için sorun olmuyordu, lucide ise
+    // currentColor ile çiziliyor ve "inherit" haritadan gelen gövde rengine
+    // düşerdi — koyu dolgunun üstünde ikon kaybolurdu.
     function noktaIkonu(renk, simge, boyut = 22, dolgu = "#1d1a33") {
-      const simgeRengi = dolgu === "#1d1a33" ? "inherit" : renk;
+      const simgeRengi = renk;
       return L.divIcon({
         className: "",
         html: `<div style="
@@ -1857,7 +1882,7 @@
         return L.marker([p.lat, p.lon], { icon: parkingIcon(p.free, p.capacity) })
           .bindPopup(`
             <div class="bisim-popup">
-              <div class="bp-name">${ikon(I_PARK)} ${p.name}</div>
+              <div class="bp-name">${ikon("parking")} ${p.name}</div>
               <div class="bp-row">
                 <span class="bp-label">Tip</span>
                 <span class="bp-val">${p.type === "OffStreet" ? "Katlı" : "Yol kenarı"}</span>
@@ -1929,7 +1954,7 @@
               fillColor: BISIM_YESIL, fillOpacity: 0.06,
             }).bindPopup(
               `<div class="bisim-popup">
-                 <div class="bp-name">${ikon("bicycle-1")} BİSİM hizmet alanı</div>
+                 <div class="bp-name">${ikon("bike")} BİSİM hizmet alanı</div>
                  <div style="font-size:12px; color:#7a739a; line-height:1.5">
                    Bisikleti bu alanın içinde her yere bırakabilirsin.<br>
                    <b>Bu sınır yaklaşıktır</b> — bisiklet yolu ağından
@@ -1951,9 +1976,9 @@
             })
           );
           nesneler.push(
-            L.marker([b.lat, b.lon], { icon: noktaIkonu(BISIM_YESIL, ikon("bicycle-1"), 22, "#ffffff") }).bindPopup(
+            L.marker([b.lat, b.lon], { icon: noktaIkonu(BISIM_YESIL, ikon("bike"), 22, "#ffffff") }).bindPopup(
               `<div class="bisim-popup">
-                 <div class="bp-name">${ikon("bicycle-1")} ${b.ad}</div>
+                 <div class="bp-name">${ikon("bike")} ${b.ad}</div>
                  <div class="bp-row"><span class="bp-label">İlçe</span><span class="bp-val">${b.ilce}</span></div>
                  <div style="font-size:12px; color:#7a739a; margin-top:6px; line-height:1.5">
                    Bırakınca <b>bonus</b> kazandıran bölge.
@@ -1991,9 +2016,9 @@
       ciz: (liste) => liste
         .filter((x) => x.lat != null && x.lon != null)
         .map((x) =>
-          L.marker([x.lat, x.lon], { icon: noktaIkonu("#f97316", ikon(I_PARK)) }).bindPopup(
+          L.marker([x.lat, x.lon], { icon: noktaIkonu("#f97316", ikon("parking")) }).bindPopup(
             `<div class="bisim-popup">
-               <div class="bp-name">${ikon(I_PARK)} ${x.name || "Bisiklet parkı"}</div>
+               <div class="bp-name">${ikon("parking")} ${x.name || "Bisiklet parkı"}</div>
                <div style="font-size:12px; color:#7a739a; line-height:1.5">
                  Bisikletini buraya kilitleyip toplu taşımaya geçebilirsin.
                </div>
