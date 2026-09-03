@@ -30,6 +30,12 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "949822b7-61b3-40d8-91cb-7ece46e656bf"
+      }
+    },
+    "owner": "kitana"
   }
 }
