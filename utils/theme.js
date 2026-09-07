@@ -71,3 +71,13 @@ export const themes = {
 export const RADIUS = { card: 18, control: 12, pill: 999 };
 
 export const getTheme = (mode) => themes[mode] || themes.dark;
+
+// Tema üç kademeli seçiliyor: KAYITLI TERCİH → CİHAZ AYARI → koyu.
+//
+// Eskiden orta kademe yoktu: telefonu açık temada olan bir kullanıcı
+// uygulamayı ilk açtığında koyu tema görüyor ve ayarlardan değiştirmek
+// zorunda kalıyordu.
+export function temaSec(kayitli, cihaz) {
+  if (kayitli === "light" || kayitli === "dark") return kayitli;
+  return cihaz === "light" ? "light" : "dark";
+}

@@ -7,13 +7,15 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "@react-navigation/native";
 import AppIcon from "../Components/AppIcon";
 import { useTheme } from "../utils/ThemeContext";
+import {
+  KAYITLI_YERLER_VARSAYILAN, kayitliYerleriOku, kayitliYerleriYaz, yeriAyarla,
+} from "../utils/savedPlaces";
 
-const SAVED_PLACES_DEFAULT = [
-  { id: "home",   icon: "home", label: "Ev",          address: null },
-  { id: "school", icon: "student", label: "Okul",        address: null },
-  { id: "work",   icon: "work", label: "İş",          address: null },
-  { id: "shop",   icon: "shop", label: "Alışveriş",   address: null },
-];
+// Kartın kimliği içeriğinden geliyor, sıradan değil: liste sıralanabilir
+// hale geldiğinde `key={i}` açık kartı yanlış rotanın üstünde bırakırdı.
+function gecmisAnahtari(r, i) {
+  return [r.originName, r.destName, r.mode, r.date].filter(Boolean).join("|") || String(i);
+}
 
 const MODE_LABELS = {
   bicycle: "Bisiklet",
@@ -23,7 +25,7 @@ const MODE_LABELS = {
 
 export default function FavoritesScreen() {
   const { theme } = useTheme();
-  const [savedPlaces, setSavedPlaces] = useState(SAVED_PLACES_DEFAULT);
+  const [savedPlaces, setSavedPlaces] = useState(KAYITLI_YERLER_VARSAYILAN);
   const [recentRoutes, setRecentRoutes] = useState([]);
 
   useFocusEffect(
@@ -33,9 +35,8 @@ export default function FavoritesScreen() {
   );
 
   const loadData = async () => {
+    setSavedPlaces(await kayitliYerleriOku());
     try {
-      const placesRaw = await AsyncStorage.getItem("savedPlaces");
-      if (placesRaw) setSavedPlaces(JSON.parse(placesRaw));
       const historyRaw = await AsyncStorage.getItem("routeHistory");
       if (historyRaw) setRecentRoutes(JSON.parse(historyRaw).slice(0, 8));
     } catch {}
@@ -48,11 +49,12 @@ export default function FavoritesScreen() {
         text: "Sil",
         style: "destructive",
         onPress: async () => {
-          const updated = savedPlaces.map((p) =>
-            p.id === placeId ? { ...p, address: null } : p
-          );
+          const updated = yeriAyarla(savedPlaces, placeId, null);
+          if (!(await kayitliYerleriYaz(updated))) {
+            Alert.alert("Silinemedi", "Değişiklik cihaza yazılamadı.");
+            return;
+          }
           setSavedPlaces(updated);
-          await AsyncStorage.setItem("savedPlaces", JSON.stringify(updated));
         },
       },
     ]);
@@ -80,8 +82,8 @@ export default function FavoritesScreen() {
       <View style={[s.header, { borderBottomColor: theme.border }]}>
         <Text style={[s.headerTitle, { color: theme.text }]}>Favorilerim</Text>
         {savedCount > 0 && (
-          <View style={s.badge}>
-            <Text style={s.badgeText}>{savedCount}</Text>
+          <View style={[s.badge, { backgroundColor: theme.active + "20", borderColor: theme.active + "50" }]}>
+            <Text style={[s.badgeText, { color: theme.active }]}>{savedCount}</Text>
           </View>
         )}
       </View>
@@ -94,9 +96,9 @@ export default function FavoritesScreen() {
         </Text>
 
         {savedPlaces.map((place) => (
-          <View key={place.id} style={[s.placeCard, { backgroundColor: theme.surface, borderColor: theme.border }, place.address && s.placeCardFilled]}>
-            <View style={[s.placeIconBox, { backgroundColor: theme.input, borderColor: theme.border }, place.address && s.placeIconBoxFilled]}>
-              <AppIcon name={place.icon} size={22} color={place.address ? "#22c55e" : theme.muted} />
+          <View key={place.id} style={[s.placeCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+            <View style={[s.placeIconBox, { backgroundColor: theme.input, borderColor: theme.border }, place.address && { borderColor: theme.accentBike + "30", backgroundColor: theme.accentBike + "08" }]}>
+              <AppIcon name={place.icon} size={22} color={place.address ? theme.accentBike : theme.muted} />
             </View>
             <View style={s.placeInfo}>
               <Text style={[s.placeLabel, { color: theme.text }]}>{place.label}</Text>
@@ -107,8 +109,11 @@ export default function FavoritesScreen() {
               )}
             </View>
             {place.address ? (
-              <TouchableOpacity style={s.clearBtn} onPress={() => clearPlace(place.id)}>
-                <AppIcon name="x" size={14} color="#f87171" strokeWidth={2.6} />
+              <TouchableOpacity
+                style={[s.clearBtn, { backgroundColor: theme.danger + "15", borderColor: theme.danger + "30" }]}
+                onPress={() => clearPlace(place.id)}
+              >
+                <AppIcon name="x" size={14} color={theme.danger} strokeWidth={2.6} />
               </TouchableOpacity>
             ) : (
               <View style={[s.emptyDot, { borderColor: theme.border }]} />
@@ -122,22 +127,25 @@ export default function FavoritesScreen() {
             <Text style={[s.sectionHint, { color: theme.muted }]}>En son aradığınız güzergahlar</Text>
           </View>
           {recentRoutes.length > 0 && (
-            <TouchableOpacity onPress={clearHistory} style={s.clearHistoryBtn}>
-              <Text style={s.clearHistoryText}>Temizle</Text>
+            <TouchableOpacity
+              onPress={clearHistory}
+              style={[s.clearHistoryBtn, { backgroundColor: theme.danger + "1a", borderColor: theme.danger + "40" }]}
+            >
+              <Text style={[s.clearHistoryText, { color: theme.danger }]}>Temizle</Text>
             </TouchableOpacity>
           )}
         </View>
 
         {recentRoutes.length > 0 ? (
           recentRoutes.map((r, i) => (
-            <View key={i} style={[s.historyCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+            <View key={gecmisAnahtari(r, i)} style={[s.historyCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
               <View style={s.historyLine}>
-                <View style={s.historyDotGreen} />
+                <View style={[s.historyDot, { backgroundColor: theme.accentBike }]} />
                 <Text style={[s.historyPlace, { color: theme.text }]} numberOfLines={1}>{r.originName}</Text>
               </View>
               <View style={[s.historyConnector, { backgroundColor: theme.border }]} />
               <View style={s.historyLine}>
-                <View style={s.historyDotRed} />
+                <View style={[s.historyDot, { backgroundColor: theme.danger }]} />
                 <Text style={[s.historyPlace, { color: theme.text }]} numberOfLines={1}>{r.destName}</Text>
               </View>
               <View style={[s.historyMeta, { borderTopColor: theme.border }]}>
@@ -164,77 +172,70 @@ export default function FavoritesScreen() {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#14111f" },
+  // RENK BURADA YOK: zemin, metin ve kenarlık temadan inline geliyor.
+  // Sabit renkli bir stil dizinin sağında kaldığında temayı eziyordu.
+  container: { flex: 1 },
   header: {
     flexDirection: "row", alignItems: "center", gap: 10,
     paddingHorizontal: 24, paddingTop: 16, paddingBottom: 20,
-    borderBottomWidth: 1, borderBottomColor: "#322a4a",
+    borderBottomWidth: 1,
   },
-  headerTitle: { color: "#ece9f7", fontSize: 24, fontWeight: "800" },
+  headerTitle: { fontSize: 24, fontWeight: "800" },
   badge: {
-    backgroundColor: "#8b5cf620", borderWidth: 1, borderColor: "#8b5cf650",
-    borderRadius: 12, paddingHorizontal: 8, paddingVertical: 2,
+    borderWidth: 1, borderRadius: 12,
+    paddingHorizontal: 8, paddingVertical: 2,
   },
-  badgeText: { color: "#8b5cf6", fontSize: 12, fontWeight: "800" },
+  badgeText: { fontSize: 12, fontWeight: "800" },
   scroll: { flex: 1 },
   scrollContent: { padding: 20, paddingBottom: 50 },
   sectionHeaderRow: {
     flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start",
     marginTop: 28, marginBottom: 0,
   },
-  sectionTitle: { color: "#ece9f7", fontSize: 16, fontWeight: "800", marginBottom: 4 },
-  sectionHint: { color: "#9b93b8", fontSize: 12, marginBottom: 14 },
+  sectionTitle: { fontSize: 16, fontWeight: "800", marginBottom: 4 },
+  sectionHint: { fontSize: 12, marginBottom: 14 },
   clearHistoryBtn: {
     paddingVertical: 4, paddingHorizontal: 10,
-    backgroundColor: "#f871711a", borderWidth: 1, borderColor: "#f8717140",
-    borderRadius: 8, marginTop: 2,
+    borderWidth: 1, borderRadius: 8, marginTop: 2,
   },
-  clearHistoryText: { color: "#f87171", fontSize: 12, fontWeight: "700" },
+  clearHistoryText: { fontSize: 12, fontWeight: "700" },
 
   placeCard: {
     flexDirection: "row", alignItems: "center", gap: 14,
-    backgroundColor: "#1e1a2e", borderWidth: 1, borderColor: "#322a4a",
-    borderRadius: 14, padding: 14, marginBottom: 10,
+    borderWidth: 1, borderRadius: 14, padding: 14, marginBottom: 10,
   },
-  placeCardFilled: { borderColor: "#322a4a" },
   placeIconBox: {
     width: 44, height: 44, borderRadius: 12,
-    backgroundColor: "#14111f", borderWidth: 1, borderColor: "#322a4a",
-    alignItems: "center", justifyContent: "center",
+    borderWidth: 1, alignItems: "center", justifyContent: "center",
   },
-  placeIconBoxFilled: { borderColor: "#22c55e30", backgroundColor: "#22c55e08" },
   placeInfo: { flex: 1 },
-  placeLabel: { color: "#ece9f7", fontSize: 15, fontWeight: "700" },
-  placeAddr: { color: "#9b93b8", fontSize: 12, marginTop: 2 },
-  placeEmpty: { color: "#4a4166", fontSize: 12, marginTop: 2, fontStyle: "italic" },
+  placeLabel: { fontSize: 15, fontWeight: "700" },
+  placeAddr: { fontSize: 12, marginTop: 2 },
+  placeEmpty: { fontSize: 12, marginTop: 2, fontStyle: "italic" },
   clearBtn: {
     width: 28, height: 28, borderRadius: 14,
-    backgroundColor: "#f8717115", borderWidth: 1, borderColor: "#f8717130",
-    alignItems: "center", justifyContent: "center",
+    borderWidth: 1, alignItems: "center", justifyContent: "center",
   },
   emptyDot: {
     width: 28, height: 28, borderRadius: 14,
-    borderWidth: 1, borderColor: "#322a4a", borderStyle: "dashed",
+    borderWidth: 1, borderStyle: "dashed",
   },
 
   historyCard: {
-    backgroundColor: "#1e1a2e", borderWidth: 1, borderColor: "#322a4a",
-    borderRadius: 14, padding: 14, marginBottom: 10,
+    borderWidth: 1, borderRadius: 14, padding: 14, marginBottom: 10,
   },
   historyLine: { flexDirection: "row", alignItems: "center", gap: 10 },
-  historyDotGreen: { width: 8, height: 8, borderRadius: 4, backgroundColor: "#22c55e" },
-  historyDotRed: { width: 8, height: 8, borderRadius: 4, backgroundColor: "#f87171" },
-  historyConnector: { width: 1, height: 10, backgroundColor: "#322a4a", marginLeft: 3.5, marginVertical: 3 },
-  historyPlace: { color: "#ece9f7", fontSize: 13, fontWeight: "600", flex: 1 },
-  historyMeta: { marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: "#322a4a" },
-  historyMetaText: { color: "#9b93b8", fontSize: 11 },
+  historyDot: { width: 8, height: 8, borderRadius: 4 },
+  historyConnector: { width: 1, height: 10, marginLeft: 3.5, marginVertical: 3 },
+  historyPlace: { fontSize: 13, fontWeight: "600", flex: 1 },
+  historyMeta: { marginTop: 8, paddingTop: 8, borderTopWidth: 1 },
+  historyMetaText: { fontSize: 11 },
 
   emptyHistory: { alignItems: "center", paddingVertical: 40, gap: 10 },
   emptyIconBox: {
     width: 58, height: 58, borderRadius: 18,
-    backgroundColor: "#1e1a2e", borderWidth: 1, borderColor: "#322a4a",
-    alignItems: "center", justifyContent: "center",
+    borderWidth: 1, alignItems: "center", justifyContent: "center",
   },
-  emptyTitle: { color: "#9b93b8", fontSize: 16, fontWeight: "700" },
-  emptySubtext: { color: "#4a4166", fontSize: 13, textAlign: "center", lineHeight: 20 },
+  emptyTitle: { fontSize: 16, fontWeight: "700" },
+  emptySubtext: { fontSize: 13, textAlign: "center", lineHeight: 20 },
 });

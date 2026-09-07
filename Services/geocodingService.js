@@ -24,8 +24,25 @@ const BEKLEME_MS = 250;
 let searchTimer = null;
 let sonIstekNo = 0;
 
-export function searchAddress(text, callback) {
+// Bekleyen aramayı ve UÇUŞTAKİ isteği birlikte düşürür.
+//
+// Sayacı ilerletmek şart. Aşağıdaki `istekNo !== sonIstekNo` kontrolü yalnız
+// "benden sonra yeni bir arama başladı mı" diye sorar, "bu sonuç hâlâ
+// isteniyor mu" diye değil. Kullanıcı Başlangıç'a yazıp cevap gelmeden Varış
+// kutusuna dokunduğunda yeni bir arama olmadığı için sayaç artmıyordu: eski
+// cevap kendini güncel sanıp Varış'ın altında açılıyor, dokunulduğunda
+// Başlangıç için aranan yer varışa yazılıyordu.
+export function aramayiIptalEt() {
   clearTimeout(searchTimer);
+  searchTimer = null;
+  sonIstekNo++;
+}
+
+export function searchAddress(text, callback) {
+  // Yeni tuş da bir iptaldir. Yalnız timer'ı temizlemek yetmiyordu: harf
+  // silinip sorgu iki harfin altına düştüğünde bile, önceki tuşun uçuştaki
+  // cevabı dönüp boşaltılmış listeyi yeniden dolduruyordu.
+  aramayiIptalEt();
 
   const sorgu = String(text || "").trim();
   if (sorgu.length < MIN_UZUNLUK) {

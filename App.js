@@ -12,6 +12,7 @@ import SettingsScreen from "./Screens/SettingsScreen";
 import AppIcon from "./Components/AppIcon";
 import ErrorBoundary from "./Components/ErrorBoundary";
 import { ThemeProvider, useTheme } from "./utils/ThemeContext";
+import { tercihleriOku, TERCIH_ANAHTARI } from "./utils/prefs";
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -70,8 +71,8 @@ function AppShell() {
   useEffect(() => {
     (async () => {
       try {
-        const raw = await AsyncStorage.getItem("userPrefs");
-        if (raw && JSON.parse(raw).onboardingDone) setOnboarded(true);
+        const raw = await AsyncStorage.getItem(TERCIH_ANAHTARI);
+        if (raw && tercihleriOku(raw).onboardingDone) setOnboarded(true);
       } catch {}
       setReady(true);
     })();

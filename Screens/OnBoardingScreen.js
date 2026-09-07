@@ -6,29 +6,20 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import AppIcon from "../Components/AppIcon";
 import { useTheme } from "../utils/ThemeContext";
 import { BILET_TARIFESI, VARSAYILAN_BILET, ucretYazi } from "../utils/routeScoring";
+import { tercihGovdesi, TERCIH_ANAHTARI } from "../utils/prefs";
 
-const T = {
-  bg: "#14111f", surface: "#1e1a2e", border: "#322a4a",
-  text: "#ece9f7", muted: "#9b93b8",
-  bike: "#22c55e", car: "#f97316", transit: "#8b5cf6",
-};
-
+// `accent` bir renk değil, tema anahtarı: aynı yeşil koyu ve açık temada
+// farklı tonda (#34d15f / #14a05a). Sabit yazılan hex açık temada
+// okunmuyordu.
 const VEHICLES = [
-  { id: "bicycle", icon: "bike", name: "Bisikletim var", desc: "Kendi bisikletinizi kullanabilirsiniz", accent: "#22c55e" },
-  { id: "car",     icon: "car", name: "Arabam var",     desc: "Park et + devam et seçeneği açılır",    accent: "#f97316" },
-  { id: "none",    icon: "bus", name: "Sadece toplu taşıma", desc: "Yürü + otobüs / metro / tramvay", accent: "#8b5cf6" },
+  { id: "bicycle", icon: "bike", name: "Bisikletim var", desc: "Kendi bisikletinizi kullanabilirsiniz", accent: "accentBike" },
+  { id: "car",     icon: "car", name: "Arabam var",     desc: "Park et + devam et seçeneği açılır",    accent: "accentCar" },
+  { id: "none",    icon: "bus", name: "Sadece toplu taşıma", desc: "Yürü + otobüs / metro / tramvay", accent: "accentTransit" },
 ];
 
-// Bu ekran kendi yolcu tipi listesini tutuyordu ve iki bakımdan yanlıştı:
-//   • Rakamlar tarifeyle uyuşmuyordu — "Yetişkin 25,00 ₺" yazıyordu, oysa
-//     tam bilet 35,00 ₺; öğrenci 17,50 ₺ doğruydu ama ayarlar ekranında
-//     aynı bilet "Genç" adıyla duruyordu.
-//   • Kimlikler (student/adult/senior) SettingsScreen'in kimlikleriyle
-//     (tam/genc/…) tutmuyordu ve buradan `fareMultiplier` yazılıyordu,
-//     oysa ücreti hesaplayan taraf `fareBase` + `farePerBoarding` okuyor.
-//     Sonuç: onboarding'de "Öğrenci" seçmek ücreti HİÇ değiştirmiyordu,
-//     herkes 35,00 ₺ görüyordu.
-// Liste artık tarifenin kendisi.
+// Liste tarifenin kendisi — bu ekran yalnız ikon eşlemesini ekliyor.
+// Rakamı kopyalamak bir kere ters tepmişti: burada "Yetişkin 25,00 ₺"
+// yazarken ayarlar aynı bilete 35,00 ₺ diyordu.
 const YOLCU_IKONU = {
   tam: "user", genc: "student", ogretmen: "work",
   yas60: "userCog", kredikarti: "userCircle",
@@ -39,8 +30,6 @@ const PASSENGERS = BILET_TARIFESI.map((b) => ({
   name: b.ad,
   desc: b.aciklama,
   fare: `${ucretYazi(b.base)} ₺`,
-  base: b.base,
-  perBoarding: b.perBoarding,
 }));
 
 export default function OnboardingScreen({ navigation }) {
@@ -57,23 +46,19 @@ export default function OnboardingScreen({ navigation }) {
     });
   };
 
+  // Gövdeyi burada kurmuyoruz: alan adları ve ücret rakamları
+  // utils/prefs.js sözleşmesinden geliyor.
   const finish = async () => {
-    const info = PASSENGERS.find((p) => p.id === passenger);
-    const profiles = ["transit"];
-    if (vehicles.has("bicycle")) profiles.unshift("bicycle");
-    if (vehicles.has("car")) profiles.splice(1, 0, "car");
-
-    const prefs = {
+    const prefs = tercihGovdesi({
       hasVehicle: { bicycle: vehicles.has("bicycle"), car: vehicles.has("car") },
       passengerType: passenger,
-      // useSettings/hooks bu iki alanı okuyor; `fareMultiplier` hiçbir yerde
-      // tüketilmiyordu.
-      fareBase: info.base,
-      farePerBoarding: info.perBoarding,
-      visibleProfiles: profiles,
-      onboardingDone: true,
-    };
-    await AsyncStorage.setItem("userPrefs", JSON.stringify(prefs));
+    });
+    try {
+      await AsyncStorage.setItem(TERCIH_ANAHTARI, JSON.stringify(prefs));
+    } catch {
+      // Disk yazılamadıysa da kurulumu tıkamıyoruz: uygulama
+      // varsayılanlarla açılır, ayarlar ekranından düzeltilebilir.
+    }
     navigation.replace("Main");
   };
 
@@ -86,8 +71,8 @@ export default function OnboardingScreen({ navigation }) {
       </View>
 
       <View style={s.dots}>
-        <View style={[s.dot, { backgroundColor: theme.border }, step === 0 && s.dotActive]} />
-        <View style={[s.dot, { backgroundColor: theme.border }, step === 1 && s.dotActive]} />
+        <View style={[s.dot, { backgroundColor: theme.border }, step === 0 && [s.dotActive, { backgroundColor: theme.active }]]} />
+        <View style={[s.dot, { backgroundColor: theme.border }, step === 1 && [s.dotActive, { backgroundColor: theme.active }]]} />
       </View>
 
       <View style={s.body}>
@@ -97,24 +82,25 @@ export default function OnboardingScreen({ navigation }) {
             <Text style={[s.subtitle, { color: theme.muted }]}>Birden fazla seçebilirsiniz</Text>
             {VEHICLES.map((v) => {
               const sel = vehicles.has(v.id);
+              const accent = theme[v.accent];
               return (
                 <TouchableOpacity key={v.id}
-                  style={[s.card, { backgroundColor: theme.surface, borderColor: theme.border }, sel && { borderColor: v.accent, backgroundColor: v.accent + "12" }]}
+                  style={[s.card, { backgroundColor: theme.surface, borderColor: theme.border }, sel && { borderColor: accent, backgroundColor: accent + "12" }]}
                   onPress={() => toggleVehicle(v.id)}>
                   <View style={s.cardIconBox}>
-                    <AppIcon name={v.icon} size={23} color={sel ? v.accent : theme.muted} />
+                    <AppIcon name={v.icon} size={23} color={sel ? accent : theme.muted} />
                   </View>
                   <View style={s.cardText}>
-                    <Text style={[s.cardName, { color: theme.text }, sel && { color: v.accent }]}>{v.name}</Text>
+                    <Text style={[s.cardName, { color: theme.text }, sel && { color: accent }]}>{v.name}</Text>
                     <Text style={[s.cardDesc, { color: theme.muted }]}>{v.desc}</Text>
                   </View>
-                  <View style={[s.check, { borderColor: theme.border }, sel && { borderColor: v.accent, backgroundColor: v.accent }]}>
+                  <View style={[s.check, { borderColor: theme.border }, sel && { borderColor: accent, backgroundColor: accent }]}>
                     {sel && <AppIcon name="check" size={13} color="#fff" strokeWidth={3} />}
                   </View>
                 </TouchableOpacity>
               );
             })}
-            <TouchableOpacity style={[s.btn, { backgroundColor: T.transit }]} onPress={() => setStep(1)}>
+            <TouchableOpacity style={[s.btn, { backgroundColor: theme.active }]} onPress={() => setStep(1)}>
               <Text style={s.btnText}>Devam</Text>
             </TouchableOpacity>
           </>
@@ -126,18 +112,18 @@ export default function OnboardingScreen({ navigation }) {
               const sel = passenger === p.id;
               return (
                 <TouchableOpacity key={p.id}
-                  style={[s.card, { backgroundColor: theme.surface, borderColor: theme.border }, sel && { borderColor: T.transit, backgroundColor: T.transit + "12" }]}
+                  style={[s.card, { backgroundColor: theme.surface, borderColor: theme.border }, sel && { borderColor: theme.active, backgroundColor: theme.active + "12" }]}
                   onPress={() => setPassenger(p.id)}>
                   <View style={s.cardIconBox}>
-                    <AppIcon name={p.icon} size={23} color={sel ? T.transit : theme.muted} />
+                    <AppIcon name={p.icon} size={23} color={sel ? theme.active : theme.muted} />
                   </View>
                   <View style={s.cardText}>
-                    <Text style={[s.cardName, { color: theme.text }, sel && { color: T.transit }]}>{p.name}</Text>
+                    <Text style={[s.cardName, { color: theme.text }, sel && { color: theme.active }]}>{p.name}</Text>
                     <Text style={[s.cardDesc, { color: theme.muted }]} numberOfLines={2}>
                       {p.desc} — <Text style={{ color: theme.text }}>{p.fare}</Text>
                     </Text>
                   </View>
-                  <View style={[s.check, { borderColor: theme.border }, sel && { borderColor: T.transit, backgroundColor: T.transit }]}>
+                  <View style={[s.check, { borderColor: theme.border }, sel && { borderColor: theme.active, backgroundColor: theme.active }]}>
                     {sel && <AppIcon name="check" size={13} color="#fff" strokeWidth={3} />}
                   </View>
                 </TouchableOpacity>
@@ -147,8 +133,8 @@ export default function OnboardingScreen({ navigation }) {
               <TouchableOpacity style={[s.backBtn, { borderColor: theme.border }]} onPress={() => setStep(0)}>
                 <Text style={[s.backText, { color: theme.muted }]}>Geri</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[s.btn, { flex: 1, backgroundColor: T.bike }]} onPress={finish}>
-                <Text style={[s.btnText, { color: "#0a1a0e" }]}>Başlayalım →</Text>
+              <TouchableOpacity style={[s.btn, { flex: 1, backgroundColor: theme.accentBike }]} onPress={finish}>
+                <Text style={s.btnText}>Başlayalım →</Text>
               </TouchableOpacity>
             </View>
           </>
@@ -163,44 +149,47 @@ export default function OnboardingScreen({ navigation }) {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: T.bg },
+  // RENK BURADA YOK. Zemin, metin ve kenarlık temadan inline geliyor;
+  // stile ikinci bir renk yazmak onu ölü koda çeviriyor (dizinin sağdaki
+  // elemanı kazanıyor) ve rengin nereden geldiğini belirsizleştiriyor.
+  container: { flex: 1 },
   header: {
     flexDirection: "row", justifyContent: "space-between",
     paddingHorizontal: 24, paddingTop: 16, paddingBottom: 8,
   },
-  headerTitle: { color: T.muted, fontSize: 12, fontWeight: "700", letterSpacing: 2 },
-  headerStep: { color: T.muted, fontSize: 12, fontWeight: "600" },
+  headerTitle: { fontSize: 12, fontWeight: "700", letterSpacing: 2 },
+  headerStep: { fontSize: 12, fontWeight: "600" },
   dots: { flexDirection: "row", gap: 6, paddingHorizontal: 24, paddingVertical: 12 },
-  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: T.border },
-  dotActive: { width: 24, borderRadius: 4, backgroundColor: T.transit },
+  dot: { width: 8, height: 8, borderRadius: 4 },
+  dotActive: { width: 24, borderRadius: 4 },
   body: { flex: 1, paddingHorizontal: 24 },
-  title: { fontSize: 22, fontWeight: "800", color: T.text, marginBottom: 6 },
-  subtitle: { fontSize: 14, color: T.muted, marginBottom: 20 },
+  title: { fontSize: 22, fontWeight: "800", marginBottom: 6 },
+  subtitle: { fontSize: 14, marginBottom: 20 },
   card: {
     flexDirection: "row", alignItems: "center", gap: 14,
-    backgroundColor: T.surface, borderWidth: 1, borderColor: T.border,
-    borderRadius: 14, padding: 16, marginBottom: 10,
+    borderWidth: 1, borderRadius: 14, padding: 16, marginBottom: 10,
   },
   cardIconBox: {
     width: 28, height: 28,
     alignItems: "center", justifyContent: "center",
   },
   cardText: { flex: 1 },
-  cardName: { fontSize: 15, fontWeight: "700", color: T.text },
-  cardDesc: { fontSize: 12, color: T.muted, marginTop: 2 },
+  cardName: { fontSize: 15, fontWeight: "700" },
+  cardDesc: { fontSize: 12, marginTop: 2 },
   check: {
     width: 22, height: 22, borderRadius: 11,
-    borderWidth: 1.5, borderColor: T.border,
-    alignItems: "center", justifyContent: "center",
+    borderWidth: 1.5, alignItems: "center", justifyContent: "center",
   },
   btn: { paddingVertical: 16, borderRadius: 12, alignItems: "center", marginTop: 20 },
-  btnText: { fontSize: 15, fontWeight: "800", color: "#0a1020", letterSpacing: 0.5 },
+  // Renkli buton üstündeki yazı — zemin temadan değil vurgudan geliyor,
+  // bu yüzden sabit.
+  btnText: { fontSize: 15, fontWeight: "800", color: "#ffffff", letterSpacing: 0.5 },
   navRow: { flexDirection: "row", gap: 10, marginTop: 20 },
   backBtn: {
     paddingVertical: 16, paddingHorizontal: 24, borderRadius: 12,
-    borderWidth: 1, borderColor: T.border, justifyContent: "center",
+    borderWidth: 1, justifyContent: "center",
   },
-  backText: { color: T.muted, fontSize: 14, fontWeight: "700" },
+  backText: { fontSize: 14, fontWeight: "700" },
   skip: { paddingVertical: 16, alignItems: "center" },
-  skipText: { color: T.muted, fontSize: 13, textDecorationLine: "underline" },
+  skipText: { fontSize: 13, textDecorationLine: "underline" },
 });

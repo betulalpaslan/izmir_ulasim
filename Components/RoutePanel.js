@@ -98,7 +98,7 @@ export default function RoutePanel({ routes, selectedIdx, onSelect, loading, err
 
         return (
           <TouchableOpacity
-            key={i}
+            key={r.kimlik ?? i}
             onPress={() => onSelect(expanded ? -1 : i)}
             activeOpacity={0.8}
             style={[

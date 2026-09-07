@@ -35,7 +35,7 @@ export default function SearchPanel({
   const { theme } = useTheme();
 
   return (
-    <View style={[s.panel, { backgroundColor: theme.surface }]}>
+    <View style={[s.panel, { backgroundColor: theme.surface, shadowColor: theme.shadow }]}>
       <Text style={[s.appTitle, { color: theme.muted }]}>İZMİR ULAŞIM</Text>
 
       <ProfileTabs profiles={profiles} activeProfile={profile} onSelect={onSelectProfile} />
@@ -47,13 +47,13 @@ export default function SearchPanel({
             return (
               <TouchableOpacity
                 key={String(key)}
-                style={[s.subToggleBtn, { backgroundColor: theme.input, borderColor: theme.border }, active && s.subToggleActive]}
+                style={[s.subToggleBtn, { backgroundColor: theme.input, borderColor: theme.border }, active && { borderColor: theme.accentBike + "60", backgroundColor: theme.accentBike + "12" }]}
                 onPress={() => !active && onSelectBikeType(key)}
                 activeOpacity={0.8}
               >
                 <View style={s.subToggleContent}>
-                  <AppIcon name={icon} size={12} color={active ? "#22c55e" : theme.muted} />
-                  <Text style={[s.subToggleText, { color: active ? "#22c55e" : theme.muted }]}>{label}</Text>
+                  <AppIcon name={icon} size={12} color={active ? theme.accentBike : theme.muted} />
+                  <Text style={[s.subToggleText, { color: active ? theme.accentBike : theme.muted }]}>{label}</Text>
                 </View>
               </TouchableOpacity>
             );
@@ -69,13 +69,13 @@ export default function SearchPanel({
           ].map(({ active, icon, label }) => (
             <TouchableOpacity
               key={label}
-              style={[s.subToggleBtn, { backgroundColor: theme.input, borderColor: theme.border }, active && s.subToggleCarActive]}
+              style={[s.subToggleBtn, { backgroundColor: theme.input, borderColor: theme.border }, active && { borderColor: theme.accentCar + "60", backgroundColor: theme.accentCar + "12" }]}
               onPress={() => !active && onToggleCarMode()}
               activeOpacity={0.8}
             >
               <View style={s.subToggleContent}>
-                <AppIcon name={icon} size={12} color={active ? "#f97316" : theme.muted} />
-                <Text style={[s.subToggleText, { color: active ? "#f97316" : theme.muted }]}>{label}</Text>
+                <AppIcon name={icon} size={12} color={active ? theme.accentCar : theme.muted} />
+                <Text style={[s.subToggleText, { color: active ? theme.accentCar : theme.muted }]}>{label}</Text>
               </View>
             </TouchableOpacity>
           ))}
@@ -88,7 +88,7 @@ export default function SearchPanel({
           onChangeText={(t) => onChangeText(t, "origin")}
           onFocus={() => onFocusField("origin")}
           placeholder="Nereden?"
-          dotColor="#22c55e"
+          dotColor={theme.accentBike}
           rightIcon={hasUserLocation ? "locate" : null}
           onRightPress={onLocateMe}
         />
@@ -104,7 +104,7 @@ export default function SearchPanel({
           onChangeText={(t) => onChangeText(t, "dest")}
           onFocus={() => onFocusField("dest")}
           placeholder="Nereye?"
-          dotColor="#f87171"
+          dotColor={theme.danger}
         />
       </View>
 
@@ -122,12 +122,12 @@ export default function SearchPanel({
               {savedPlaces.map((p) => (
                 <TouchableOpacity
                   key={p.id}
-                  style={[s.placeChip, { backgroundColor: theme.input, borderColor: theme.border }, p.address && s.placeChipFilled]}
+                  style={[s.placeChip, { backgroundColor: theme.input, borderColor: theme.border }, p.address && { borderColor: theme.accentBike + "30" }]}
                   onPress={() => { if (p.address) onUsePlace(p); }}
                   onLongPress={() => onSavePlace(p.id)}
                   activeOpacity={0.75}
                 >
-                  <AppIcon name={p.icon} size={16} color={p.address ? "#22c55e" : theme.muted} />
+                  <AppIcon name={p.icon} size={16} color={p.address ? theme.accentBike : theme.muted} />
                   <View style={{ flex: 1 }}>
                     <Text style={[s.placeLabel, { color: theme.text }]}>{p.label}</Text>
                     {p.address ? (
@@ -174,7 +174,7 @@ const s = StyleSheet.create({
     position: "absolute", top: 0, left: 0, right: 0,
     paddingTop: 46, paddingHorizontal: 20, paddingBottom: 10,
     borderBottomLeftRadius: 20, borderBottomRightRadius: 20, zIndex: 10,
-    shadowColor: "#000", shadowOpacity: 0.3, shadowRadius: 8, shadowOffset: { height: 3 },
+    shadowOpacity: 0.3, shadowRadius: 8, shadowOffset: { height: 3 },
     elevation: 8,
   },
   appTitle: { fontSize: 10, fontWeight: "700", letterSpacing: 2, marginBottom: 4 },
@@ -201,7 +201,6 @@ const s = StyleSheet.create({
     borderWidth: 1, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 6,
     minWidth: "47%", flex: 1,
   },
-  placeChipFilled: { borderColor: "#22c55e30" },
   placeLabel: { fontSize: 12, fontWeight: "700" },
   placeAddr: { fontSize: 10, marginTop: 1 },
   placeEmpty: { fontSize: 9, marginTop: 1, fontStyle: "italic" },
@@ -210,8 +209,6 @@ const s = StyleSheet.create({
     flex: 1, paddingVertical: 5, borderRadius: 7,
     borderWidth: 1, alignItems: "center",
   },
-  subToggleActive: { borderColor: "#22c55e60", backgroundColor: "#22c55e12" },
-  subToggleCarActive: { borderColor: "#f9731660", backgroundColor: "#f9731612" },
   subToggleContent: { flexDirection: "row", alignItems: "center", gap: 4 },
   subToggleText: { fontSize: 11, fontWeight: "700" },
 });

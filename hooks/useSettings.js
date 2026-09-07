@@ -1,6 +1,10 @@
 import { useState, useCallback } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "@react-navigation/native";
+import { tercihleriOku, TERCIH_ANAHTARI } from "../utils/prefs";
+import {
+  KAYITLI_YERLER_VARSAYILAN, kayitliYerleriOku, kayitliYerleriYaz, yeriAyarla,
+} from "../utils/savedPlaces";
 
 export const ALL_PROFILES = [
   { id: "bicycle", icon: "bike", label: "Bisiklet", color: "#22c55e" },
@@ -8,47 +12,40 @@ export const ALL_PROFILES = [
   { id: "transit", icon: "bus",  label: "Transit",  color: "#8b5cf6" },
 ];
 
-const SAVED_PLACES_DEFAULT = [
-  { id: "home",   icon: "home",    label: "Ev",         address: null },
-  { id: "school", icon: "student", label: "Okul",       address: null },
-  { id: "work",   icon: "work",    label: "İş",         address: null },
-  { id: "shop",   icon: "shop",    label: "Alışveriş",  address: null },
-];
-
 export function useSettings() {
   const [fareBase, setFareBase] = useState(35);
   const [farePerBoarding, setFarePerBoarding] = useState(false);
   const [profiles, setProfiles] = useState(ALL_PROFILES);
-  const [savedPlaces, setSavedPlaces] = useState(SAVED_PLACES_DEFAULT);
+  const [savedPlaces, setSavedPlaces] = useState(KAYITLI_YERLER_VARSAYILAN);
 
   useFocusEffect(
     useCallback(() => {
       (async () => {
         try {
-          const placesRaw = await AsyncStorage.getItem("savedPlaces");
-          if (placesRaw) setSavedPlaces(JSON.parse(placesRaw));
+          setSavedPlaces(await kayitliYerleriOku());
 
-          const prefsRaw = await AsyncStorage.getItem("userPrefs");
+          const prefsRaw = await AsyncStorage.getItem(TERCIH_ANAHTARI);
           if (!prefsRaw) return;
-          const prefs = JSON.parse(prefsRaw);
+          // Alan adları ve varsayılanlar sözleşmede: burada `?? 35` gibi
+          // ikinci bir varsayılan tutmuyoruz, ikisi ayrışabiliyordu.
+          const prefs = tercihleriOku(prefsRaw);
 
-          setFareBase(prefs.fareBase ?? 35);
-          setFarePerBoarding(prefs.farePerBoarding ?? false);
-          if (prefs.visibleProfiles) {
-            const visible = ALL_PROFILES.filter((p) => prefs.visibleProfiles.includes(p.id));
-            setProfiles(visible.length > 0 ? visible : ALL_PROFILES);
-          }
+          setFareBase(prefs.fareBase);
+          setFarePerBoarding(prefs.farePerBoarding);
+          const visible = ALL_PROFILES.filter((p) => prefs.visibleProfiles.includes(p.id));
+          setProfiles(visible.length > 0 ? visible : ALL_PROFILES);
         } catch {}
       })();
     }, [])
   );
 
+  // Yazma başarısızsa listeyi de güncellemiyoruz: kaydedilmemiş bir yer
+  // ekranda kayıtlı görünüp uygulama yeniden açıldığında kayboluyordu.
   const savePlace = async (placeId, coord, name) => {
-    const updated = savedPlaces.map((p) =>
-      p.id === placeId ? { ...p, address: { coord, name } } : p
-    );
+    const updated = yeriAyarla(savedPlaces, placeId, { coord, name });
+    if (!(await kayitliYerleriYaz(updated))) return false;
     setSavedPlaces(updated);
-    await AsyncStorage.setItem("savedPlaces", JSON.stringify(updated));
+    return true;
   };
 
   return { fareBase, farePerBoarding, profiles, savedPlaces, savePlace };

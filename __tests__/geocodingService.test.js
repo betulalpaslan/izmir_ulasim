@@ -1,4 +1,4 @@
-import { searchAddress } from "../Services/geocodingService";
+import { searchAddress, aramayiIptalEt } from "../Services/geocodingService";
 
 const yanit = (results) => ({ ok: true, status: 200, json: async () => ({ results }) });
 
@@ -69,5 +69,70 @@ describe("searchAddress", () => {
     await Promise.resolve(); await Promise.resolve(); await Promise.resolve();
     expect(cb).toHaveBeenCalledWith([]);
     console.warn.mockRestore();
+  });
+});
+
+// Cevabı elimizde tutan fetch: istek "uçuşta" kalır, biz çözene kadar dönmez.
+function bekleyenFetch() {
+  let cozumle;
+  global.fetch = jest.fn(() => new Promise((r) => { cozumle = r; }));
+  return (results) => cozumle(yanit(results));
+}
+
+const KONAK = { place_id: "ph_1", display_name: "Konak, İzmir", lat: "38.4", lon: "27.1" };
+
+// Mikrogörevlerin akması için: apiGet içinde fetch -> res.json -> searchAddress
+// zinciri birkaç tick sürüyor.
+const akit = async () => { for (let i = 0; i < 10; i++) await Promise.resolve(); };
+
+describe("aramayiIptalEt", () => {
+  // Sayaç yalnız "benden sonra yeni arama başladı mı" diye bakıyordu. Kullanıcı
+  // Başlangıç'a yazıp cevap gelmeden Varış kutusuna dokunduğunda yeni arama
+  // olmadığı için eski cevap geçerli sayılıyor ve Varış'ın altında açılıyordu;
+  // dokunulduğunda Başlangıç için aranan yer varışa yazılıyordu.
+  test("iptal edilen aramanın cevabı callback'e ulaşmaz", async () => {
+    const cevapla = bekleyenFetch();
+    const cb = jest.fn();
+
+    searchAddress("konak", cb);
+    jest.advanceTimersByTime(250);   // istek yola çıktı
+    await Promise.resolve();
+
+    aramayiIptalEt();                // kullanıcı diğer kutuya geçti
+
+    cevapla([KONAK]);
+    await akit();
+
+    expect(cb).not.toHaveBeenCalled();
+  });
+
+  // Aynı boşluk silme yönünde de vardı: "konak" yazılıp istek uçarken harfler
+  // silinince liste boşaltılıyor, ama eski cevap dönüp onu yeniden dolduruyordu.
+  test("sorgu iki harfin altına düşünce uçuştaki cevap listeyi doldurmaz", async () => {
+    const cevapla = bekleyenFetch();
+    const cb = jest.fn();
+
+    searchAddress("konak", cb);
+    jest.advanceTimersByTime(250);
+    await Promise.resolve();
+
+    searchAddress("k", cb);          // kullanıcı sildi
+    expect(cb).toHaveBeenCalledWith([]);
+
+    cevapla([KONAK]);
+    await akit();
+
+    expect(cb).toHaveBeenCalledTimes(1);   // yalnız boşaltma; Konak sonuçları gelmedi
+  });
+
+  // İptal sayacı ilerlettiği için bir sonraki aramanın kendini geçersiz
+  // saymadığından emin ol.
+  test("iptalden sonra yeni arama yine sonuç döndürür", async () => {
+    aramayiIptalEt();
+    const cb = jest.fn();
+    searchAddress("konak", cb);
+    jest.advanceTimersByTime(250);
+    await akit();
+    expect(cb).toHaveBeenCalledWith([expect.objectContaining({ display_name: "Konak, İzmir" })]);
   });
 });

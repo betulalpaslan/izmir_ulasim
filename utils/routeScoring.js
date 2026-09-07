@@ -924,6 +924,12 @@ export function buildRouteResult(candidate, fareBase, farePerBoarding, profileKe
       : null;
 
   return {
+    // Kartın KİMLİĞİ. Liste sırası bir kimlik değil: rota kartlarına
+    // "süreye göre sırala" gibi bir seçenek eklendiği gün `key={i}` açık
+    // duran kartı yanlış rotanın üstünde bırakırdı — React elemanı
+    // sırasıyla tanıyor. Aynı anahtar zaten adayları teklemek için
+    // üretiliyordu.
+    kimlik: candidateKey(itin, walk),
     legs,
     totalDuration,
     transfers: Math.max(0, transitLegs.length - 1),

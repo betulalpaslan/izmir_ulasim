@@ -6,8 +6,10 @@ import {
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "@react-navigation/native";
 import AppIcon from "../Components/AppIcon";
-import { useTheme } from "../utils/ThemeContext";
+import { KAYITLI_YERLER_ANAHTARI } from "../utils/savedPlaces";
+import { useTheme, TEMA_ANAHTARI } from "../utils/ThemeContext";
 import { BILET_TARIFESI, BISIM_TARIFESI, ucretYazi } from "../utils/routeScoring";
+import { tercihGovdesi, tercihleriOku, TERCIH_ANAHTARI } from "../utils/prefs";
 
 // İzmir A Tarifesi. RAKAMLAR BURADA DEĞİL: tarife utils/routeScoring.js'te
 // tek yerde duruyor, bu ekran yalnız ikon eşlemesini ekliyor. Rakamı
@@ -23,8 +25,6 @@ const PASSENGERS = BILET_TARIFESI.map((b) => ({
   name: b.ad,
   desc: b.aciklama,
   fare: `${ucretYazi(b.base)} ₺`,
-  base: b.base,
-  perBoarding: b.perBoarding,
 }));
 
 // BİSİM tarifesi bir AYAR değil, bilgi: kullanıcı seçmiyor, sürüş süresine
@@ -36,29 +36,11 @@ const BISIM_SATIRLARI = [
   { l: "1 saat sürüş", v: `${ucretYazi(BISIM_TARIFESI.acilisUcreti + (60 - BISIM_TARIFESI.acilisDakika) * BISIM_TARIFESI.dakikaUcreti)} ₺` },
 ];
 
+// `color` bir renk değil, tema anahtarı — bkz. utils/theme.js.
 const VEHICLES = [
-  { id: "bicycle", icon: "bike", name: "Bisikletim var", color: "#22c55e", hint: "Bisiklet rotaları açılır" },
-  { id: "car",     icon: "car", name: "Arabam var",     color: "#f97316", hint: "Araba ve Park+Taşı rotaları açılır" },
+  { id: "bicycle", icon: "bike", name: "Bisikletim var", color: "accentBike", hint: "Bisiklet rotaları açılır" },
+  { id: "car",     icon: "car", name: "Arabam var",     color: "accentCar", hint: "Araba ve Park+Taşı rotaları açılır" },
 ];
-
-// Onboarding eskiden student/adult/senior yazıyordu, bu ekran tam/genc/…
-// bekliyor. Eşleştirmeyen kimlik hiçbir kartı seçili göstermiyordu — eski
-// kurulumlar boş bir yolcu tipi listesiyle karşılaşmasın diye çevriliyor.
-const ESKI_YOLCU_TIPI = { student: "genc", adult: "tam", senior: "yas60" };
-
-function eskiYolcuTipiniCevir(prefs) {
-  const yeni = ESKI_YOLCU_TIPI[prefs?.passengerType];
-  if (!yeni) return prefs;
-  const tarife = PASSENGERS.find((p) => p.id === yeni);
-  return { ...prefs, passengerType: yeni, fareBase: tarife.base, farePerBoarding: tarife.perBoarding };
-}
-
-function buildProfiles(hasVehicle) {
-  const profiles = ["transit"];
-  if (hasVehicle?.bicycle) profiles.unshift("bicycle");
-  if (hasVehicle?.car)     profiles.splice(profiles.length - 1, 0, "car");
-  return profiles;
-}
 
 export default function SettingsScreen({ navigation }) {
   const { theme, mode, setThemeMode } = useTheme();
@@ -68,37 +50,35 @@ export default function SettingsScreen({ navigation }) {
     useCallback(() => {
       (async () => {
         try {
-          const raw = await AsyncStorage.getItem("userPrefs");
-          if (raw) setPrefs(eskiYolcuTipiniCevir(JSON.parse(raw)));
+          const raw = await AsyncStorage.getItem(TERCIH_ANAHTARI);
+          if (raw) setPrefs(tercihleriOku(raw));
         } catch {}
       })();
     }, [])
   );
 
-  const savePrefs = async (newPrefs) => {
-    await AsyncStorage.setItem("userPrefs", JSON.stringify(newPrefs));
+  // Yazma başarısızsa ekranı da güncellemiyoruz: aksi halde ayar değişmiş
+  // gibi görünüp uygulama yeniden açıldığında eskiye dönüyordu.
+  const savePrefs = async (secim) => {
+    const newPrefs = tercihGovdesi({ ...prefs, ...secim });
+    try {
+      await AsyncStorage.setItem(TERCIH_ANAHTARI, JSON.stringify(newPrefs));
+    } catch {
+      Alert.alert("Kaydedilemedi", "Ayar cihaza yazılamadı. Depolama alanınız dolu olabilir.");
+      return;
+    }
     setPrefs(newPrefs);
   };
 
   const setPassengerType = (id) => {
     if (!prefs) return;
-    const info = PASSENGERS.find((p) => p.id === id);
-    savePrefs({
-      ...prefs,
-      passengerType: id,
-      fareBase: info.base,
-      farePerBoarding: info.perBoarding,
-    });
+    savePrefs({ passengerType: id });
   };
 
   const toggleVehicle = (vehicleId) => {
     if (!prefs) return;
-    const current = prefs.hasVehicle || {};
-    const newHasVehicle = { ...current, [vehicleId]: !current[vehicleId] };
     savePrefs({
-      ...prefs,
-      hasVehicle: newHasVehicle,
-      visibleProfiles: buildProfiles(newHasVehicle),
+      hasVehicle: { ...prefs.hasVehicle, [vehicleId]: !prefs.hasVehicle?.[vehicleId] },
     });
   };
 
@@ -112,7 +92,9 @@ export default function SettingsScreen({ navigation }) {
           text: "Sıfırla",
           style: "destructive",
           onPress: async () => {
-            await AsyncStorage.multiRemove(["userPrefs", "savedPlaces", "routeHistory", "themeMode"]);
+            await AsyncStorage.multiRemove([
+              TERCIH_ANAHTARI, KAYITLI_YERLER_ANAHTARI, "routeHistory", TEMA_ANAHTARI,
+            ]);
             navigation.getParent()?.reset({ index: 0, routes: [{ name: "Onboarding" }] });
           },
         },
@@ -165,11 +147,11 @@ export default function SettingsScreen({ navigation }) {
           return (
             <TouchableOpacity
               key={p.id}
-              style={[s.optionCard, { backgroundColor: theme.surface, borderColor: theme.border }, sel && s.optionCardActive]}
+              style={[s.optionCard, { backgroundColor: theme.surface, borderColor: theme.border }, sel && { borderColor: theme.active + "40", backgroundColor: theme.active + "0a" }]}
               onPress={() => setPassengerType(p.id)}
               activeOpacity={0.75}
             >
-              <View style={[s.optionIconBox, { borderColor: theme.border, backgroundColor: theme.input }, sel && s.optionIconBoxActive]}>
+              <View style={[s.optionIconBox, { borderColor: theme.border, backgroundColor: theme.input }, sel && { borderColor: theme.active + "40", backgroundColor: theme.active + "10" }]}>
                 <AppIcon name={p.icon} size={22} color={sel ? theme.active : theme.muted} />
               </View>
               <View style={s.optionInfo}>
@@ -202,20 +184,21 @@ export default function SettingsScreen({ navigation }) {
         <Text style={[s.sectionHint, { color: theme.muted }]}>Sahip olduğunuz araçlara göre rota seçenekleri eklenir</Text>
         {VEHICLES.map((v) => {
           const enabled = prefs.hasVehicle?.[v.id] === true;
+          const accent = theme[v.color];
           return (
-            <View key={v.id} style={[s.toggleCard, { backgroundColor: theme.surface, borderColor: theme.border }, enabled && { borderColor: v.color + "40" }]}>
-              <View style={[s.optionIconBox, { borderColor: theme.border, backgroundColor: theme.input }, enabled && { borderColor: v.color + "30", backgroundColor: v.color + "10" }]}>
-                <AppIcon name={v.icon} size={22} color={enabled ? v.color : theme.muted} />
+            <View key={v.id} style={[s.toggleCard, { backgroundColor: theme.surface, borderColor: theme.border }, enabled && { borderColor: accent + "40" }]}>
+              <View style={[s.optionIconBox, { borderColor: theme.border, backgroundColor: theme.input }, enabled && { borderColor: accent + "30", backgroundColor: accent + "10" }]}>
+                <AppIcon name={v.icon} size={22} color={enabled ? accent : theme.muted} />
               </View>
               <View style={s.optionInfo}>
-                <Text style={[s.optionName, { color: theme.text }, enabled && { color: v.color }]}>{v.name}</Text>
+                <Text style={[s.optionName, { color: theme.text }, enabled && { color: accent }]}>{v.name}</Text>
                 <Text style={[s.optionDesc, { color: theme.muted }]}>{v.hint}</Text>
               </View>
               <Switch
                 value={enabled}
                 onValueChange={() => toggleVehicle(v.id)}
-                trackColor={{ false: theme.border, true: v.color + "60" }}
-                thumbColor={enabled ? v.color : theme.muted}
+                trackColor={{ false: theme.border, true: accent + "60" }}
+                thumbColor={enabled ? accent : theme.muted}
               />
             </View>
           );
@@ -223,12 +206,16 @@ export default function SettingsScreen({ navigation }) {
 
         <View style={[s.divider, { backgroundColor: theme.border }]} />
 
-        <TouchableOpacity style={s.dangerBtn} onPress={resetApp} activeOpacity={0.8}>
+        <TouchableOpacity
+          style={[s.dangerBtn, { backgroundColor: theme.danger + "1a", borderColor: theme.danger + "30" }]}
+          onPress={resetApp}
+          activeOpacity={0.8}
+        >
           <View style={s.dangerTitleRow}>
-            <AppIcon name="trash" size={17} color="#f87171" />
-            <Text style={s.dangerText}>Uygulamayı Sıfırla</Text>
+            <AppIcon name="trash" size={17} color={theme.danger} />
+            <Text style={[s.dangerText, { color: theme.danger }]}>Uygulamayı Sıfırla</Text>
           </View>
-          <Text style={s.dangerDesc}>Tüm ayarlar ve favoriler silinir, kurulum başa döner</Text>
+          <Text style={[s.dangerDesc, { color: theme.danger + "b0" }]}>Tüm ayarlar ve favoriler silinir, kurulum başa döner</Text>
         </TouchableOpacity>
 
         <View style={[s.aboutBox, { backgroundColor: theme.surface, borderColor: theme.border }]}>
@@ -252,42 +239,39 @@ export default function SettingsScreen({ navigation }) {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#14111f" },
+  // RENK BURADA YOK: zemin, metin ve kenarlık temadan inline geliyor.
+  // Stile ikinci bir renk yazmak onu ölü koda çeviriyor — stil dizisinde
+  // sağdaki eleman kazandığı için sabit renk temayı eziyordu.
+  container: { flex: 1 },
   header: {
     paddingHorizontal: 24, paddingTop: 16, paddingBottom: 20,
-    borderBottomWidth: 1, borderBottomColor: "#322a4a",
+    borderBottomWidth: 1,
   },
-  headerTitle: { color: "#ece9f7", fontSize: 24, fontWeight: "800" },
+  headerTitle: { fontSize: 24, fontWeight: "800" },
   scroll: { flex: 1 },
   scrollContent: { padding: 20, paddingBottom: 60 },
   loadingBox: { flex: 1, alignItems: "center", justifyContent: "center" },
-  loadingText: { color: "#9b93b8", fontSize: 16 },
+  loadingText: { fontSize: 16 },
 
-  sectionTitle: { color: "#ece9f7", fontSize: 16, fontWeight: "800", marginBottom: 4 },
-  sectionHint: { color: "#9b93b8", fontSize: 12, marginBottom: 14 },
+  sectionTitle: { fontSize: 16, fontWeight: "800", marginBottom: 4 },
+  sectionHint: { fontSize: 12, marginBottom: 14 },
 
   optionCard: {
     flexDirection: "row", alignItems: "center", gap: 14,
-    backgroundColor: "#1e1a2e", borderWidth: 1, borderColor: "#322a4a",
-    borderRadius: 14, padding: 14, marginBottom: 10,
+    borderWidth: 1, borderRadius: 14, padding: 14, marginBottom: 10,
   },
-  optionCardActive: { borderColor: "#8b5cf640", backgroundColor: "#8b5cf606" },
   optionIconBox: {
     width: 44, height: 44, borderRadius: 12,
-    backgroundColor: "#14111f", borderWidth: 1, borderColor: "#322a4a",
-    alignItems: "center", justifyContent: "center",
+    borderWidth: 1, alignItems: "center", justifyContent: "center",
   },
-  optionIconBoxActive: { borderColor: "#8b5cf640", backgroundColor: "#8b5cf610" },
   optionInfo: { flex: 1 },
-  optionName: { color: "#ece9f7", fontSize: 15, fontWeight: "700" },
-  optionDesc: { color: "#9b93b8", fontSize: 12, marginTop: 2 },
+  optionName: { fontSize: 15, fontWeight: "700" },
+  optionDesc: { fontSize: 12, marginTop: 2 },
   radio: {
     width: 22, height: 22, borderRadius: 11,
-    borderWidth: 2, borderColor: "#322a4a",
-    alignItems: "center", justifyContent: "center",
+    borderWidth: 2, alignItems: "center", justifyContent: "center",
   },
-  radioActive: { borderColor: "#8b5cf6" },
-  radioDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: "#8b5cf6" },
+  radioDot: { width: 10, height: 10, borderRadius: 5 },
 
   fareCard: {
     borderWidth: 1, borderRadius: 14, padding: 16, gap: 10,
@@ -299,32 +283,29 @@ const s = StyleSheet.create({
 
   toggleCard: {
     flexDirection: "row", alignItems: "center", gap: 14,
-    backgroundColor: "#1e1a2e", borderWidth: 1, borderColor: "#322a4a",
-    borderRadius: 14, padding: 14, marginBottom: 10,
+    borderWidth: 1, borderRadius: 14, padding: 14, marginBottom: 10,
   },
 
-  divider: { height: 1, backgroundColor: "#322a4a", marginVertical: 24 },
+  divider: { height: 1, marginVertical: 24 },
 
   dangerBtn: {
-    backgroundColor: "#f871711a", borderWidth: 1, borderColor: "#f8717130",
-    borderRadius: 14, padding: 16, alignItems: "center", marginBottom: 16,
+    borderWidth: 1, borderRadius: 14, padding: 16,
+    alignItems: "center", marginBottom: 16,
   },
   dangerTitleRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-  dangerText: { color: "#f87171", fontSize: 15, fontWeight: "700" },
-  dangerDesc: { color: "#f8717170", fontSize: 12, marginTop: 6, textAlign: "center" },
+  dangerText: { fontSize: 15, fontWeight: "700" },
+  dangerDesc: { fontSize: 12, marginTop: 6, textAlign: "center" },
 
   aboutBox: {
-    backgroundColor: "#1e1a2e", borderWidth: 1, borderColor: "#322a4a",
-    borderRadius: 14, padding: 20, alignItems: "center", gap: 6,
+    borderWidth: 1, borderRadius: 14, padding: 20, alignItems: "center", gap: 6,
   },
-  aboutName: { color: "#ece9f7", fontSize: 18, fontWeight: "800" },
-  aboutVersion: { color: "#9b93b8", fontSize: 12 },
-  aboutLine: { color: "#9b93b8", fontSize: 13, textAlign: "center" },
+  aboutName: { fontSize: 18, fontWeight: "800" },
+  aboutVersion: { fontSize: 12 },
+  aboutLine: { fontSize: 13, textAlign: "center" },
   aboutTags: { flexDirection: "row", gap: 8, marginTop: 8 },
   aboutTag: {
     flexDirection: "row", alignItems: "center", gap: 6,
-    backgroundColor: "#14111f", borderWidth: 1, borderColor: "#322a4a",
-    borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4,
+    borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4,
   },
-  aboutTagText: { color: "#9b93b8", fontSize: 12 },
+  aboutTagText: { fontSize: 12 },
 });

@@ -1,25 +1,34 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { useColorScheme } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { getTheme } from "./theme";
+import { getTheme, temaSec } from "./theme";
 
 const ThemeContext = createContext(null);
 
+export const TEMA_ANAHTARI = "themeMode";
+
 export function ThemeProvider({ children }) {
-  const [mode, setMode] = useState("dark");
+  // null = cihaz ayarı belirlenemedi (RN bunu döndürebiliyor) → koyuya düşer.
+  const cihazTemasi = useColorScheme();
+  const [kayitli, setKayitli] = useState(null);
 
   useEffect(() => {
     (async () => {
       try {
-        const saved = await AsyncStorage.getItem("themeMode");
-        if (saved === "light" || saved === "dark") setMode(saved);
+        const saved = await AsyncStorage.getItem(TEMA_ANAHTARI);
+        if (saved === "light" || saved === "dark") setKayitli(saved);
       } catch {}
     })();
   }, []);
 
+  const mode = temaSec(kayitli, cihazTemasi);
+
+  // Tema anında değişiyor; disk yazımı başarısız olsa da ekranı geri
+  // almıyoruz — tercih yalnız bu oturum için yaşar.
   const setThemeMode = async (nextMode) => {
-    setMode(nextMode);
+    setKayitli(nextMode);
     try {
-      await AsyncStorage.setItem("themeMode", nextMode);
+      await AsyncStorage.setItem(TEMA_ANAHTARI, nextMode);
     } catch {}
   };
 
