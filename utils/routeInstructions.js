@@ -10,21 +10,12 @@ function yer(ad) {
 
 const dk = (leg) => `${Math.max(1, Math.round((leg.duration || 0) / 60))} dk`;
 
-// Yolculuğun UÇLARI dışarıdan verilir. Sebep: OTP'ye gönderilen uç etiketleri
-// "Başlangıç"/"Varış" (bkz. backend OtpService.js planConnection) ve `yer()`
-// onları yer adı saymıyor — haklı olarak, çünkü yer adı değiller. Sonuç, son
-// adımın "Varışa yürü" demesiydi: kullanıcının aradığı "Karşıyaka İskele"
-// ekranda hiç geçmiyordu. Uçları bilen tek katman arayüz (kullanıcının
-// yazdığı/seçtiği ad orada), o yüzden buraya parametreyle iner.
-// Bacağın İKİ UCU, adlarıyla. Ayrı durmasının sebebi: arayüzler adımı iki
-// ayrı biçimde gösteriyor — biri eylem cümlesi ("Poligon durağına yürü"),
-// öbürü akış satırı ("Konak Meydanı → Poligon"). İkisi de aynı ad çözümüne
-// dayanmalı, yoksa aynı bacak iki yerde iki başka yer adıyla görünür.
-export function legUclari(leg, legs = null, index = -1, uclar = {}) {
+// Uçlar dışarıdan verilir: OTP'nin uç etiketleri "Başlangıç"/"Varış" olduğu
+// için gerçek yer adını yalnız arayüz biliyor. Uç adı yalnız ilk bacağın
+// kalkışına ve son bacağın varışına düşer.
+function legUclari(leg, legs = null, index = -1, uclar = {}) {
   const liste = Array.isArray(legs) ? legs : [];
   const i = index >= 0 ? index : liste.indexOf(leg);
-  // Uç adı yalnız İLK bacağın kalkışına ve SON bacağın varışına düşer;
-  // aradaki bacakların uçları gerçek durak adlarıdır, onlara dokunulmaz.
   const sonMu = i >= 0 ? i === liste.length - 1 : false;
   return {
     nereden: yer(leg.from) || (i === 0 ? yer(uclar.baslangic) : null),
@@ -32,8 +23,8 @@ export function legUclari(leg, legs = null, index = -1, uclar = {}) {
   };
 }
 
-// Adım metni + çözülmüş uçlar. `nereden`/`nereye` dönmesi bilerek: arayüz
-// "şuradan şuraya" satırını kendi uydurmasın, uç adlarını buradan alsın.
+// Adım metni + çözülmüş uçlar. Arayüz "şuradan şuraya" satırını kendi
+// uydurmasın diye nereden/nereye de dönüyor.
 export function getLegInstruction(leg, legs = null, index = -1, uclar = {}) {
   const uc = legUclari(leg, legs, index, uclar);
   return { ...adimMetni(leg, legs, index, uc), ...uc };
@@ -110,29 +101,16 @@ function adimMetni(leg, legs, index, uc) {
   return { title: nereye ? `${nereye} noktasına devam et` : "Devam et", detail: dk(leg) };
 }
 
-// ─── Kartın tek satırlık güzergâh özeti ────────────────────────────────
-// Kullanıcı bildirimi: "yolculuk görünüyor ama nereden nereye gidileceği
-// anlaşılmıyor". Kapalı kartta yalnız süre, mesafe ve mod ikonları vardı;
-// hangi duraktan binilip nerede inileceği ancak kart AÇILINCA görülüyordu.
-//
-// Zincir, yolculuğun kırılma noktalarını verir: binilen durak, aktarma
-// durakları ve inilen durak.
-//
-// Transit yoksa (saf bisiklet/araba/yürüyüş) zincir BOŞTUR — uçları
-// tekrarlamaz. Kırılma noktası olmayan bir yolculukta söylenecek tek şey
-// zaten uçlardır ve onları listenin başlığı söylüyor; aynı iki adı bir de
-// kartın içine yazmak bilgi eklemiyor, satır ekliyordu.
+// Kartın tek satırlık özeti: her transit bacağının binilen ve inilen durağı.
+// Aynı durakta aktarmada ad iki kez çıkmasın diye ardışık tekrar süzülür.
+// Transit yoksa boş döner — söylenecek tek şey uçlar olurdu, onlar zaten
+// arama kutularında yazıyor.
 export function guzergahZinciri(legs) {
   const liste = Array.isArray(legs) ? legs : [];
-  const transit = liste.filter((l) => TRANSIT_MODES.includes(l.mode));
-  if (transit.length === 0) return [];
-
   const noktalar = [];
-  transit.forEach((l, i) => {
-    noktalar.push(yer(l.from) || "Durak");
-    if (i === transit.length - 1) noktalar.push(yer(l.to) || "Son durak");
-  });
-  // Aynı durakta aktarmada iniş ve biniş adı aynıdır; iki kez yazmak
-  // zincirde olmayan bir adım varmış izlenimi veriyor.
+  for (const l of liste) {
+    if (!TRANSIT_MODES.includes(l.mode)) continue;
+    noktalar.push(yer(l.from) || "Durak", yer(l.to) || "Son durak");
+  }
   return noktalar.filter((ad, i) => ad !== noktalar[i - 1]);
 }

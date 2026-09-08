@@ -14,22 +14,9 @@ export async function fetchRoute(from, to, profile, bikeType = null) {
       to:   { lat: to.latitude,   lon: to.longitude },
       profile,
       bikeType: bikeType || undefined,
-      // KAÇ GÜZERGÂH İSTENDİĞİ, kaç kart gösterileceği DEĞİL. Aradaki fark
-      // ölçüldü: gelen liste birkaç kez süzülüyor (backend aynı hattın başka
-      // kalkışını teker, arayüz mod vaadini görmeyeni eler), yani 8 istemek
-      // 8 seçenek değil çoğu zaman 1 kart demekti.
-      //
-      // Pzt 08:00, 7 rota × 5 mod ölçümü — 8 yerine 25 istendiğinde:
-      //   sahil-bati   BİSİM         3 → 4 kart   (bisikletli güzergâh 3 → 6)
-      //   sahil-bati   toplu taşıma  3 → 4 kart
-      //   kuzey-merkez BİSİM         1 → 2 kart
-      //   çevre-merkez bisikletim    eleme sonrası 7 → 9 güzergâh
-      // Hiçbir satır GERİLEMEDİ. Bedeli yok: aynı ölçümde ortanca yanıt
-      // süresi 463 ms → 497 ms, yani gürültü sınırında (OTP tek sorguda
-      // zaten aynı aramayı yapıyor, `first` çıktının kaçının döndüğü).
-      //
-      // Kart sayısını asıl bağlayan yer burası değil, routeScoring'deki
-      // MAX_ROUTES (toplu taşımada 5).
+      // İstenen güzergâh sayısı, gösterilecek kart sayısı değil: liste
+      // backend'de ve arayüzde süzülüyor. 8 istemek çoğu modda 1 karta
+      // düşüyordu; 25'te kart arttı, gecikme değişmedi (463→497 ms).
       numItineraries: 25,
     },
     { timeoutMs: ROTA_TIMEOUT }

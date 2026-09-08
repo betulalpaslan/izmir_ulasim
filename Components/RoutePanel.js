@@ -9,8 +9,9 @@ import { formatDistance } from "../utils/geo";
 export default function RoutePanel({ routes, selectedIdx, onSelect, loading, error, notice, timeTip, origin, destination, originName, destName, onReset, bikeType, modBos, onAlternative }) {
   const { theme } = useTheme();
 
-  // Yolculuğun uçları. Kullanıcının yazdığı ad boşsa arama alanı da boştur;
-  // o durumda uydurma bir ad yerine hiç gösterilmez (bkz. yolculukBasligi).
+  // Bacak metinleri "Başlangıç"/"Varış" yerine gerçek adı yazsın diye.
+  // Ayrı bir uç şeridi YOK: aynı adlar arama kutularında ve kapalı panel
+  // özetinde zaten duruyor.
   const uclar = { baslangic: originName, varis: destName };
 
   if (loading) {
@@ -25,10 +26,6 @@ export default function RoutePanel({ routes, selectedIdx, onSelect, loading, err
   }
 
   if (error) {
-    // Seçilen mod bu yolculukta işini göremiyorsa "Tekrar dene" işe yaramaz —
-    // aynı arama aynı sonucu verir. Ölçülmüş bir alternatif varsa çıkış olarak
-    // sunulur. Mod kartı DEĞİLDİR ve öyle görünmemeli: kullanıcı bunu seçerek
-    // moddan çıktığını bilmeli, yoksa vaat sessizce bozulmuş olur.
     const alternatifDk =
       modBos?.alternatifSn != null ? Math.round(modBos.alternatifSn / 60) : null;
     return (
@@ -57,8 +54,6 @@ export default function RoutePanel({ routes, selectedIdx, onSelect, loading, err
     );
   }
 
-  // Sonuç geçerli ama seçilen moddan farklı bir şey gösteriliyorsa sebebini
-  // söyle. Sessizce transit rotası göstermek kullanıcıyı yanıltır.
   const bilgiSeridi = notice ? (
     <View style={[s.noticeBox, { borderColor: theme.border }]}>
       <AppIcon name="info" size={14} color={theme.muted} />
@@ -85,27 +80,8 @@ export default function RoutePanel({ routes, selectedIdx, onSelect, loading, err
     );
   }
 
-  // LİSTENİN BAŞLIĞI, kartın değil. Kartlar aynı yolculuğun alternatifleri;
-  // uçları her kartta tekrar yazmak hem yer kaplar hem de kartlar farklı
-  // yerlere gidiyormuş gibi okunur. Uçlar burada bir kez söylenir, kartlar
-  // ise ARADA ne olduğunu anlatır (bkz. zincir).
-  const yolculukBasligi = (originName || destName) ? (
-    <View style={[s.uclarSerit, { borderColor: theme.border }]}>
-      <AppIcon name="locate" size={11} color="#22c55e" />
-      <Text style={[s.uclarMetin, { color: theme.text }]} numberOfLines={1}>
-        {originName || "Başlangıç"}
-      </Text>
-      <AppIcon name="chevronRight" size={11} color={theme.muted} />
-      <AppIcon name="mapPin" size={11} color="#f87171" />
-      <Text style={[s.uclarMetin, { color: theme.text }]} numberOfLines={1}>
-        {destName || "Varış"}
-      </Text>
-    </View>
-  ) : null;
-
   return (
     <ScrollView style={s.scroll} showsVerticalScrollIndicator={false} nestedScrollEnabled>
-      {yolculukBasligi}
       {bilgiSeridi}
       {timeTip ? (
         <Text style={[s.timeTipTop, { color: theme.active, backgroundColor: theme.active + "12" }]}>
@@ -115,8 +91,6 @@ export default function RoutePanel({ routes, selectedIdx, onSelect, loading, err
 
       {routes.map((r, i) => {
         const expanded = selectedIdx === i;
-        const co2 = r.carbonGrams;
-        const carbonColor = co2 < 100 ? "#22c55e" : co2 < 300 ? "#f97316" : "#f87171";
         const bikeLegs = r.legs.filter((l) => l.mode === "BICYCLE" || l.mode === "BICYCLE_RENTAL");
         const zincir = guzergahZinciri(r.legs);
 
@@ -132,10 +106,6 @@ export default function RoutePanel({ routes, selectedIdx, onSelect, loading, err
           >
             {/* ── Kart başlığı: etiket | süre+meta | ücret | chevron ── */}
             <View style={s.cardHeader}>
-              {/* Bir güzergâh birden çok üstünlüğe sahip olabilir (aynı anda
-                  hem önerilen hem en hızlı gibi). İkincil etiketler daha
-                  soluk rozetlerde alt alta durur; eskiden bu bilgi hiç
-                  gösterilmiyordu. */}
               <View style={s.tagSutun}>
                 <View style={[s.tagBadge, { backgroundColor: r.tagColor + "22", borderColor: r.tagColor + "55" }]}>
                   <Text style={[s.tagText, { color: r.tagColor }]}>{r.tag}</Text>
@@ -166,7 +136,6 @@ export default function RoutePanel({ routes, selectedIdx, onSelect, loading, err
               />
             </View>
 
-            {/* ── Mod şeridi: her bacak için küçük çip ── */}
             <View style={s.legStrip}>
               {r.legs.map((leg, j) => (
                 <React.Fragment key={j}>
@@ -181,11 +150,6 @@ export default function RoutePanel({ routes, selectedIdx, onSelect, loading, err
               ))}
             </View>
 
-            {/* ── Durak zinciri ──
-                Mod şeridi HANGİ araçla gidildiğini söylüyordu, NEREDEN
-                NEREYE gidildiğini değil. Binilen durak, aktarma durakları ve
-                inilen durak kapalı kartta hiç görünmüyor, ancak kart
-                açılınca bacak listesinden okunabiliyordu. */}
             {zincir.length > 1 && (
               <View style={s.zincirSatir}>
                 {zincir.map((ad, k) => (
@@ -220,10 +184,7 @@ export default function RoutePanel({ routes, selectedIdx, onSelect, loading, err
                   ))}
                 </View>
 
-                {/* ÜCRET DÖKÜMÜ — yalnız iki kalem varsa.
-                    BİSİM kiralaması bilete dahil değil; tek bir toplam
-                    rakam "neden bu kadar" sorusunu cevaplamıyordu.
-                    Provizyon ayrı satır: tahsilat değil, bloke. */}
+        
                 {r.ucretDetay?.bisim > 0 && (
                   <View style={[s.ucretKutu, { backgroundColor: theme.input, borderColor: theme.border }]}>
                     <View style={s.ucretSatir}>
@@ -246,26 +207,7 @@ export default function RoutePanel({ routes, selectedIdx, onSelect, loading, err
                   </View>
                 )}
 
-                {/* İpuçları.
-                    İkonlar emoji değil AppIcon: aynı kartın üstünde bacak
-                    şeridi lucide çiziyordu, ipuçları emoji basıyordu — iki
-                    ayrı ikon dili yan yana duruyordu. Emoji ayrıca cihaza
-                    göre değişiyor ve rengi metinden bağımsız. */}
-                {co2 > 0 && (
-                  <View style={[s.hint, { backgroundColor: carbonColor + "15", borderColor: carbonColor + "40" }]}>
-                    <AppIcon name="leaf" size={12} color={carbonColor} />
-                    <Text style={[s.hintText, { color: carbonColor }]}>
-                      ~{co2}g CO₂ · {co2 < 100 ? "Düşük" : co2 < 300 ? "Orta" : "Yüksek"} emisyon
-                    </Text>
-                  </View>
-                )}
-                {/* BİSİM dockless: bisiklet bir istasyona bağlı değil, hizmet
-                    alanı içinde her yere bırakılabilir. Metin bu yüzden bir
-                    ALMA NOKTASI adı vermiyor — canlı bisiklet konumu
-                    yayınlanmıyor, backend'in OTP'ye verdiği noktalar bisiklet
-                    yolu koridoru üzerinde örneklenmiş varsayımlar
-                    (bkz. BisimBolgeService.serbestBisikletler). Kullanıcıya
-                    olmayan bir kesinlik vaat etmemek için "civarında" denir. */}
+  
                 {bikeType === "RENT" && bikeLegs.length > 0 && (
                   <View style={[s.hint, { backgroundColor: "#22c55e12", borderColor: "#22c55e30" }]}>
                     <AppIcon name="bike" size={12} color="#22c55e" />
@@ -281,29 +223,11 @@ export default function RoutePanel({ routes, selectedIdx, onSelect, loading, err
                   </View>
                 )}
 
-                {/* ── Bacak listesi ──
-                    Bunlar SIRAYLA yapılacak adımlardır, seçenek listesi değil.
-                    Kullanıcı bildirimi: ardışık iki otobüs kartı (912 ve 447)
-                    görünce "ikisine de mi biniyorum, birine mi?" diye sordu.
-                    Kartlar eşit boyutlu, aralarında boşluk olan kutulardı ve
-                    hiçbir şey sıralı olduklarını söylemiyordu.
-
-                    Üç işaret eklendi: adım numarası, kartları birbirine bağlayan
-                    çizgi, ve ardışık iki TRANSİT bacağı arasında açık bir
-                    "AKTARMA" şeridi. Aktarma şeridi asıl belirsizliği çözer:
-                    912'den inip 447'ye binileceğini, inilecek durağın adıyla
-                    birlikte söyler. */}
+              
                 {r.legs.map((leg, j) => {
-                  // Tüm liste veriliyor: bir yürüyüşün anlamı ARDINDAN
-                  // geleni, bisikletin park mı edildiği yoksa yanına mı
-                  // alındığı ise transitten SONRA bisikletin devam edip
-                  // etmediğini bilmeyi gerektiriyor.
                   const instruction = getLegInstruction(leg, r.legs, j, uclar);
                   const buTransit  = !NON_TRANSIT_MODES.includes(leg.mode);
                   const onceTransit = j > 0 && !NON_TRANSIT_MODES.includes(r.legs[j - 1].mode);
-                  // Araya yürüyüş girmeyen iki transit bacağı = aynı durakta
-                  // araç değiştirme. Yürüyüşlü aktarmada zaten bir yürüyüş
-                  // kartı var, ikinci bir şerit gürültü olurdu.
                   const aktarma = buTransit && onceTransit;
                   return (
                     <React.Fragment key={j}>
@@ -328,16 +252,6 @@ export default function RoutePanel({ routes, selectedIdx, onSelect, loading, err
                         <Text style={[s.legMode, { color: leg.color }]}>
                           {j + 1}. {leg.label}{leg.routeName ? ` · ${leg.routeName}` : ""}
                         </Text>
-                        {/* ADIMIN ASIL SATIRI "ŞURADAN ŞURAYA"DIR.
-                            Eskiden burada eylem cümlesi vardı ("Poligon
-                            durağına yürü") ve nereden başlandığı hiç
-                            yazmıyordu: ardışık adımlarda kullanıcı zinciri
-                            kafasında kurmak zorundaydı. Uçlar yan yana
-                            yazılınca adım tek bakışta okunuyor.
-
-                            Uç adı çözülemeyen bacaklar var (adsız BİSİM
-                            bırakma noktası gibi); orada eylem cümlesine
-                            düşülür — yarım bir ok satırı yazmaktansa. */}
                         <Text style={[s.legRoute, { color: theme.text }]} numberOfLines={2}>
                           {instruction.nereden && instruction.nereye
                             ? `${instruction.nereden} → ${instruction.nereye}`
@@ -389,12 +303,6 @@ const s = StyleSheet.create({
   actionContent: { flexDirection: "row", alignItems: "center", gap: 6 },
   actionText:    { fontSize: 12, fontWeight: "700" },
 
-  // Yolculuğun uçları — listenin başlığı
-  uclarSerit:  { flexDirection: "row", alignItems: "center", gap: 5,
-                 paddingHorizontal: 9, paddingVertical: 7, marginBottom: 6,
-                 borderRadius: 8, borderWidth: 1 },
-  // İki uç adı da yeri paylaşsın: biri uzun diye diğeri tamamen kırpılmasın.
-  uclarMetin:  { flexShrink: 1, fontSize: 11, fontWeight: "700" },
 
   // Ana scroll
   scroll:      { maxHeight: 260 },
@@ -479,12 +387,8 @@ const s = StyleSheet.create({
     borderWidth: 1, borderRadius: 9,
     padding: 7,
   },
-  // Aradaki boşluğu artık bağlayıcı çizgi veriyor; yalnız ilk kartın
-  // üstündeki ipuçlarından ayrılması gerekiyor.
+  
   legCardIlk: { marginTop: 4 },
-  // Kartları birbirine bağlayan dikey çizgi. marginLeft, kartın iç boşluğu
-  // (7) + kenarlığı (1) + ikon kutusunun yarısı (13) ile hizalı: çizgi
-  // ikonların tam altından geçer.
   baglayici:    { width: 2, height: 7, marginLeft: 20, borderRadius: 1 },
   aktarmaSatir: { flexDirection: "row", alignItems: "center", gap: 6 },
   aktarmaRozet: { flexDirection: "row", alignItems: "center", gap: 4,

@@ -1196,8 +1196,32 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://unpkg.com/@mapbox/polyline@1.1.1/src/polyline.js"></script>
 
-  <script src="routeScoring.bundle.js"></script>
+  <!-- MODÜL YÜKLENEMEZSE SESSİZ KALMASIN.
+       ES modülleri güvenlik gereği sunucu ister; sayfa file:// ile açılırsa
+       aşağıdaki modül HİÇ çalışmaz ve ekran boş kalırdı. Bu klasik script
+       uyarıyı önceden kurar, modül çalışırsa ilk iş olarak iptal eder. -->
   <script>
+    window.__modulUyarisi = setTimeout(function () {
+      var el = document.getElementById("statusMetin");
+      if (el) el.textContent =
+        "Puanlama modulu yuklenemedi. Sayfayi bir sunucudan acin " +
+        "(depo kokunden: python -m http.server 8000). file:// ile ES modulleri engellenir.";
+    }, 1500);
+  </script>
+
+  <script type="module">
+    // Puanlama doğrudan kaynaktan; arada derlenmiş paket yok. Eski paket
+    // düzeninde dışa açılan adlar elle tutuluyordu ve 46 export'un 26'sı
+    // geçiyordu — ucretYazi, BISIM_TARIFESI gibi çağrılar undefined'dı.
+    import * as puanlama from "../utils/routeScoring.js";
+    import * as adimlar  from "../utils/routeInstructions.js";
+    import * as geo      from "../utils/geo.js";
+    import { decodePolyline } from "../utils/polyline.js";
+
+    // `RS` adı korundu ki sayfadaki çağrı yerleri değişmesin.
+    const RS = { ...puanlama, ...adimlar, ...geo, decodePolyline };
+
+    clearTimeout(window.__modulUyarisi);
 
     LucideIkon.ciz(document);
 
@@ -1218,20 +1242,20 @@
 
 
     const BILET_ANAHTARI = "biletTuru";
-    let biletId = localStorage.getItem(BILET_ANAHTARI) || window.RS.VARSAYILAN_BILET;
-    const bilet = () => window.RS.biletTarifesi(biletId);
+    let biletId = localStorage.getItem(BILET_ANAHTARI) || RS.VARSAYILAN_BILET;
+    const bilet = () => RS.biletTarifesi(biletId);
 
 
     const ikon = (ad) => LucideIkon.svg(ad);
 
 
     const modeColors = Object.fromEntries(
-      Object.entries(window.RS.MODE_STYLE).map(([mod, st]) => [mod, st.color])
+      Object.entries(RS.MODE_STYLE).map(([mod, st]) => [mod, st.color])
     );
     // Değerler ikon ADI; işaretlemeye çevirme çizim anında (ikon()) olur.
     // RAIL ve SUBWAY hâlâ aynı ikonu paylaşıyor, renkleri ayırıyor.
     const modeIcons = Object.fromEntries(
-      Object.entries(window.RS.MODE_STYLE).map(([mod, st]) => [mod, st.icon])
+      Object.entries(RS.MODE_STYLE).map(([mod, st]) => [mod, st.icon])
     );
     const modeLabels = {
       WALK: "Yürüme", BICYCLE: "Bisiklet", BICYCLE_RENTAL: "Kiralık Bisiklet",
@@ -1240,7 +1264,6 @@
     };
 
 
-    const RS = window.RS;
 
     const profileFlows = {
 
@@ -1696,11 +1719,9 @@
 
     function applyPreference() {
 
-      if (!RS) {
-        setStatus("Puanlama paketi yüklenemedi (routeScoring.bundle.js). " +
-          "Üretmek için: node izmir_backend/senaryo/derle.js", "hourglass");
-        return false;
-      }
+      // Paket kontrolü KALDIRILDI: `RS` artık statik import'tan geliyor,
+      // yani modül çalıştıysa doludur. İçe aktarma başarısız olursa modülün
+      // tamamı hiç çalışmaz — o durumu yukarıdaki zamanlayıcı bildiriyor.
 
       const pref = getPref();
       const profile = getProfile();
@@ -1857,14 +1878,9 @@
           const line = L.polyline(pts, { color, weight: 5, opacity: 0.95 }).addTo(map);
           routeLayers.push(casing, line);
 
-          // ÇİZGİNİN ORTASINA MOD ROZETİ. Renk tek başına yetmiyordu:
-          // haritada dört ayrı renkli çizgi var, hangisinin metro hangisinin
-          // otobüs olduğu ancak alttaki listeyle karşılaştırılarak
-          // anlaşılıyordu. Rozet bacağın rengini taşır, yani çizgiyle
-          // eşleşmesi için de bir şey ezberlemek gerekmez.
-          // Kısa yürüyüşe rozet konmaz: çizgiyi kalabalıklaştırıyor ve
-          // zaten bir sonraki rozet birkaç piksel ötede. Eşik mobildekiyle
-          // aynı (Components/MapLayers.js, WALK_BADGE_MIN_METERS).
+          // Çizginin ortasına mod rozeti: renk tek başına hangi çizginin
+          // metro hangisinin otobüs olduğunu söylemiyordu. 250 m altındaki
+          // yürüyüşe konmaz — eşik mobildekiyle aynı (MapLayers.js).
           const kisaYuruyus =
             mode === "WALK" && RS.calcLegDistanceMeters(leg) < 250;
           const orta = pts[Math.floor(pts.length / 2)];

@@ -6,14 +6,8 @@ import {
   selectCandidates, buildRouteResult,
 } from "../utils/routeScoring";
 
-// BİSİM'in gerçek zamanlı doluluk verisi 2025-07-23'ten beri yayınlanmıyor,
-// bu yüzden backend GBFS feed'inde is_renting=false gönderilir ve OTP kiralama
-// rotası üretmez. Bu bir bağlantı hatası değil, veri kaynağının kesilmesidir —
-// kullanıcıya doğru sebep ve kullanılabilir alternatif gösterilir.
-// Mod seçimi bir vaattir: "BİSİM + Aktarma" seçen kullanıcıya BİSİM'siz,
-// "Bisikletim + Aktarma" seçene bisikletsiz güzergâh gösterilmez. Vaat
-// tutulamıyorsa sebebi yazılır — başka bir modun sonucunu o modmuş gibi
-// göstermek yerine.
+// Mod seçimi bir vaattir: "BİSİM + Aktarma" seçene BİSİM'siz güzergâh
+// gösterilmez. Vaat tutulamıyorsa sebebi yazılır.
 const MOD_BOS_MESAJI = {
   bicycle_rent:
     "Bu yolculuk için BİSİM'li bir güzergâh kurulamadı — başlangıç ya da varış " +
@@ -27,12 +21,8 @@ const MOD_BOS_MESAJI = {
     "tarafı anlamlı bir mesafe tutmuyor.",
 };
 
-// EMNİYET AĞI. Yürüyüş tavanı artık listeyi boşaltmıyor: tavanın altında
-// güzergâh yoksa en az yürütenler gösteriliyor ve durum `notice` ile
-// söyleniyor (bkz. utils/routeScoring.js, KATMAN 2). Bu metin yalnız
-// MOD_AMACI tanımsız bir profilde liste boş dönerse kalır — bugün öyle bir
-// yol yok, ama boş listeye mesajsız düşmek eski hatanın kendisiydi:
-// kullanıcı sebebi bilmeden aynı aramayı tekrarlıyordu.
+// Emniyet ağı: yalnız MOD_AMACI tanımsız bir profilde liste boş kalırsa
+// görünür. Mesajsız boş ekran eski hatanın kendisiydi.
 const YURUYUS_TAVANI_MSG =
   "Bu yolculuk için gösterilebilecek bir güzergâh bulunamadı. Başka bir mod " +
   "deneyebilir ya da başlangıç/varış noktasını bir durağa yakın seçebilirsiniz.";

@@ -15,7 +15,6 @@ export const ICON_SET = {
   home: "house",
   hourglass: "hourglass",
   info: "info",
-  leaf: "leaf",
   locate: "locate-fixed",
   map: "map",
   mapPin: "map-pin",

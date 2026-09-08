@@ -22,8 +22,6 @@ describe("resolveProfileKey", () => {
   it("bisiklet alt modlarını ayrı anahtarlara çevirir", () => {
     expect(resolveProfileKey("bicycle", "RENT")).toBe("bicycle_rent");
     expect(resolveProfileKey("bicycle", "PARK")).toBe("bicycle_park");
-    // Tek başına bisiklet modu kaldırıldı; bikeType yoksa "bisikletim +
-    // aktarma"ya düşülür — backend'in buildModesInput'u da öyle yapıyor.
     expect(resolveProfileKey("bicycle", null)).toBe("bicycle_park");
   });
 
@@ -101,18 +99,8 @@ describe("rankItineraries", () => {
     expect(siralama[0].itin).toBe(aktarmasiz);
   });
 
-  // Yürüyüş HEDEFİ (WALK_LEG_TARGET) elemez, cezalandırır. Sert eşik uçlarda
-  // saçmalıyordu: Konak→Karşıyaka'da 1250 m'lik bacak 1200 m sınırına
-  // 50 METRE takılıp kullanıcının tam istediği BİSİM+tren güzergâhını siliyordu.
-  //
-  // Süre tavanıyla karıştırılmamalı: hedef mesafe cinsindendir ve yalnız
-  // sıralamayı etkiler; tavan süre cinsindendir ve eler (aşağıdaki test).
+
   it("hedefi aşan yürüyüş elenmez ama cezalanıp geriye düşer", () => {
-    // 1550 m / 19.2 dk — bicycle_park hedefinin (1500 m) üstünde, 20 dk
-    // tavanının altında. Bisiklet bacağı BIKE_LEG_MIN'i (800 m) geçmeli,
-    // yoksa güzergâh "modun işini görmüyor" diye elenir.
-    // Bisiklet payı ikisinde de %15'in üstünde tutuldu (BISIKLET_ASGARI_PAY);
-    // yoksa bu test yürüyüş cezasını değil, oran kuralını ölçerdi.
     const uzunYuruyus = guzergah(2750, [
       bacak("BICYCLE", 500, 2000), bacak("WALK", 1150, 1550), bacak("BUS", 1100, 6000, "169"),
     ]);
@@ -127,10 +115,7 @@ describe("rankItineraries", () => {
     expect(siralama[1].walk.overTarget).toBeGreaterThan(0);
   });
 
-  // Tek bir yürüyüş bacağı 20 dakikayı aşarsa güzergâh HİÇBİR MODDA
-  // gösterilmez. Ölçüm — Narlıdere → Çiğli, Pzt 08:00: düz toplu taşımada
-  // önerilen kartın ilk bacağı 19 dk, BİSİM modunda 28 dk'ydı; ikisi de eski
-  // 5000 m'lik mesafe tavanının altında olduğu için geçiyordu.
+
   it("20 dakikayı aşan tek yürüyüş bacağı elenir", () => {
     const uzun   = guzergah(1900, [bacak("WALK", 1300, 1700), bacak("BUS", 600, 4000, "169")]);
     const normal = guzergah(2100, [bacak("WALK", 300, 400),   bacak("BUS", 1800, 6000, "12")]);
@@ -140,9 +125,7 @@ describe("rankItineraries", () => {
     expect(siralama[0].itin).toBe(normal);
   });
 
-  // Sınır dahil kabul: tam 20 dakika tavanın altındadır, 20 dakika + 1 sn
-  // değildir. Tavan artık ELEMİYOR (alternatif yoksa güzergâh gösteriliyor),
-  // bu yüzden sınır `yuruyusZorunlu` işaretinden okunur — asıl garanti bu.
+
   it("tavan sınırı dahildir", () => {
     const tamTavan = guzergah(1800, [bacak("WALK", 1200, 1500), bacak("BUS", 600, 4000, "169")]);
     const birSaniyeFazla = guzergah(1801, [bacak("WALK", 1201, 1500), bacak("BUS", 600, 4000, "169")]);
@@ -154,9 +137,6 @@ describe("rankItineraries", () => {
     expect(fazla.yuruyusZorunlu).toBe(true);
   });
 
-  // Ölçüm — Asmaaltı → Nergiz civarı: 60 dakikalık yolculuğun sonunda
-  // 4 dk / 972 m BİSİM. Mesafe eşiğini (500 m) geçiyordu; itiraz "4 dakika
-  // az" değil "o kadar yoldan sonra 4 dakika" olduğu için ölçüt ORAN.
   it("yolculuğun %15'inden kısa bisiklet bacağı elenir", () => {
     const kisaPay = guzergah(3600, [
       bacak("BUS", 1500, 9000, "480"), bacak("WALK", 180, 200),
@@ -171,14 +151,6 @@ describe("rankItineraries", () => {
     expect(siralama[0].itin).toBe(yeterliPay);
   });
 
-  // KENDİ BİSİKLETİNDE ölçüt oran değil KAZANÇ: bisikletin zaten yanındadır,
-  // aranacak araç ve iade edilecek kiralama yok; tek soru daha erken
-  // vardırıp vardırmadığı. Taban çizgisi backend'den güzergâha iliştirilmiş
-  // gelir (itin.bisikletsizEnIyiSn — services/OtpService.js).
-  //
-  // Ölçüm — Narlıdere → Çiğli: 72 dk bisikletli, 81 dk bisikletsiz. Bisiklet
-  // payı yalnız %8 ama 9 DAKİKA kazandırıyor; oran kuralı bunu eliyor ve mod
-  // saflığından beri yedeği de olmadığı için kullanıcı boş ekran görüyordu.
   const bisikletli = (sureSn, tabanSn) => ({
     ...guzergah(sureSn, [
       bacak("BICYCLE", 360, 1245), bacak("WALK", 180, 200),
@@ -191,20 +163,15 @@ describe("rankItineraries", () => {
     expect(rankItineraries([bisikletli(4320, 4860)], "bicycle_park")).toHaveLength(1);
   });
 
-  // Ölçüt kazançtan KAYIP TAVANINA döndü: bisikleti yanında olan biri
-  // yarışa çıkmıyor, sürüş yolculuğu bir miktar uzatabilir.
+
   it("yolculuğu tavanın altında uzatıyorsa kalır", () => {
-    // 6.2 dakika uzatıyor (Konak → Bornova ölçümü) — tavan 15 dakika.
     expect(rankItineraries([bisikletli(3018, 2646)], "bicycle_park")).toHaveLength(1);
   });
 
   it("küçük kazanç artık elemez", () => {
-    // 1.5 dakika kazanç. Eski 3 dakikalık kazanç eşiğinde eleniyordu.
     expect(rankItineraries([bisikletli(4530, 4620)], "bicycle_park")).toHaveLength(1);
   });
 
-  // Kullanıcının bildirdiği hal: 0.6 dakikalık uzatma yüzünden mod
-  // tamamen kapanıyordu.
   it("yarım dakikalık uzatma modu kapatmaz", () => {
     expect(rankItineraries([bisikletli(2682, 2646)], "bicycle_park")).toHaveLength(1);
   });
@@ -218,8 +185,7 @@ describe("rankItineraries", () => {
     expect(rankItineraries([bisikletli(2646 + 901, 2646)], "bicycle_park")).toHaveLength(0);
   });
 
-  // Taban sorgusu düşmüş olabilir. Bilinmeyen bir sayı yüzünden kullanıcıyı
-  // boş ekranda bırakmak yanlış olur: eleme AÇIK FAİL eder.
+
   it("taban çizgisi bilinmiyorsa eleme yapılmaz", () => {
     const tabansiz = guzergah(4320, [
       bacak("BICYCLE", 360, 1245), bacak("WALK", 180, 200),
@@ -228,11 +194,6 @@ describe("rankItineraries", () => {
     expect(rankItineraries([tabansiz], "bicycle_park")).toHaveLength(1);
   });
 
-  // MOD SAFLIĞI. Eskiden burada "boş ekran gösterme" diye en iyi aday tek
-  // başına döndürülüyordu ve bu, kuralı sessizce geçersiz kılıyordu:
-  // "BİSİM + Aktarma" seçen kullanıcı elenmiş 4 dakikalık BİSİM güzergâhını
-  // yine görüyordu, üstelik alternatifsiz. Mod seçimi bir vaattir;
-  // tutulamıyorsa doğru yanıt sebebini söylemektir (useRouteSearch).
   it("mod amacına uymayan tek aday gösterilmez — son çare kartı yok", () => {
     const kisaBisiklet = guzergah(1500, [
       bacak("BICYCLE", 120, 300), bacak("WALK", 180, 200), bacak("BUS", 1200, 6000, "169"),
@@ -240,19 +201,13 @@ describe("rankItineraries", () => {
     expect(rankItineraries([kisaBisiklet], "bicycle_park")).toHaveLength(0);
   });
 
-  // Amacı OLMAYAN modlarda (düz transit, araba) eski davranış korunur:
-  // orada eleme yalnız yürüyüş tavanından gelir ve gösterilecek en iyi
-  // aday hâlâ o modun işini görüyordur.
+
   it("amacı olmayan modlarda son çare kartı korunur", () => {
     const tekAday = guzergah(1800, [bacak("WALK", 300, 400), bacak("BUS", 1500, 6000, "12")]);
     expect(rankItineraries([tekAday], "transit")).toHaveLength(1);
   });
 
-  // Yürüyüş tavanı KADEMELİDİR. Tavanın altında güzergâh varsa yalnız onlar
-  // gösterilir (yukarıdaki test); hiçbiri yoksa uzun yürümek o yolculukta
-  // gerçekten zorunludur ve boş ekran kullanıcıya yardım etmez. Doğru yanıt
-  // en az yürüteni GÖSTERİP zorunlu olduğunu söylemektir; işaret arayüze
-  // taşınır (hooks/useRouteSearch.js → notice, RoutePanel → walkWarning).
+  
   it("tek aday tavanı aşıyorsa gösterilir ama zorunlu diye işaretlenir", () => {
     const uzunYuruyus = guzergah(1900, [bacak("WALK", 1300, 1700), bacak("BUS", 600, 4000, "169")]);
     const sonuc = rankItineraries([uzunYuruyus], "transit");
@@ -260,9 +215,7 @@ describe("rankItineraries", () => {
     expect(sonuc[0].yuruyusZorunlu).toBe(true);
   });
 
-  // Mod amacı ile yürüyüş tavanı AYRI gerekçelerdir ve ayrı sonuç verirler:
-  // tavan esner, vaat esnemez. Bisiklet modunda amaca uymayan tek aday
-  // kalırsa liste boş döner — "zorunlu" işaretiyle gösterilmez.
+  
   it("mod amacı karşılanmıyorsa liste boş kalır — tavandan farklı", () => {
     const kisaBisiklet = guzergah(1800, [
       bacak("BICYCLE", 60, 120), bacak("BUS", 1500, 6000, "12"),
@@ -271,33 +224,24 @@ describe("rankItineraries", () => {
   });
 
   it("aynı rota kümesini profile göre farklı sıralar", () => {
-    // 800 m yürüyüş: transit hedefinin (2000) altında, bisiklet hedefinin (600) üstünde
     const yuruyusluRota = guzergah(1200, [bacak("WALK", 600, 800), bacak("BICYCLE", 600, 3000)]);
     const kisaYuruyus   = guzergah(1400, [bacak("WALK", 200, 200), bacak("BICYCLE", 1200, 4000)]);
 
-    // Transit profilinde bisiklet cezası yok ama yürüyüş ağır (walkKm 7):
-    // 600 m'lik yürüyüş farkı 4.2 puan, süre farkı ise yalnız 3.3 dk.
     const transit = rankItineraries([yuruyusluRota, kisaYuruyus], "transit");
     expect(transit).toHaveLength(2);
     expect(transit[0].itin).toBe(kisaYuruyus);
 
-    // Bisiklet profilinde ikisi de KALIR — sert eleme yalnız mod amacına ait,
-    // yürüyüş hedefi artık ceza. İkisinde de bisiklet var, ikisi de geçer.
     const bisiklet = rankItineraries([yuruyusluRota, kisaYuruyus], "bicycle");
     expect(bisiklet).toHaveLength(2);
   });
 
-  // bikeKm cezasının kendisi: pedal çevirmek de zahmettir.
-  // Ölçüm (Konak → Karşıyaka): ceza yokken 63.3 dk'lık saf sürüş,
-  // 55.1 dk'lık BİSİM+tren güzergâhını 1.7 puanla geçiyordu — çünkü
-  // yürüyüşe ceza yazılıp bisiklete yazılmıyordu.
+
   it("eşit sürede daha çok pedal çeviren güzergâh geride kalır", () => {
     const azBisiklet = guzergah(1800, [bacak("WALK", 300, 400), bacak("BICYCLE", 1500, 3000)]);
     const cokBisiklet = guzergah(1800, [bacak("WALK", 300, 400), bacak("BICYCLE", 1500, 12000)]);
 
     const r = rankItineraries([cokBisiklet, azBisiklet], "bicycle_rent");
     expect(r[0].itin).toBe(azBisiklet);
-    // 9 km fark × bikeKm(1) = 9 puanlık ceza farkı
     expect(r[1].score - r[0].score).toBeCloseTo(9, 1);
   });
 
@@ -351,7 +295,6 @@ describe("selectCandidates", () => {
   });
 
   it("profil başına kart sayısı sınırını aşmaz", () => {
-    // 8 farklı hat → transit için en fazla 5 kart
     const cokRota = Array.from({ length: 8 }, (_, i) =>
       guzergah(1200 + i * 60, [bacak("WALK", 200, 200 + i * 10), bacak("BUS", 1000, 5000, `H${i}`)])
     );
@@ -367,17 +310,16 @@ describe("selectCandidates", () => {
     expect(adaylar.length).toBeLessThanOrEqual(2);
   });
 
-  it("her adaya karbon değeri ekler", () => {
+  // Adaylara `carbon` iliştiren satır kaldırıldı; tek tüketicisi "Çevreci"
+  // etiketiydi. calcCarbonGrams'ın kendi testleri yukarıda duruyor.
+  it("adaylara karbon iliştirmez", () => {
     const rota = guzergah(900, [bacak("CAR", 900, 10000)]);
     const [aday] = selectCandidates(rankItineraries([rota], "car"), "car");
-    expect(aday.carbon).toBeCloseTo(1500, 5);
+    expect(aday.carbon).toBeUndefined();
   });
 });
 
 describe("BİSİM tarifesi", () => {
-  // Yayımlanan tarife: dakika 1,50 TL · ilk 5 dk 10,00 TL · 1 saat 92,50 TL.
-  // Üçüncü rakam açılış bloğunun ilk 5 dakikayı KAPSADIĞINI kanıtlıyor:
-  // 10 + 55 × 1,50 = 92,50. Blok üstüne 60 dakika sayılsaydı 100,00 çıkardı.
   it("ilk 5 dakika tek blok ücrettir", () => {
     expect(calcBisimFare(60)).toBe(10);
     expect(calcBisimFare(5 * 60)).toBe(10);
@@ -532,9 +474,6 @@ describe("buildRouteResult", () => {
     expect(sonuc.walkWarning).toContain("2.5 km");
   });
 
-  // Bisiklet metroya bindirilebiliyor: öyle bir güzergâhta bisiklet bacağı
-  // transitten SONRA yeniden başlar, yani hiçbir yere park edilmemiştir.
-  // Kontrol olmadan haritaya uğranmayacak bir park pini konuyordu.
   it("bisiklet transitten sonra devam ediyorsa park noktası yoktur", () => {
     const tasinan = guzergah(2400, [
       { ...bacak("BICYCLE", 400, 2000), to: { name: "Konak", lat: 38.41, lon: 27.12 } },
@@ -576,11 +515,6 @@ describe("buildRouteResult", () => {
   });
 });
 
-// ─── Anlamsız bisiklet bacağı ──────────────────────────────────────────
-// Ölçüm (Konak → Bornova, Pzt 08:00): 282 m'lik bisiklet bacağı yolculuğu
-// 6.2 DAKİKA uzatıyordu (50.3 dk yerine yürüyüşle 44.1 dk). Bisiklet burada
-// bir erişim aracı ve o işi görmüyor; kilit açma/kilitleme külfeti sürüşün
-// kendisinden uzun.
 describe("bisiklet bacağı çok kısaysa", () => {
   const kisa = { legs: [bacak("BICYCLE", 200, 282), bacak("WALK", 120, 150), bacak("SUBWAY", 900, 6000)] };
   const uzun = { legs: [bacak("BICYCLE", 900, 4041), bacak("WALK", 120, 150), bacak("RAIL", 900, 6000)] };
@@ -592,24 +526,17 @@ describe("bisiklet bacağı çok kısaysa", () => {
   });
 
   test("eşik altındaki tek aday transit varsa elenir ve liste boş kalır", () => {
-    // Mod saflığı: bisiklet modunda "aslında bisikletsiz" bir kart
-    // gösterilmez. Sebebi kullanıcıya arayüzde yazılır.
     expect(rankItineraries([kisa], "bicycle_park")).toHaveLength(0);
   });
 
   // Transit yoksa bisiklet yolculuğun kendisidir; 300 m öteye gitmek meşru.
   test("transit yoksa kısa bisiklet elenmez", () => {
-    // 282 m'lik bir bisiklet bacağı, transit varken "erişim aracı olarak
-    // işe yaramıyor" demektir. Transit yoksa bisiklet yolculuğun KENDİSİDİR
-    // ve kısa olması meşrudur. BIKE_LEG_MIN yine de geçilmeli, o yüzden
-    // bacak eşiğin üstünde tutuldu.
     const sadeceBisiklet = { legs: [bacak("BICYCLE", 200, 900)] };
     const r = rankItineraries([sadeceBisiklet], "bicycle_park");
     expect(r).toHaveLength(1);
     expect(r[0].walk.bisikletAnlamsiz).toBe(false);
   });
 
-  // Eşik yalnız bisikletin ERİŞİM aracı olduğu profillerde tanımlı.
   test("eşik yalnız karma profillerde tanımlı", () => {
     expect(BIKE_LEG_MIN.bicycle_park).toBe(800);
     expect(BIKE_LEG_MIN.bicycle_rent).toBe(500);
@@ -618,9 +545,6 @@ describe("bisiklet bacağı çok kısaysa", () => {
   });
 });
 
-// ─── Mod amacı: sert eleme yalnız buraya ait ────────────────────────────
-// Ölçüm: "Sadece bisiklet" modunda 8 güzergâhın 7'sinde HİÇ bisiklet yoktu —
-// düz transit rotalarıydı, yani mod kullanıcıya yalan söylüyordu.
 describe("MOD_AMACI", () => {
   const bisikletli = { legs: [bacak("BICYCLE", 900, 4000), bacak("RAIL", 900, 6000)] };
   const bisikletsiz = { legs: [bacak("WALK", 300, 400), bacak("RAIL", 900, 6000)] };
@@ -636,7 +560,6 @@ describe("MOD_AMACI", () => {
   });
 
   test("Park & Ride: araç 13 km / transit 0.3 km olan güzergâh elenir", () => {
-    // Ölçüm: korfez-karsi senaryosunda araç 13309 m, transit 276 m çıkmıştı.
     const sahteParkRide = { legs: [bacak("CAR", 900, 13309), bacak("BUS", 120, 276)] };
     const gercekParkRide = { legs: [bacak("CAR", 400, 5000), bacak("RAIL", 900, 9000)] };
     const r = rankItineraries([sahteParkRide, gercekParkRide], "park_and_ride");
@@ -645,18 +568,11 @@ describe("MOD_AMACI", () => {
   });
 
   test("hiçbiri amaca uymazsa boş liste döner", () => {
-    // "BİSİM + Aktarma" seçen kullanıcıya BİSİM'siz kart gösterilmez.
-    expect(rankItineraries([bisikletsiz], "bicycle_rent")).toHaveLength(0);
+   expect(rankItineraries([bisikletsiz], "bicycle_rent")).toHaveLength(0);
   });
 });
 
-// ─── Öneri sınırı ───────────────────────────────────────────────────────
-// Ölçüm (Bostanlı → Konak, DÜZ TOPLU TAŞIMA — bisikletle ilgisi yok):
-//   58.6 dk  WALK>BUS>WALK               skor 62.9  ← Önerilen olmuştu
-//   45.9 dk  WALK>RAIL>WALK>SUBWAY>WALK  skor 66.9
-// 12.7 dakika daha hızlı güzergâh, 1.5 km yürüyüş + 1 aktarma için yazılan
-// 21 puanla geriye düşüyordu. Cezalar süreyle orantılı olmadığı için
-// yeterince birikince her modda olabilir; bu sınır hasarı bağlar.
+
 describe("öneri sınırı", () => {
   const kayit = (dakika) => ({
     itin: { legs: [] },
@@ -665,11 +581,9 @@ describe("öneri sınırı", () => {
   });
 
   test("çok yavaş olan baştan alınır, sınırı sağlayan öne geçer", () => {
-    // 58.6 / 45.9 = 1.28 > transit toleransı 1.20
     const liste = [kayit(58.6), kayit(53.0), kayit(45.9)];
     const r = oneriSinirinaUydur(liste, "transit");
     expect(r[0].walk.duration / 60).toBeCloseTo(53.0, 1);
-    // Liste yeniden dizilmez, yalnız baş değişir.
     expect(r).toHaveLength(3);
   });
 
@@ -689,10 +603,7 @@ describe("öneri sınırı", () => {
   });
 });
 
-// ─── Aynı hattın ardışık kalkışları ────────────────────────────────────
-// Ölçüm (Konak → Bornova): dönen 10 güzergâhın 10'u da M1'di, yalnız
-// kalkışlar farklıydı (08:06, 08:07, 08:16 …). Kullanıcı aynı kartı on kez
-// görüyordu.
+
 describe("aynı hattı tekilleştirme", () => {
   const hatli = (mode, shortName) => ({ ...bacak(mode, 900, 6000), route: { shortName } });
   const k = (legs) => ({ itin: { legs }, walk: {}, score: 0 });
@@ -732,17 +643,13 @@ describe("aday etiketleri", () => {
                            bacak("WALK", 120, 150), hatli("BUS", 900, 5000, "285")] };
 
   test("aynı güzergâh birden çok üstünlüğe sahipse etiket düşmez, eklenir", () => {
-    // Ölçüm: eskiden "En Hızlı" 60 mod-senaryonun yalnız 6'sında görünüyordu;
-    // Önerilen'le aynı güzergâhı seçtiğinde tamamen atılıyordu.
+    
     const k = selectCandidates(rankItineraries([hizli, aktarma], "transit"), "transit");
     expect(k[0].etiketler).toContain("Önerilen");
     expect(k[0].etiketler).toContain("En Hızlı");
   });
 
   test("ölçüsü değişmeyen etiket hiç gösterilmez", () => {
-    // Örnek eskiden "En Ucuz" idi (düz tarifede her güzergâh aynı ücrete
-    // gelir); o etiket kaldırıldı, mekanizma duruyor. Aynı şey aktarmayla
-    // gösterilir: iki güzergâh da aktarmasızsa "Az Aktarma" bilgi taşımaz.
     const aktarmasiz2 = { legs: [bacak("WALK", 250, 300), hatli("BUS", 1400, 8000, "169")] };
     const esitAktarma = selectCandidates(rankItineraries([hizli, aktarmasiz2], "transit"), "transit");
     expect(esitAktarma.flatMap((c) => c.etiketler)).not.toContain("Az Aktarma");
@@ -766,10 +673,8 @@ describe("aday etiketleri", () => {
   });
 
   test("etiket listesi tektir — moda göre elle tutulan tablo yok", () => {
-    // Elle tutulan tablo hata kaynağıydı: "Çevreci" bisiklet modlarında
-    // unutulmuştu, oysa orada en ayırt edici etiket oydu (4/4, 6/7).
     expect(ADAY_OLCULERI.map((x) => x.tag)).toEqual(
-      ["Önerilen", "En Hızlı", "Az Aktarma", "Çevreci"]
+      ["Önerilen", "En Hızlı", "Az Aktarma"]
     );
     expect(ADAY_OLCULERI[0].olcu).toBeNull();
   });

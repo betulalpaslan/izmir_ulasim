@@ -24,16 +24,15 @@ React Native (Expo) · OpenTripPlanner 2.8.1 · Node.js/Express
 |---|---|
 | **5 ulaşım profili** | Toplu taşıma · BİSİM + aktarma · Bisikletim + aktarma · Araba · Park & Ride |
 | **Canlı navigasyon** | Konum takibi, takip kamerası, adım adım yönlendirme, rota dışı algılama ve yeniden hesaplama |
-| **Akıllı rota sıralama** | Süre, yürüyüş mesafesi ve aktarma sayısını profil bazlı ağırlıklarla puanlar; Önerilen / En Hızlı / Az Aktarma / Çevreci olarak etiketler |
+| **Akıllı rota sıralama** | Süre, yürüyüş mesafesi ve aktarma sayısını profil bazlı ağırlıklarla puanlar; Önerilen / En Hızlı / Az Aktarma olarak etiketler |
 | **Gerçek ücret hesabı** | İzmirim Kart'ın 90 dakikalık aktarma hakkı ile kredi kartı tarifesi ayrı modellenir; 5 bilet türü, üstüne BİSİM'in dakikalık kiralama tarifesi |
-| **Karbon tahmini** | Mod başına g/km katsayılarıyla yolculuk emisyonu |
 | **Harita katmanları** | BİSİM istasyonları, bisiklet parkları, kapalı/yeraltı otoparklar, doluluk oranına göre renklenen P+R noktaları |
-| **Adres arama** | Photon + Nominatim paralel sorgu, 400 ms debounce, yakın sonuçların tekilleştirilmesi |
+| **Adres arama** | Photon + Nominatim paralel sorgu, 250 ms bekleme, yakın sonuçların tekilleştirilmesi |
 | **Kişiselleştirme** | Kayıtlı adresler (Ev/İş/Okul/Alışveriş), son 20 rota geçmişi, açık/koyu tema, saat bağlamına göre ipuçları |
 
 Aynı puanlama ve ücret mantığını kullanan bir web arayüzü de var: [web/index.html](web/index.html).
-Mobil ile ortak saf mantık `web/routeScoring.bundle.js` olarak paketlenir, yani iki
-istemci aynı sıralamayı ve aynı tarifeyi gösterir. İkonlar da ortak:
+Sayfa `utils/` altındaki saf mantığı **ES modülü olarak doğrudan** import eder — arada
+derlenmiş bir paket yoktur, yani iki istemci aynı dosyayı okur ve ayrışamaz. İkonlar da ortak:
 [utils/icons.js](utils/icons.js) tek sözlük, mobil tarafta lucide bileşenlerine,
 web tarafında `web/lucideIcons.js`'e gömülü aynı lucide geometrisine bağlanır.
 
@@ -55,6 +54,39 @@ npm start                 # Expo geliştirme sunucusu
 | `npm test` | Jest test paketi |
 | `npm run test:watch` | Testleri izleme modunda çalıştırır |
 | `npm run ikon` | Web'in ikon dosyasını üretir (`utils/icons.js` değişince) |
+
+### Web arayüzü
+
+[web/index.html](web/index.html) Expo'dan bağımsız, tek dosyalık bir sayfadır;
+derleme istemez. Mobil ile aynı puanlamayı ve aynı tarifeyi kullanır.
+
+```bash
+python -m http.server 8000        # DEPO KÖKÜNDEN, web/ içinden değil
+```
+
+Sonra `http://localhost:8000/web/` adresini aç.
+
+**Sunucu kökü depo kökü olmalı.** Sayfa `../utils/routeScoring.js`'i import
+ediyor; `-d web` ile açarsan `utils/` sunucunun dışında kalır ve modüller 404
+alır. Aynı sebeple sayfa `file://` ile de açılmaz — ES modülleri güvenlik
+gereği sunucu ister. Yüklenemezse ekranda sebebi yazar, boş kalmaz.
+
+Sayfa varsayılan olarak `http://localhost:3000` backend'ine bakar. Başka bir
+adres `?api=` ile verilir:
+
+```
+http://localhost:8000/web/?api=https://izmirbackend-production.up.railway.app
+```
+
+| Gereksinim | Neden |
+|------------|-------|
+| Ayakta backend | Rota, BİSİM ve otopark uçları oradan gelir |
+| Depo kökünden sunucu | Sayfa `utils/`'i modül olarak çeker; `file://` ve `-d web` çalışmaz |
+| İnternet | Leaflet ve polyline çözücü unpkg'den yüklenir |
+
+> `npm run web` **bu sayfa değildir** — o komut Expo'nun React Native
+> uygulamasını tarayıcıda çalıştırır. İkisi ayrı arayüzdür ve ayrı kod tabanı
+> kullanır.
 
 ### Ortam değişkenleri
 
@@ -105,7 +137,7 @@ olmadan doğrudan test edilebilir.
 
 ### Rota puanlama
 
-OTP en fazla 8 güzergâh döndürür; uygulama bunları yeniden puanlar
+Uygulama OTP'den 25 güzergâh ister ve gelenleri yeniden puanlar
 ([utils/routeScoring.js](utils/routeScoring.js)):
 
 ```
@@ -190,6 +222,18 @@ reddediliyordu). Transit ≥ 2 km olan 30 güzergâhın transit/araç oranı sı
 0,17 ile 0,38 arasında boşluk var; eşik o boşluğun ortasına (0,3) kondu. Boş sonuç
 veren senaryo 5'ten 4'e indi, çalışan senaryolarda hiçbir hızlı kart kaybolmadı.
 
+**Karbon etiketi ölçülemediği için kaldırıldı.** "Çevreci" etiketi işini
+görüyordu — 31 senaryonun 17'sinde göründü, 12'sinde Önerilen'den farklı bir kart
+işaret etti (ortanca kazanç 490 g CO₂, bedeli ortanca +8 dk). Sorun ayırt etmesi
+değil, neye dayanarak ayırt ettiğiydi: `CARBON_G_PER_KM` bu depodaki tek kaynaksız
+sabit grubuydu. İzmir Büyükşehir'in açık verisi yalnız metro ve tramvayı kapsıyor,
+üstelik güzergâhlarda en az geçen ikisi onlar (otobüs n=90, İZBAN n=60'a karşı
+metro n=27, tramvay n=22) — yani karttaki gramın büyük kısmının dayanağı yoktu.
+Kaynaklı iki mod da 2023-05'teki yeşil elektrik geçişiyle 405 → 1,4 g/yolculuk'a
+düştü, yani ölçülebilen her şey bugün ≈ 0 ve ayrımı yapan sayıların tamamı
+tahminiydi. Hesap (`calcCarbonGrams`) kodda duruyor; eksik olan otobüs, İZBAN ve
+otomobil için kaynaklı katsayı.
+
 **Düz bisiklet modu ölçümle kaldırıldı.** Baştan sona sürüş, Narlıdere → Çiğli'de
 tek kart üretiyordu: 137 dakika, 33,5 km kesintisiz. Ayrıca `direct` bacaklar
 aktarmalı adayları listeden dışarı itiyordu. Her iki bisiklet modunda da bisiklet
@@ -203,9 +247,15 @@ artık *erişim aracıdır*, yolculuğun kendisi değil.
 npm test
 ```
 
-**140 test, altı paket:** geometri ve biçimlendirme, polyline çözümleme, navigasyon
-ilerlemesi, geocoding servisi, API istemcisi, rota puanlama/eleme/ücret/karbon.
+**260 test, 18 paket:** geometri ve biçimlendirme, polyline çözümleme, navigasyon
+ilerlemesi ve rota dışı algılama, rota puanlama/eleme/ücret, rota arama akışı,
+başlangıç/varış yönetimi, geocoding servisi, API istemcisi ve hata sınıflandırması,
+ikon sözlüğü, harita katmanları ve işaretçileri, tema, ayarlar, kayıtlı yerler,
+saat bağlamı, hata sınırı.
+
 Testler saf mantığa odaklanır; ağ, harita ve depolama katmanları kapsam dışıdır.
+Gerçek graph'a soran davranış matrisi ayrıdır ve backend deposunda yaşar
+(`node senaryolar/kosu.js` — 7 rota × 6 mod, ayakta backend + OTP ister).
 
 Yukarıdaki ölçülmüş kararların çoğu teste bağlanmıştır — örneğin BİSİM tarifesinin
 "1 saat 92,50 ₺" değeri, açılış bloğunun ilk 5 dakikayı kapsadığını doğrulayan bir
