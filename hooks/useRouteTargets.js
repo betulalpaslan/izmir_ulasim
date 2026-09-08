@@ -1,11 +1,6 @@
 import { useState } from "react";
 
 // ROTA HEDEFLERİ — başlangıç, varış ve arama alanlarının durumu.
-//
-// HomeScreen'de altı ayrı useState ve yedi işleyici arasına dağılmıştı;
-// hangi alanın güncelleneceği kuralı üç yerde ayrı ayrı yazılıydı. Burada
-// tek bir gövde ve saf kurallar halinde duruyor. Harita kamerası ve rota
-// çağrısı HomeScreen'de kaldı: bu hook ağa ve haritaya dokunmuyor.
 
 export const BOS_HEDEFLER = {
   origin: null,
@@ -14,14 +9,12 @@ export const BOS_HEDEFLER = {
   destText: "",
 };
 
-// Odaklanılmış alan yoksa: başlangıç boşsa oraya, doluysa varışa yaz.
 export function hedefAlani(activeInput, origin) {
   if (activeInput === "origin" || activeInput === "dest") return activeInput;
   return origin ? "dest" : "origin";
 }
 
-// Saf: bir alan doldurulduğunda ortaya çıkan yeni gövde ve yolculuğun
-// aranmaya hazır olup olmadığı.
+
 export function noktaYaz(hedefler, alan, coord, name) {
   const yeni = alan === "origin"
     ? { ...hedefler, origin: coord, originText: name }
@@ -43,8 +36,6 @@ export function useRouteTargets() {
   const [suggestions, setSuggestions] = useState([]);
   const [activeInput, setActiveInput] = useState(null);
 
-  // Alanı yazar ve yolculuk tamamlandıysa ARANACAK ÇİFTİ döndürür; yoksa
-  // null. Çağıran böylece "iki uç da doldu mu" kontrolünü tekrarlamıyor.
   const noktaSec = (alan, coord, name) => {
     const { hedefler: yeni, hazir } = noktaYaz(hedefler, alan, coord, name);
     setHedefler(yeni);

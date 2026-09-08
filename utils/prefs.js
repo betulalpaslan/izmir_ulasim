@@ -1,13 +1,3 @@
-// userPrefs SÖZLEŞMESİ.
-//
-// Bu diskte duran tek bir JSON gövdesi ve ona üç taraf dokunuyor:
-// onboarding yazıyor, ayarlar ekranı güncelliyor, useSettings okuyor.
-// Şema yazılı olmadığı sürece taraflar sessizce ayrışıyordu — onboarding
-// bir zamanlar `fareMultiplier` yazarken okuyan taraf `fareBase` arıyordu,
-// arada hiçbir hata çıkmadan herkes varsayılan ücreti görüyordu.
-//
-// Kural: gövdeyi kimse elle kurmaz, kimse alan adını elle okumaz.
-// Yazan `tercihGovdesi()` çağırır, okuyan `tercihleriOku()` çağırır.
 import { biletTarifesi, VARSAYILAN_BILET } from "./routeScoring";
 
 export const TERCIH_ANAHTARI = "userPrefs";
@@ -27,9 +17,6 @@ export function profilleriKur(hasVehicle) {
   );
 }
 
-// Gövdeyi kuran tek yer. Ücret alanları TARİFEDEN türetiliyor, çağıran
-// taraf rakam vermiyor: iki ekranın aynı bilete iki fiyat yazması böyle
-// imkânsız hale geliyor.
 export function tercihGovdesi({ hasVehicle, passengerType, onboardingDone = true } = {}) {
   const tarife = biletTarifesi(passengerType || VARSAYILAN_BILET);
   const araclar = {
@@ -46,9 +33,6 @@ export function tercihGovdesi({ hasVehicle, passengerType, onboardingDone = true
   };
 }
 
-// Okuyan tek yer. Ham metin, bozuk JSON, eksik alan, eski kimlik — hepsi
-// burada normalize edilip tam gövdeye tamamlanıyor, çağıran `??` zinciri
-// kurmuyor.
 export function tercihleriOku(raw) {
   let veri = raw;
   if (typeof raw === "string") {
@@ -62,22 +46,14 @@ export function tercihleriOku(raw) {
   const govde = tercihGovdesi({
     hasVehicle: veri.hasVehicle,
     passengerType: kimlik,
-    // `=== true` şart: alan eksikse `tercihGovdesi`nin varsayılanı true'ya
-    // düşüyor ve yarım kalmış bir kurulum tamamlanmış sayılıyordu.
     onboardingDone: veri.onboardingDone === true,
   });
 
-  // Tarifede olmayan bir kimlik geldiyse `tercihGovdesi` tam bilete
-  // düşüyor. Kayıtta geçerli bir rakam varsa onu korumak, kullanıcının
-  // ücretini sessizce yükseltmekten iyi.
   const bilinenKimlik = biletTarifesi(kimlik).id === kimlik;
   if (!bilinenKimlik && typeof veri.fareBase === "number") {
     govde.fareBase = veri.fareBase;
     govde.farePerBoarding = veri.farePerBoarding === true;
   }
-
-  // hasVehicle yazılmadan yalnız visibleProfiles kaydedilmiş eski
-  // kurulumlar var; kaydedilmiş liste geçerliyse ona saygı gösteriliyor.
   if (Array.isArray(veri.visibleProfiles)) {
     const gecerli = veri.visibleProfiles.filter((id) => PROFIL_SIRASI.includes(id));
     if (gecerli.length > 0) govde.visibleProfiles = gecerli;

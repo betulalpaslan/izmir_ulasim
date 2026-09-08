@@ -1,24 +1,15 @@
-// Canlı navigasyon ilerleme hesabı.
-// Saf fonksiyonlardır: rota + konum girer, ilerleme çıkar. Cihaz API'si kullanmaz.
-
 import { haversineMeters, projectOnSegment } from "./geo";
 
-// Kullanıcının rotadan bu kadar uzaklaşması "rota dışı" sayılır (metre).
-// GPS şehir içinde 20-30 m sapabildiği için eşik geniş tutuldu.
+
 export const OFF_ROUTE_METERS = 60;
 
-// Rota dışı uyarısı vermeden önce beklenen ardışık ölçüm sayısı —
-// tek bir hatalı GPS okumasının yanlış alarm üretmesini engeller.
 export const OFF_ROUTE_STREAK = 3;
 
-// Varışa bu mesafe kalınca yolculuk tamamlanmış sayılır (metre).
+
 export const ARRIVAL_METERS = 30;
 
 const clamp01 = (v) => Math.max(0, Math.min(1, v));
 
-// Rotanın tüm bacaklarını tek bir nokta dizisine indirger ve
-// her nokta için kümülatif mesafeyi önceden hesaplar.
-// Her konum güncellemesinde yeniden kurulmaması için useMemo ile önbelleklenmelidir.
 export function buildRouteIndex(route) {
   const points = [];
   const legs = [];
@@ -64,8 +55,6 @@ export function buildRouteIndex(route) {
   return { points, cumulative, legs, totalDistance };
 }
 
-// Konumu rotanın en yakın noktasına oturtur.
-// fromIndex: bu segmentten geriye dönülmez — döngüsel güzergâhlarda geri sıçramayı önler.
 export function snapToRoute(location, routeIndex, fromIndex = 0) {
   const { points, cumulative } = routeIndex;
   if (!location || points.length === 0) return null;
@@ -97,9 +86,6 @@ export function snapToRoute(location, routeIndex, fromIndex = 0) {
   return best;
 }
 
-// Kalan süre: içinde bulunulan bacağın kalan kısmı + sonraki bacakların tamamı.
-// Mesafeyi tek bir ortalama hızla çarpmaktan daha doğrudur, çünkü
-// yürüyüş ve metro bacaklarının hızları çok farklıdır.
 function remainingSeconds(legs, legIndex, traveledMeters) {
   let seconds = 0;
   for (let i = legIndex; i < legs.length; i++) {
@@ -113,8 +99,6 @@ function remainingSeconds(legs, legIndex, traveledMeters) {
   }
   return seconds;
 }
-
-// Navigasyon ekranının ihtiyaç duyduğu her şeyi tek seferde hesaplar.
 export function navigationProgress(routeIndex, location, fromIndex = 0) {
   const snap = snapToRoute(location, routeIndex, fromIndex);
   if (!snap) return null;
@@ -138,10 +122,6 @@ export function navigationProgress(routeIndex, location, fromIndex = 0) {
     arrived: remainingMeters <= ARRIVAL_METERS,
     currentLeg,
     nextLeg,
-    // Bacak listesinin tamamı: rehberlik metni bir bacağa tek başına
-    // bakarak kurulamıyor. "Durağa yürü" mü "varışa yürü" mü, bisiklet
-    // park mı edilecek yanına mı alınacak — hepsi komşu bacaklara bağlı
-    // (bkz. utils/routeInstructions.js).
     legs,
     distanceToLegEnd: Math.max(0, legEndDistance - snap.traveledMeters),
   };

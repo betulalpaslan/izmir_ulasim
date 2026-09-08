@@ -11,10 +11,6 @@ import { useTheme, TEMA_ANAHTARI } from "../utils/ThemeContext";
 import { BILET_TARIFESI, BISIM_TARIFESI, ucretYazi } from "../utils/routeScoring";
 import { tercihGovdesi, tercihleriOku, TERCIH_ANAHTARI } from "../utils/prefs";
 
-// İzmir A Tarifesi. RAKAMLAR BURADA DEĞİL: tarife utils/routeScoring.js'te
-// tek yerde duruyor, bu ekran yalnız ikon eşlemesini ekliyor. Rakamı
-// kopyalamak zaten bir kere ters tepmişti — onboarding ekranı "Yetişkin
-// 25,00 ₺" derken ayarlar aynı bilete 35,00 ₺ diyordu.
 const YOLCU_IKONU = {
   tam: "user", genc: "student", ogretmen: "work",
   yas60: "userCog", kredikarti: "userCircle",
@@ -27,16 +23,12 @@ const PASSENGERS = BILET_TARIFESI.map((b) => ({
   fare: `${ucretYazi(b.base)} ₺`,
 }));
 
-// BİSİM tarifesi bir AYAR değil, bilgi: kullanıcı seçmiyor, sürüş süresine
-// göre hesaplanıyor. Rota kartındaki ücretin neden bilet fiyatından yüksek
-// çıktığı burada karşılığını buluyor.
 const BISIM_SATIRLARI = [
   { l: `İlk ${BISIM_TARIFESI.acilisDakika} dakika`, v: `${ucretYazi(BISIM_TARIFESI.acilisUcreti)} ₺` },
   { l: "Sonraki her dakika", v: `${ucretYazi(BISIM_TARIFESI.dakikaUcreti)} ₺` },
   { l: "1 saat sürüş", v: `${ucretYazi(BISIM_TARIFESI.acilisUcreti + (60 - BISIM_TARIFESI.acilisDakika) * BISIM_TARIFESI.dakikaUcreti)} ₺` },
 ];
 
-// `color` bir renk değil, tema anahtarı — bkz. utils/theme.js.
 const VEHICLES = [
   { id: "bicycle", icon: "bike", name: "Bisikletim var", color: "accentBike", hint: "Bisiklet rotaları açılır" },
   { id: "car",     icon: "car", name: "Arabam var",     color: "accentCar", hint: "Araba ve Park+Taşı rotaları açılır" },
@@ -57,8 +49,6 @@ export default function SettingsScreen({ navigation }) {
     }, [])
   );
 
-  // Yazma başarısızsa ekranı da güncellemiyoruz: aksi halde ayar değişmiş
-  // gibi görünüp uygulama yeniden açıldığında eskiye dönüyordu.
   const savePrefs = async (secim) => {
     const newPrefs = tercihGovdesi({ ...prefs, ...secim });
     try {
@@ -239,9 +229,6 @@ export default function SettingsScreen({ navigation }) {
 }
 
 const s = StyleSheet.create({
-  // RENK BURADA YOK: zemin, metin ve kenarlık temadan inline geliyor.
-  // Stile ikinci bir renk yazmak onu ölü koda çeviriyor — stil dizisinde
-  // sağdaki eleman kazandığı için sabit renk temayı eziyordu.
   container: { flex: 1 },
   header: {
     paddingHorizontal: 24, paddingTop: 16, paddingBottom: 20,

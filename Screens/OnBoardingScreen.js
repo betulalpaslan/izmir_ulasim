@@ -8,18 +8,12 @@ import { useTheme } from "../utils/ThemeContext";
 import { BILET_TARIFESI, VARSAYILAN_BILET, ucretYazi } from "../utils/routeScoring";
 import { tercihGovdesi, TERCIH_ANAHTARI } from "../utils/prefs";
 
-// `accent` bir renk değil, tema anahtarı: aynı yeşil koyu ve açık temada
-// farklı tonda (#34d15f / #14a05a). Sabit yazılan hex açık temada
-// okunmuyordu.
 const VEHICLES = [
   { id: "bicycle", icon: "bike", name: "Bisikletim var", desc: "Kendi bisikletinizi kullanabilirsiniz", accent: "accentBike" },
   { id: "car",     icon: "car", name: "Arabam var",     desc: "Park et + devam et seçeneği açılır",    accent: "accentCar" },
   { id: "none",    icon: "bus", name: "Sadece toplu taşıma", desc: "Yürü + otobüs / metro / tramvay", accent: "accentTransit" },
 ];
 
-// Liste tarifenin kendisi — bu ekran yalnız ikon eşlemesini ekliyor.
-// Rakamı kopyalamak bir kere ters tepmişti: burada "Yetişkin 25,00 ₺"
-// yazarken ayarlar aynı bilete 35,00 ₺ diyordu.
 const YOLCU_IKONU = {
   tam: "user", genc: "student", ogretmen: "work",
   yas60: "userCog", kredikarti: "userCircle",
@@ -46,8 +40,6 @@ export default function OnboardingScreen({ navigation }) {
     });
   };
 
-  // Gövdeyi burada kurmuyoruz: alan adları ve ücret rakamları
-  // utils/prefs.js sözleşmesinden geliyor.
   const finish = async () => {
     const prefs = tercihGovdesi({
       hasVehicle: { bicycle: vehicles.has("bicycle"), car: vehicles.has("car") },
@@ -56,8 +48,6 @@ export default function OnboardingScreen({ navigation }) {
     try {
       await AsyncStorage.setItem(TERCIH_ANAHTARI, JSON.stringify(prefs));
     } catch {
-      // Disk yazılamadıysa da kurulumu tıkamıyoruz: uygulama
-      // varsayılanlarla açılır, ayarlar ekranından düzeltilebilir.
     }
     navigation.replace("Main");
   };
@@ -149,9 +139,6 @@ export default function OnboardingScreen({ navigation }) {
 }
 
 const s = StyleSheet.create({
-  // RENK BURADA YOK. Zemin, metin ve kenarlık temadan inline geliyor;
-  // stile ikinci bir renk yazmak onu ölü koda çeviriyor (dizinin sağdaki
-  // elemanı kazanıyor) ve rengin nereden geldiğini belirsizleştiriyor.
   container: { flex: 1 },
   header: {
     flexDirection: "row", justifyContent: "space-between",
@@ -181,8 +168,7 @@ const s = StyleSheet.create({
     borderWidth: 1.5, alignItems: "center", justifyContent: "center",
   },
   btn: { paddingVertical: 16, borderRadius: 12, alignItems: "center", marginTop: 20 },
-  // Renkli buton üstündeki yazı — zemin temadan değil vurgudan geliyor,
-  // bu yüzden sabit.
+
   btnText: { fontSize: 15, fontWeight: "800", color: "#ffffff", letterSpacing: 0.5 },
   navRow: { flexDirection: "row", gap: 10, marginTop: 20 },
   backBtn: {

@@ -8,7 +8,6 @@ const ThemeContext = createContext(null);
 export const TEMA_ANAHTARI = "themeMode";
 
 export function ThemeProvider({ children }) {
-  // null = cihaz ayarı belirlenemedi (RN bunu döndürebiliyor) → koyuya düşer.
   const cihazTemasi = useColorScheme();
   const [kayitli, setKayitli] = useState(null);
 
@@ -23,8 +22,6 @@ export function ThemeProvider({ children }) {
 
   const mode = temaSec(kayitli, cihazTemasi);
 
-  // Tema anında değişiyor; disk yazımı başarısız olsa da ekranı geri
-  // almıyoruz — tercih yalnız bu oturum için yaşar.
   const setThemeMode = async (nextMode) => {
     setKayitli(nextMode);
     try {

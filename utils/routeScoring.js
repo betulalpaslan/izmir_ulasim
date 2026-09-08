@@ -1,20 +1,5 @@
-// OTP'den gelen ham güzergâhları puanlar, sıralar, etiketler ve arayüzün
-// beklediği rota nesnesine dönüştürür.
-// Tamamen saf fonksiyonlardır — React veya ağ bağımlılığı yoktur.
-
 import { decodePolyline } from "./polyline";
 import { haversineMeters } from "./geo";
-
-// VAPUR YOK: İzmir GTFS feed'inde vapur seferi bulunmuyor (route_type=4 hiç
-// geçmiyor), backend de FERRY modunu OTP'ye hiç istemiyor. Karşılığı olmayan
-// bir mod için stil tutmak yanıltıcıydı. Feed geldiğinde geri eklenir.
-// Renkler mor–turuncu paletle ortak (bkz. utils/theme.js) ve AÇIK/KOYU
-// zeminin ikisinde de okunacak doygunlukta seçildi: bu değerler hem koyu
-// temada `renk + "18"` tint'in üstünde hem de webdeki beyaz panelde
-// kullanılıyor.
-//
-// OTOBÜS İLE ARABA AYNI RENKTEYDİ (#f97316) — Park & Ride kartında iki
-// bacak yan yana geldiğinde şeritte ayırt edilemiyorlardı.
 export const MODE_STYLE = {
   WALK:           { color: "#8b8aa8", icon: "walk",  label: "Yürüyüş" },
   BUS:            { color: "#8b5cf6", icon: "bus",   label: "Otobüs" },
@@ -36,21 +21,10 @@ export const CARBON_G_PER_KM = {
   CAR: 150, BUS: 80, RAIL: 41, SUBWAY: 41, TRAM: 30,
   WALK: 0, BICYCLE: 0, BICYCLE_RENTAL: 0,
 };
-
-// Skor katsayıları — her mod kendi önceliğini yansıtır
-//
-// `uzunBacakPts` — TEK BACAKTA yürüyüşün tavana yaklaşma cezası; ölçeği
-// dakikadır (durationMin: 1 ile aynı birim), tam tavanda katsayının kendisi
-// kadar puan yazar. `walkKm` toplam yürüyüşü, `overTargetKm` modun metre
-// cinsinden konfor hedefini ölçer; bu üçüncüsü herkesin ortak SÜRE tavanını.
-// Ayrıntı ve ölçüm: rankItineraries içindeki `tavanOrani` bloğu.
 export const SCORING = {
-  // Toplu taşıma: aktarma çok maliyetli (bekleme + yürüyüş), yürüyüş da ağır
+  
   transit:       { durationMin: 1, walkKm: 7,  transferPts: 10, overTargetKm: 45, uzunBacakPts: 15 },
-  // ESKİ MOD — resolveProfileKey artık bu anahtarı hiç üretmiyor (bisikletin
-  // iki modu da aktarmalı). Tablolardan silinmedi: dışarıdan "bicycle"
-  // geçiren bir çağrı katsayısız kalıp sessizce transit ağırlıklarına
-  // düşerdi. Yeni bir şey eklerken burayı örnek almayın.
+
   bicycle:       { durationMin: 1, walkKm: 2,  transferPts:  3, overTargetKm: 15, bikeKm: 1, uzunBacakPts: 15 },
   // BİSİM kiralama: istasyona yürüyüş önemli, transit aktarması da sayılır.
   //

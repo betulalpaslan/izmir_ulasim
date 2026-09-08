@@ -172,8 +172,7 @@ export default function FavoritesScreen() {
 }
 
 const s = StyleSheet.create({
-  // RENK BURADA YOK: zemin, metin ve kenarlık temadan inline geliyor.
-  // Sabit renkli bir stil dizinin sağında kaldığında temayı eziyordu.
+
   container: { flex: 1 },
   header: {
     flexDirection: "row", alignItems: "center", gap: 10,

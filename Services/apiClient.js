@@ -1,13 +1,3 @@
-// Backend ile konuşan tek kapı.
-//
-// Buradan önce her istek `const data = await res.json(); return data.stations || []`
-// kalıbındaydı ve hiçbiri res.ok'a bakmıyordu. Sonuç: backend 502 dönünce
-// katman sessizce boş çiziliyor, kullanıcı "İzmir'de bu bölgede istasyon yok"
-// ile "sunucu veri kaynağına ulaşamıyor" arasındaki farkı göremiyordu.
-// Backend'in 502/500 ayrımına gösterdiği özen istemcide hiç kullanılmıyordu.
-//
-// ApiError bu farkı taşır: hangi uç, hangi HTTP durumu, kullanıcıya ne
-// denmeli. Katmanlar boş liste yerine hata alır ve arayüz nedenini gösterir.
 
 export class ApiError extends Error {
   constructor(message, { status = null, endpoint = null, cause = null } = {}) {
@@ -18,18 +8,14 @@ export class ApiError extends Error {
     this.cause = cause;
   }
 
-  // Cihaz sunucuya hiç ulaşamadı (bağlantı yok, DNS, zaman aşımı).
   get isNetwork() {
     return this.status === null;
   }
 
-  // Sunucu ayakta ama arkasındaki kaynağa ulaşamıyor — tekrar denemek anlamlı.
   get isUpstream() {
     return this.status === 502 || this.status === 503 || this.status === 504;
   }
 
-  // Arayüzde gösterilecek metin. Teknik ayrıntı değil, kullanıcının
-  // yapabileceği şeyi söyler.
   get userMessage() {
     if (this.isNetwork)     return "İnternet bağlantısı kurulamadı.";
     if (this.isUpstream)    return "Sunucu veri kaynağına ulaşamıyor, birazdan tekrar deneyin.";
@@ -41,9 +27,6 @@ export class ApiError extends Error {
 
 const DEFAULT_TIMEOUT = 15000;
 
-// Zaman aşımı olmayan bir fetch, kopuk bağlantıda süresiz bekler ve katman
-// sonsuza dek "yükleniyor" kalır — bu yüzden her istek AbortController ile
-// sınırlanır.
 async function request(url, { method = "GET", body = null, timeoutMs = DEFAULT_TIMEOUT } = {}) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -66,8 +49,7 @@ async function request(url, { method = "GET", body = null, timeoutMs = DEFAULT_T
   }
 
   if (!res.ok) {
-    // Backend hata gövdesini {error, detail} olarak döndürür; okunabiliyorsa
-    // log'da gerçek sebep görünsün.
+  
     let detay = null;
     try {
       const gövde = await res.json();
@@ -84,8 +66,7 @@ async function request(url, { method = "GET", body = null, timeoutMs = DEFAULT_T
   try {
     return await res.json();
   } catch (err) {
-    // 200 döndü ama gövde JSON değil: araya giren bir portal/proxy'nin
-    // klasik belirtisi. Boş liste dönmek bunu gizlerdi.
+
     throw new ApiError("Sunucu yanıtı okunamadı (geçerli JSON değil)", {
       status: res.status,
       endpoint: url,

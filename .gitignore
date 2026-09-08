@@ -54,3 +54,6 @@ coverage/
 
 # yedeklerin toplandigi yer (silmeden once bakilir)
 .yedekler/
+
+*.md
+!README.md

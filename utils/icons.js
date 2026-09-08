@@ -1,30 +1,3 @@
-// TEK İKON SÖZLÜĞÜ — web ile mobil aynı çizimi gösterir.
-//
-// İki arayüz aynı ikonu iki ayrı setten basıyordu: web Iconify'ı CDN'den
-// çekip `streamline-cyber-color`u kullanıyordu, mobil lucide-react-native'i.
-// Ad tabloları da ayrıydı (web'de `modeIcons`, mobilde AppIcon'daki ICONS),
-// dolayısıyla MODE_STYLE renkleri paylaşırken ikonu paylaşamıyordu — web
-// dosyasının kendi yorumu da bunu "paylaşılamıyor" diye yazıyordu. Sonuç:
-// emülatörde açılan uygulama, tarayıcıdakinden başka bir otobüs gösteriyordu.
-//
-// Yön lucide'dan yana seçildi: mobil tarafın seti zaten oydu, lisansı ISC ve
-// tek renkli olduğu için ikon rengi `color` ile veriliyor — böylece rota
-// bacağının rengi ikona da geçiyor. Ters yön (Streamline'ı mobile taşımak)
-// CDN'e bağımlı, çok renkli ve React Native'de karşılığı olmayan bir web
-// bileşeni demekti.
-//
-// Tek kaynak burası:
-//   • mobil → Components/AppIcon.js aynı anahtarları lucide bileşenlerine bağlar
-//   • web   → tools/ikon-derle.js bu tablodaki ikonların ÇİZİM VERİSİNİ lucide
-//             paketinden okuyup web/lucideIcons.js'e gömer (CDN yok, sürüm
-//             kayması yok: iki taraf da kurulu lucide sürümünün geometrisi)
-//
-// Değerler lucide ikon adıdır (kebab). Yeni anahtarda ikisini de güncelle;
-// __tests__/icons.test.js iki tarafın ayrışmasını yakalar.
-//
-// `train`: lucide 1.x'te `Train` adı `TramFront`'un TAKMA ADI — mobilde
-// `train` ile `tram` yıllardır aynı çizimdi, banliyö/metro tramvaydan yalnız
-// renkle ayrılıyordu. Ayrı ikon `train-front`.
 export const ICON_SET = {
   alert: "triangle-alert",
   bike: "bike",
@@ -33,6 +6,7 @@ export const ICON_SET = {
   car: "car",
   check: "check",
   chevronDown: "chevron-down",
+  chevronRight: "chevron-right",
   chevronUp: "chevron-up",
   clock: "clock",
   error: "circle-x",
@@ -72,10 +46,5 @@ export const ICON_SET = {
   x: "x",
 };
 
-// Bilinmeyen ad geldiğinde çizilen ikon. İki taraf da bunu kullanır; web
-// eskiden soru işaretine, mobil harita iğnesine düşüyordu.
 export const ICON_FALLBACK = "mapPin";
-
-// Çizgi kalınlığı da paylaşılır: web 2 (lucide varsayılanı), mobil 2.2 idi ve
-// yan yana konduğunda ikonlar farklı ağırlıkta görünüyordu.
 export const ICON_STROKE = 2.2;

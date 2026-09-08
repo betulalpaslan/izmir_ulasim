@@ -56,12 +56,7 @@ export function useRouteSearch(fareBase = 35, farePerBoarding = false) {
   const [routes, setRoutes] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  // Hata değil, açıklama: sonuç geçerli ama kullanıcının seçtiği moddan
-  // farklı bir şey gösteriliyor. Sessizce yapmak yanıltıcı olurdu.
   const [notice, setNotice] = useState(null);
-  // Mod boş döndüğünde teşhis: { kod, alternatifSn }. Arayüz buna bakıp
-  // "Toplu taşıma: 36 dk" çıkış teklifini gösterir; alternatifSn yoksa
-  // (taban sorgusu düşmüşse) teklif hiç görünmez, sayı uydurulmaz.
   const [modBos, setModBos] = useState(null);
 
   const fetchRoute = async (from, to, prof, fromName = "", toName = "", bikeType = null, carMode = null) => {
@@ -89,10 +84,6 @@ export function useRouteSearch(fareBase = 35, farePerBoarding = false) {
 
       const profileKey = secilenKey;
 
-      // Mod saflığı: bisiklet modlarında ARAÇSIZ güzergâh gösterilmez.
-      // BİSİM'de kiralık bisiklet, kendi bisikletinde bisiklet bacağı şart.
-      // (Backend'in eski "bisikletsiz yedek" sorgusu tam da bu yüzden
-      // kaldırıldı — bkz. services/OtpService.js.)
       const ARANAN = {
         bicycle_rent: (l) => l.mode === "BICYCLE_RENTAL",
         bicycle_park: (l) => l.mode === "BICYCLE" || l.mode === "BICYCLE_RENTAL",
@@ -110,15 +101,6 @@ export function useRouteSearch(fareBase = 35, farePerBoarding = false) {
       }
 
       const ranked = rankItineraries(validItineraries, profileKey);
-      // rankItineraries artık YALNIZ tek gerekçeyle boş döner: modun amacına
-      // uyan aday kalmaması. Yürüyüş tavanı listeyi boşaltmıyor — tavanın
-      // altında güzergâh yoksa en az yürütenler `yuruyusZorunlu` işaretiyle
-      // geliyor (bkz. utils/routeScoring.js, KATMAN 2).
-      //
-      // Bu meşru bir sonuç ama tek başına ÇIKMAZ SOKAK: kullanıcı boş ekran
-      // ve genel bir cümle görüp aynı aramayı tekrarlıyordu. Sebep artık
-      // ölçülmüş sayılarla söyleniyor ve düz toplu taşıma alternatifi tek
-      // dokunuş uzağa konuyor.
       if (ranked.length === 0) {
         const sebep = modBosSebebi(validItineraries, profileKey);
         setError(sebep.mesaj || MOD_BOS_MESAJI[profileKey] || YURUYUS_TAVANI_MSG);
@@ -128,10 +110,6 @@ export function useRouteSearch(fareBase = 35, farePerBoarding = false) {
       const candidates = selectCandidates(ranked, profileKey);
       const routeResults = candidates.map((c) => buildRouteResult(c, fareBase, farePerBoarding, profileKey));
 
-      // Tavanın istisnaya düştüğü durum sessiz kalmamalı: kullanıcı 20
-      // dakikadan uzun yürüyen bir kart görüyorsa bunun bir kural ihlali
-      // değil, seçeneksizlik olduğunu bilmeli. Hata değil bilgi — sonuç
-      // geçerli, yalnız beklenenden zahmetli.
       if (routeResults.length > 0 && routeResults.every((r) => r.yuruyusZorunlu)) {
         const enAz = Math.min(...candidates.map((c) => c.walk.maxWalkSec));
         setNotice(

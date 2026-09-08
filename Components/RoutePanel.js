@@ -2,12 +2,16 @@ import React from "react";
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, StyleSheet } from "react-native";
 import AppIcon from "./AppIcon";
 import { useTheme } from "../utils/ThemeContext";
-import { getLegInstruction } from "../utils/routeInstructions";
+import { getLegInstruction, guzergahZinciri } from "../utils/routeInstructions";
 import { NON_TRANSIT_MODES, ucretYazi } from "../utils/routeScoring";
 import { formatDistance } from "../utils/geo";
 
-export default function RoutePanel({ routes, selectedIdx, onSelect, loading, error, notice, timeTip, origin, destination, onReset, bikeType, modBos, onAlternative }) {
+export default function RoutePanel({ routes, selectedIdx, onSelect, loading, error, notice, timeTip, origin, destination, originName, destName, onReset, bikeType, modBos, onAlternative }) {
   const { theme } = useTheme();
+
+  // Yolculuğun uçları. Kullanıcının yazdığı ad boşsa arama alanı da boştur;
+  // o durumda uydurma bir ad yerine hiç gösterilmez (bkz. yolculukBasligi).
+  const uclar = { baslangic: originName, varis: destName };
 
   if (loading) {
     return (
@@ -81,8 +85,27 @@ export default function RoutePanel({ routes, selectedIdx, onSelect, loading, err
     );
   }
 
+  // LİSTENİN BAŞLIĞI, kartın değil. Kartlar aynı yolculuğun alternatifleri;
+  // uçları her kartta tekrar yazmak hem yer kaplar hem de kartlar farklı
+  // yerlere gidiyormuş gibi okunur. Uçlar burada bir kez söylenir, kartlar
+  // ise ARADA ne olduğunu anlatır (bkz. zincir).
+  const yolculukBasligi = (originName || destName) ? (
+    <View style={[s.uclarSerit, { borderColor: theme.border }]}>
+      <AppIcon name="locate" size={11} color="#22c55e" />
+      <Text style={[s.uclarMetin, { color: theme.text }]} numberOfLines={1}>
+        {originName || "Başlangıç"}
+      </Text>
+      <AppIcon name="chevronRight" size={11} color={theme.muted} />
+      <AppIcon name="mapPin" size={11} color="#f87171" />
+      <Text style={[s.uclarMetin, { color: theme.text }]} numberOfLines={1}>
+        {destName || "Varış"}
+      </Text>
+    </View>
+  ) : null;
+
   return (
     <ScrollView style={s.scroll} showsVerticalScrollIndicator={false} nestedScrollEnabled>
+      {yolculukBasligi}
       {bilgiSeridi}
       {timeTip ? (
         <Text style={[s.timeTipTop, { color: theme.active, backgroundColor: theme.active + "12" }]}>
@@ -95,6 +118,7 @@ export default function RoutePanel({ routes, selectedIdx, onSelect, loading, err
         const co2 = r.carbonGrams;
         const carbonColor = co2 < 100 ? "#22c55e" : co2 < 300 ? "#f97316" : "#f87171";
         const bikeLegs = r.legs.filter((l) => l.mode === "BICYCLE" || l.mode === "BICYCLE_RENTAL");
+        const zincir = guzergahZinciri(r.legs);
 
         return (
           <TouchableOpacity
@@ -156,6 +180,26 @@ export default function RoutePanel({ routes, selectedIdx, onSelect, loading, err
                 </React.Fragment>
               ))}
             </View>
+
+            {/* ── Durak zinciri ──
+                Mod şeridi HANGİ araçla gidildiğini söylüyordu, NEREDEN
+                NEREYE gidildiğini değil. Binilen durak, aktarma durakları ve
+                inilen durak kapalı kartta hiç görünmüyor, ancak kart
+                açılınca bacak listesinden okunabiliyordu. */}
+            {zincir.length > 1 && (
+              <View style={s.zincirSatir}>
+                {zincir.map((ad, k) => (
+                  <React.Fragment key={`${ad}-${k}`}>
+                    {k > 0 && (
+                      <AppIcon name="chevronRight" size={9} color={theme.muted} />
+                    )}
+                    <Text style={[s.zincirAd, { color: theme.muted }]} numberOfLines={1}>
+                      {ad}
+                    </Text>
+                  </React.Fragment>
+                ))}
+              </View>
+            )}
 
             {/* ── Açık içerik: özet + ipuçları + bacak listesi ── */}
             {expanded && (
@@ -254,7 +298,7 @@ export default function RoutePanel({ routes, selectedIdx, onSelect, loading, err
                   // geleni, bisikletin park mı edildiği yoksa yanına mı
                   // alındığı ise transitten SONRA bisikletin devam edip
                   // etmediğini bilmeyi gerektiriyor.
-                  const instruction = getLegInstruction(leg, r.legs, j);
+                  const instruction = getLegInstruction(leg, r.legs, j, uclar);
                   const buTransit  = !NON_TRANSIT_MODES.includes(leg.mode);
                   const onceTransit = j > 0 && !NON_TRANSIT_MODES.includes(r.legs[j - 1].mode);
                   // Araya yürüyüş girmeyen iki transit bacağı = aynı durakta
@@ -284,8 +328,20 @@ export default function RoutePanel({ routes, selectedIdx, onSelect, loading, err
                         <Text style={[s.legMode, { color: leg.color }]}>
                           {j + 1}. {leg.label}{leg.routeName ? ` · ${leg.routeName}` : ""}
                         </Text>
+                        {/* ADIMIN ASIL SATIRI "ŞURADAN ŞURAYA"DIR.
+                            Eskiden burada eylem cümlesi vardı ("Poligon
+                            durağına yürü") ve nereden başlandığı hiç
+                            yazmıyordu: ardışık adımlarda kullanıcı zinciri
+                            kafasında kurmak zorundaydı. Uçlar yan yana
+                            yazılınca adım tek bakışta okunuyor.
+
+                            Uç adı çözülemeyen bacaklar var (adsız BİSİM
+                            bırakma noktası gibi); orada eylem cümlesine
+                            düşülür — yarım bir ok satırı yazmaktansa. */}
                         <Text style={[s.legRoute, { color: theme.text }]} numberOfLines={2}>
-                          {instruction.title}
+                          {instruction.nereden && instruction.nereye
+                            ? `${instruction.nereden} → ${instruction.nereye}`
+                            : instruction.title}
                         </Text>
                         <Text style={[s.legHint, { color: theme.muted }]} numberOfLines={1}>
                           {instruction.detail}
@@ -333,6 +389,13 @@ const s = StyleSheet.create({
   actionContent: { flexDirection: "row", alignItems: "center", gap: 6 },
   actionText:    { fontSize: 12, fontWeight: "700" },
 
+  // Yolculuğun uçları — listenin başlığı
+  uclarSerit:  { flexDirection: "row", alignItems: "center", gap: 5,
+                 paddingHorizontal: 9, paddingVertical: 7, marginBottom: 6,
+                 borderRadius: 8, borderWidth: 1 },
+  // İki uç adı da yeri paylaşsın: biri uzun diye diğeri tamamen kırpılmasın.
+  uclarMetin:  { flexShrink: 1, fontSize: 11, fontWeight: "700" },
+
   // Ana scroll
   scroll:      { maxHeight: 260 },
   timeTipTop: {
@@ -373,6 +436,11 @@ const s = StyleSheet.create({
   },
   stripLabel: { fontSize: 8, fontWeight: "700" },
   stripSep:   { width: 8, height: 1 },
+
+  // Durak zinciri
+  zincirSatir: { flexDirection: "row", flexWrap: "wrap", alignItems: "center",
+                 gap: 2, paddingHorizontal: 9, paddingBottom: 7, marginTop: -3 },
+  zincirAd:    { flexShrink: 1, fontSize: 9, fontWeight: "700" },
 
   // Açık içerik
   expandedBox: {

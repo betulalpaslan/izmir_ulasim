@@ -86,8 +86,6 @@ export default function HomeScreen() {
 
   const { progress, offRoute } = useNavigationMode(navRoute, userLocation, navActive);
 
-  // Kamera yönü: pusula her küçük harekette değiştiği için 5 dereceye yuvarlanır,
-  // aksi hâlde animateCamera saniyede onlarca kez tetiklenir.
   const cameraHeading = useMemo(
     () => (heading == null ? 0 : Math.round(heading / 5) * 5),
     [heading]
@@ -99,28 +97,15 @@ export default function HomeScreen() {
 
   useEffect(() => { setSelectedRouteIdx(0); }, [routes]);
 
-  // Düz arabada eskiden AYRI bir OSM katmanı vardı (/parking/osm). Kaldırıldı:
-  // o uç Overpass'a bağlı ve ölçüldüğünde 502 dönüyordu ("veri hiçbir
-  // kaynaktan alınamadı"), yani katman sessizce boştu — kullanıcı araba
-  // seçtiğinde hiçbir otopark görmüyordu. Yerine yukarıdaki İZELMAN envanteri
-  // geçti: 82 otopark, 13'ünde canlı doluluk, ve web ile aynı kaynak.
-  //
-  // Overpass geri gelirse iki kaynak BİRLEŞTİRİLEBİLİR — OSM'de İZELMAN'da
-  // olmayan yeraltı/kapalı otoparklar var. `fetchOsmParkingSpots` ve
-  // `OsmParkingMarkers` o gün için serviste duruyor.
 
-  // Navigasyon sırasında ekran kapanmasın
   useEffect(() => {
     if (!navActive) return;
     activateKeepAwakeAsync("navigation").catch(() => {});
     return () => { deactivateKeepAwake("navigation").catch(() => {}); };
   }, [navActive]);
 
-  // Navigasyonda gösterilen konum: rotaya oturtulmuş nokta, rota dışındayken ham GPS
   const navPoint = navActive ? (offRoute ? userLocation : progress?.snapped ?? userLocation) : null;
 
-  // Takip kamerası: kullanıcıyı ortada tutar, gidiş yönüne döner.
-  // navFollow kapalıyken haritaya dokunulmaz — kullanıcı serbestçe gezinir.
   useEffect(() => {
     if (!navActive || !navFollow || !navPoint) return;
     mapRef.current?.animateCamera(
@@ -145,10 +130,6 @@ export default function HomeScreen() {
     }
   };
 
-  // Seçilen mod bu yolculukta işini göremediğinde sunulan çıkış: düz toplu
-  // taşımaya geç ve aynı yolculuğu yeniden ara. Profil GERÇEKTEN değişir —
-  // kullanıcı transit sonucuna baktığını sekmeden de görür; sessizce başka
-  // modun sonucunu göstermek vaadi bozardı.
   const handleAlternative = () => {
     if (!origin || !destination) return;
     setProfile("transit");
@@ -164,8 +145,6 @@ export default function HomeScreen() {
     });
   };
 
-  // İki uç da dolduğunda aramayı başlatan ortak yol. `noktaSec` çifti
-  // döndürüyorsa yolculuk hazır demektir.
   const fetchIfReady = (cift) => {
     if (cift) doFetchRoute(cift.origin, cift.destination, profile, cift.originText, cift.destText);
     return cift;
@@ -177,10 +156,7 @@ export default function HomeScreen() {
     searchAddress(text, setSuggestions);
   };
 
-  // Kutu değiştirmek de bir iptaldir. Yalnız listeyi boşaltmak yetmiyordu:
-  // Başlangıç için yola çıkmış cevap dönüp Varış kutusunun altında açılıyor,
-  // kullanıcı dokununca Başlangıç için aradığı yer VARIŞ olarak yazılıyordu —
-  // selectSuggestion o anki activeInput'e bakar.
+  
   const handleFocusField = (field) => {
     aramayiIptalEt();
     setActiveInput(field);
@@ -208,8 +184,6 @@ export default function HomeScreen() {
     mapRef.current?.animateToRegion({ ...coord, latitudeDelta: 0.02, longitudeDelta: 0.02 }, 500);
   };
 
-  // Kaydetme sessizce başarısız olabiliyordu: ekran kayıtlı gösteriyor,
-  // uygulama yeniden açıldığında yer kayboluyordu.
   const saveCurrentAsPlace = async (placeId) => {
     const coord = activeInput === "origin" ? origin : destination;
     const name = activeInput === "origin" ? originText : destText;
@@ -219,8 +193,7 @@ export default function HomeScreen() {
     }
   };
 
-  // Haritaya dokunmak yalnız BOŞ ucu doldurur; iki uç da doluysa dokunuş
-  // yok sayılır (aksi hâlde kullanıcı rotayı kazara siliyordu).
+
   const handleMapPress = (e) => {
     if (navActive || (origin && destination)) return;
     const coord = e.nativeEvent.coordinate;
@@ -311,9 +284,6 @@ export default function HomeScreen() {
         initialRegion={IZMIR_REGION}
         onPress={handleMapPress}
         onPanDrag={() => { if (navActive) setNavFollow(false); }}
-        // Navigasyonda haritanın kendi mavi noktası kapatılır: konum tek imleçle
-        // (UserPuck) gösterilir, aksi hâlde ham GPS ile rotaya oturtulmuş nokta
-        // iki ayrı işaret olarak yan yana görünür.
         showsUserLocation={!navActive}
         showsMyLocationButton={false}
         userInterfaceStyle="light"
@@ -438,6 +408,8 @@ export default function HomeScreen() {
                   timeTip={timeTip}
                   origin={origin}
                   destination={destination}
+                  originName={originText}
+                  destName={destText}
                   onReset={handleReset}
                   bikeType={bikeType}
                 />

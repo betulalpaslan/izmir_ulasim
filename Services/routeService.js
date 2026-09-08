@@ -3,8 +3,7 @@ import { apiGet, apiPost } from "./apiClient";
 const API_URL =
   process.env.EXPO_PUBLIC_API_URL || "https://izmirbackend-production.up.railway.app";
 
-// Rota isteği en uzun süren çağrı: OTP'nin plan sorgusu backend'de 15 sn
-// timeout ile bekletiliyor, istemci ondan önce vazgeçmemeli.
+
 const ROTA_TIMEOUT = 25000;
 
 export async function fetchRoute(from, to, profile, bikeType = null) {
@@ -15,40 +14,33 @@ export async function fetchRoute(from, to, profile, bikeType = null) {
       to:   { lat: to.latitude,   lon: to.longitude },
       profile,
       bikeType: bikeType || undefined,
-      numItineraries: 8,
+      // KAÇ GÜZERGÂH İSTENDİĞİ, kaç kart gösterileceği DEĞİL. Aradaki fark
+      // ölçüldü: gelen liste birkaç kez süzülüyor (backend aynı hattın başka
+      // kalkışını teker, arayüz mod vaadini görmeyeni eler), yani 8 istemek
+      // 8 seçenek değil çoğu zaman 1 kart demekti.
+      //
+      // Pzt 08:00, 7 rota × 5 mod ölçümü — 8 yerine 25 istendiğinde:
+      //   sahil-bati   BİSİM         3 → 4 kart   (bisikletli güzergâh 3 → 6)
+      //   sahil-bati   toplu taşıma  3 → 4 kart
+      //   kuzey-merkez BİSİM         1 → 2 kart
+      //   çevre-merkez bisikletim    eleme sonrası 7 → 9 güzergâh
+      // Hiçbir satır GERİLEMEDİ. Bedeli yok: aynı ölçümde ortanca yanıt
+      // süresi 463 ms → 497 ms, yani gürültü sınırında (OTP tek sorguda
+      // zaten aynı aramayı yapıyor, `first` çıktının kaçının döndüğü).
+      //
+      // Kart sayısını asıl bağlayan yer burası değil, routeScoring'deki
+      // MAX_ROUTES (toplu taşımada 5).
+      numItineraries: 25,
     },
     { timeoutMs: ROTA_TIMEOUT }
   );
 }
 
-// BİSİM istasyonları backend'den alınır. Doğrudan Overpass sorgusu
-// `amenity=bicycle_rental` etiketli her noktayı döndürüyordu; bunların
-// arasında özel kiralama dükkânları ve kaldırılmış istasyonlar da vardı.
-// Backend operator=BİSİM süzgecini uygular ve kapasiteyi tamamlar.
-//
-// NOT: BİSİM 2025-08'de sabit istasyonları kaldırdı; sistem bölge tabanlı.
-// Bu uç artık BÖLGE döndürür, istasyon değil: bisiklet hizmet alanı içinde
-// her yere bırakılabilir, bu bölgelere bırakılırsa bonus kazanılır.
-// Dolayısıyla "doluluk" diye bir alan yok — olmadığı için de uydurulmuyor.
-// Alanlar: { id, ad, ilce, lat, lon, yaricapM, guven }
-// İki geometri birden döner ve ikisi ayrı soruya cevap verir:
-//   bolgeler    → bırakınca bonus kazandıran alanlar
-//   hizmetAlani → bisikletin bırakılabileceği alanın kendisi (dışına
-//                 bırakılamaz). Dockless modelin bütün anlamı bu; alan
-//                 çizilmeden kullanıcı yalnız 11 daire görüyor ve bisikleti
-//                 başka bir yere bırakabileceğini bilmiyordu.
-// Alan YAKLAŞIKTIR (bisiklet yolu ağından türetilmiş tamponlu kabuk), bu
-// yüzden ekranda öyle etiketlenmeli — bkz. BisimMarkers.
 export async function fetchBisimZones() {
   const data = await apiGet(`${API_URL}/bisim/stations`, { timeoutMs: 10000 });
   return { bolgeler: data.bolgeler || [], hizmetAlani: data.hizmetAlani || null };
 }
 
-// OSM'den kapalı ve yeraltı otoparkları + isimli açık otoparklar.
-// Overpass sorgusu backend'e taşındı: cache, üç mirror ve disk yedeği orada.
-// Ayrıca Overpass'ın hız sınırı IP başınadır — buradan çekilirken sınır her
-// kullanıcının cihazına ayrı uygulanıyordu ve kalabalık saatte rastgele
-// kullanıcılar boş katman görüyordu.
 export async function fetchOsmParkingSpots() {
   const data = await apiGet(`${API_URL}/parking/osm`);
   return data.spots || [];
@@ -60,26 +52,12 @@ export async function fetchBicycleParkingStations() {
   return data.stations || [];
 }
 
-// Otopark katmanı. İki modda da aynı uç, KÜME FARKLI:
-//   kapsam yok    → P+R süzgecinden geçen 52 otopark. Rota gerçekten birine
-//                   park ediyor; harita OTP'ye beslenen listeyle aynı olmalı.
-//   kapsam=tumu   → envanterin tamamı, 82 otopark. Düz arabada rota hiçbir
-//                   yere park etmiyor, otopark yalnız bilgi; orada "raylı
-//                   sisteme yakın mı" ölçütü anlamsız ve yalnız o yüzden
-//                   elenen 30 otopark araba için gayet geçerli park yeri.
+
 export async function fetchPrStations({ tumu = false } = {}) {
   const data = await apiGet(`${API_URL}/parking/stations${tumu ? "?kapsam=tumu" : ""}`);
   return data.stations || [];
 }
 
-// Bisikletim + Aktarma katmanı: OTP'nin bisiklet parkı için GERÇEKTEN
-// değerlendirdiği yerler. İki kaynaktan gelirler:
-//   • OSM'nin amenity=bicycle_parking düğümleri (87 nokta, sahil ağırlıklı)
-//   • backend'in /parking/bike-feed'i — raylı sistem istasyonları
-// İkincisi 2026-08'de eklendi: OSM'de metro istasyonlarında bisiklet parkı
-// yoktu ve OTP bisikleti istasyonun kilometrelerce beriside bırakıp kalan
-// yolu otobüsle kapatıyordu (bkz. ParkingService.bisikletParkYerleri).
-// Katman böylece rotanın kullanabileceği noktaların tamamını gösterir.
 export async function fetchBikePrStations() {
   const data = await apiGet(`${API_URL}/parking/otp-lots?vehicle=bicycle`);
   return data.stations || [];

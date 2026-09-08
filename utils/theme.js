@@ -1,18 +1,3 @@
-// PALET — web arayüzüyle ORTAK.
-//
-// Eski palet mavi-lacivertti (aktif renk #60a5fa, zemin #0f1117) ve webdeki
-// krem paletle hiçbir yerde buluşmuyordu: aynı ürünün iki ekranı iki ayrı
-// uygulama gibi görünüyordu. İkisi de mor–turuncuya taşındı.
-//
-//   mor     → ana vurgu; seçili olan her şey. Koyu temada bir tık açık
-//             ton kullanılıyor (#8b5cf6): #6d3bf5 koyu zeminde 3.3:1'de
-//             kalıyor, küçük punto etiketler okunmuyordu.
-//   turuncu → araba akışı, ücret, uyarı.
-//   yeşil   → bisiklet / BİSİM.
-//
-// `tint` ve `glow` seçili durumun kenarlıksız gösterimi içindir: web
-// tarafında kutu çerçevesi kaldırılıp yerine renkli dolgu + yumuşak gölge
-// konmuştu, mobil de aynı dili konuşsun diye tokenler burada.
 const VURGULAR = {
   bike:    "#14a05a",
   car:     "#f97316",
@@ -66,17 +51,10 @@ export const themes = {
   },
 };
 
-// Yuvarlaklık ve gölge de webdekiyle aynı kademede: gruplayan yüzey 18,
-// kontrol 12, hap tam yuvarlak.
 export const RADIUS = { card: 18, control: 12, pill: 999 };
 
 export const getTheme = (mode) => themes[mode] || themes.dark;
 
-// Tema üç kademeli seçiliyor: KAYITLI TERCİH → CİHAZ AYARI → koyu.
-//
-// Eskiden orta kademe yoktu: telefonu açık temada olan bir kullanıcı
-// uygulamayı ilk açtığında koyu tema görüyor ve ayarlardan değiştirmek
-// zorunda kalıyordu.
 export function temaSec(kayitli, cihaz) {
   if (kayitli === "light" || kayitli === "dark") return kayitli;
   return cihaz === "light" ? "light" : "dark";

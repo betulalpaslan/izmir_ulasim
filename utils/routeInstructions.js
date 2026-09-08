@@ -1,21 +1,3 @@
-// Bacak metinleri. Kullanıcı burada bir VERİ SATIRI değil, YAPILACAK İŞ
-// okumalı: "Alsancak Gar → Çiğli İtfaiye" değil, "912 hattına Alsancak
-// Gar'dan bin · Çiğli İtfaiye'de in".
-//
-// Yer adları OTP'den geldiği gibi cümleye konamıyor. Üç tuzak var, üçü de
-// ekranda görüldü:
-//   • "from" / "to" — sorguya koyduğumuz etiketlerdi ve kartta
-//     "from → Asmaaltı" diye çıkıyordu. Etiketler backend'de "Başlangıç" /
-//     "Varış" olarak düzeltildi, ama ikisi de bir YER ADI değil; cümleye
-//     konursa "Varış noktasına yürü" gibi boş bir metin çıkar.
-//   • "unknown" — OTP'nin adsız düğüm karşılığı
-//   • "BİSİM bisikleti" — serbest kiralık aracın adı; yer değil, araç
-//
-// Bacak tek başına yeterli bağlam taşımıyor, bu yüzden fonksiyon TÜM
-// listeyi görüyor: bir yürüyüşün anlamı ardından geleni, bisikletin park
-// edilip edilmediği ise transitten SONRA bisikletin devam edip etmediğini
-// bilmeyi gerektiriyor.
-
 const TRANSIT_MODES = ["BUS", "RAIL", "SUBWAY", "TRAM"];   // vapur yok — bkz. routeScoring
 const BISIKLET_MODLARI = ["BICYCLE", "BICYCLE_RENTAL"];
 
@@ -28,14 +10,41 @@ function yer(ad) {
 
 const dk = (leg) => `${Math.max(1, Math.round((leg.duration || 0) / 60))} dk`;
 
-export function getLegInstruction(leg, legs = null, index = -1) {
+// Yolculuğun UÇLARI dışarıdan verilir. Sebep: OTP'ye gönderilen uç etiketleri
+// "Başlangıç"/"Varış" (bkz. backend OtpService.js planConnection) ve `yer()`
+// onları yer adı saymıyor — haklı olarak, çünkü yer adı değiller. Sonuç, son
+// adımın "Varışa yürü" demesiydi: kullanıcının aradığı "Karşıyaka İskele"
+// ekranda hiç geçmiyordu. Uçları bilen tek katman arayüz (kullanıcının
+// yazdığı/seçtiği ad orada), o yüzden buraya parametreyle iner.
+// Bacağın İKİ UCU, adlarıyla. Ayrı durmasının sebebi: arayüzler adımı iki
+// ayrı biçimde gösteriyor — biri eylem cümlesi ("Poligon durağına yürü"),
+// öbürü akış satırı ("Konak Meydanı → Poligon"). İkisi de aynı ad çözümüne
+// dayanmalı, yoksa aynı bacak iki yerde iki başka yer adıyla görünür.
+export function legUclari(leg, legs = null, index = -1, uclar = {}) {
+  const liste = Array.isArray(legs) ? legs : [];
+  const i = index >= 0 ? index : liste.indexOf(leg);
+  // Uç adı yalnız İLK bacağın kalkışına ve SON bacağın varışına düşer;
+  // aradaki bacakların uçları gerçek durak adlarıdır, onlara dokunulmaz.
+  const sonMu = i >= 0 ? i === liste.length - 1 : false;
+  return {
+    nereden: yer(leg.from) || (i === 0 ? yer(uclar.baslangic) : null),
+    nereye: yer(leg.to) || (sonMu ? yer(uclar.varis) : null),
+  };
+}
+
+// Adım metni + çözülmüş uçlar. `nereden`/`nereye` dönmesi bilerek: arayüz
+// "şuradan şuraya" satırını kendi uydurmasın, uç adlarını buradan alsın.
+export function getLegInstruction(leg, legs = null, index = -1, uclar = {}) {
+  const uc = legUclari(leg, legs, index, uclar);
+  return { ...adimMetni(leg, legs, index, uc), ...uc };
+}
+
+function adimMetni(leg, legs, index, uc) {
   const liste = Array.isArray(legs) ? legs : [];
   const i = index >= 0 ? index : liste.indexOf(leg);
   const sonraki = i >= 0 ? liste[i + 1] : undefined;
   const sonMu = i >= 0 ? i === liste.length - 1 : false;
-
-  const nereye = yer(leg.to);
-  const nereden = yer(leg.from);
+  const { nereden, nereye } = uc;
 
   if (leg.mode === "WALK") {
     if (sonraki && TRANSIT_MODES.includes(sonraki.mode)) {
@@ -51,17 +60,11 @@ export function getLegInstruction(leg, legs = null, index = -1) {
   }
 
   if (TRANSIT_MODES.includes(leg.mode)) {
-    // Hat numarası olmayan servisler var: İZBAN seferlerinin GTFS'te
-    // short_name'i yok ve "Araca ... bin" diye çıkıyordu. O durumda modun
-    // adı ("Banliyö", "Metro", "Tramvay") çok daha bilgilendirici.
     const hat = leg.routeName
       ? `${leg.routeName} hattına`
       : leg.label ? `${leg.label} hattına` : "Araca";
     const bin = nereden ? `${hat} ${nereden} durağından bin` : `${hat} bin`;
     const inis = nereye ? `${nereye} durağında in` : "Son durakta in";
-    // Bisiklet bu araca BİNİYOR mu? Cevap ancak listeye bakınca verilebilir:
-    // bisiklet bacağı transitten SONRA da devam ediyorsa bisiklet yanındadır.
-    // Kullanıcının bilmesi gereken tam olarak bu — bırakacak mı, alacak mı.
     const oncedenBisiklet = liste.slice(0, i).some((l) => BISIKLET_MODLARI.includes(l.mode));
     const sonradanBisiklet = liste.slice(i + 1).some((l) => BISIKLET_MODLARI.includes(l.mode));
     const bisikletYanimda = oncedenBisiklet && sonradanBisiklet;
@@ -86,9 +89,6 @@ export function getLegInstruction(leg, legs = null, index = -1) {
       return { title: "Bisikletle varışa git", detail: `${dk(leg)} sürüş · son adım` };
     }
     if (TRANSIT_MODES.includes(sonraki.mode)) {
-      // Bisikleti park mı edecek, yanına mı alacak? Sonrasında yine bisiklet
-      // bacağı varsa yanına alıyordur (metro, tramvay ve İZBAN'a bisiklet
-      // binebiliyor — bkz. izmir_backend/docs/API.md).
       const yanindaGotururuyor = liste.slice(i + 1).some((l) => BISIKLET_MODLARI.includes(l.mode));
       return {
         title: nereye ? `Bisikletle ${nereye} istasyonuna git` : "Bisikletle istasyona git",
@@ -108,4 +108,31 @@ export function getLegInstruction(leg, legs = null, index = -1) {
   }
 
   return { title: nereye ? `${nereye} noktasına devam et` : "Devam et", detail: dk(leg) };
+}
+
+// ─── Kartın tek satırlık güzergâh özeti ────────────────────────────────
+// Kullanıcı bildirimi: "yolculuk görünüyor ama nereden nereye gidileceği
+// anlaşılmıyor". Kapalı kartta yalnız süre, mesafe ve mod ikonları vardı;
+// hangi duraktan binilip nerede inileceği ancak kart AÇILINCA görülüyordu.
+//
+// Zincir, yolculuğun kırılma noktalarını verir: binilen durak, aktarma
+// durakları ve inilen durak.
+//
+// Transit yoksa (saf bisiklet/araba/yürüyüş) zincir BOŞTUR — uçları
+// tekrarlamaz. Kırılma noktası olmayan bir yolculukta söylenecek tek şey
+// zaten uçlardır ve onları listenin başlığı söylüyor; aynı iki adı bir de
+// kartın içine yazmak bilgi eklemiyor, satır ekliyordu.
+export function guzergahZinciri(legs) {
+  const liste = Array.isArray(legs) ? legs : [];
+  const transit = liste.filter((l) => TRANSIT_MODES.includes(l.mode));
+  if (transit.length === 0) return [];
+
+  const noktalar = [];
+  transit.forEach((l, i) => {
+    noktalar.push(yer(l.from) || "Durak");
+    if (i === transit.length - 1) noktalar.push(yer(l.to) || "Son durak");
+  });
+  // Aynı durakta aktarmada iniş ve biniş adı aynıdır; iki kez yazmak
+  // zincirde olmayan bir adım varmış izlenimi veriyor.
+  return noktalar.filter((ad, i) => ad !== noktalar[i - 1]);
 }

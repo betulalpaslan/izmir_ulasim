@@ -1,10 +1,3 @@
-// Rota panelindeki saat ipucu. Tavsiye niteliğinde bir cümle: "şu an
-// hangi mod muhtemelen daha iyi".
-//
-// `simdi` dışarıdan verilebiliyor — hem test edilebilsin, hem de ipucu
-// ekran ilk kurulduğunda bir kez hesaplanıp donmasın diye. Uygulama arka
-// planda kalıp saatler sonra açıldığında "yoğun saat" uyarısı hâlâ orada
-// duruyordu.
 export function getTimeContext(simdi = new Date()) {
   const hour = simdi.getHours();
   const day = simdi.getDay();
