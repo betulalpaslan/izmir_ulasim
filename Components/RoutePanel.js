@@ -8,6 +8,9 @@ import { formatDistance } from "../utils/geo";
 
 // Birden fazla bilet çıktığında sebebini yazar; "neden 35 ₺?" sorusu kartta
 // cevaplanmazsa hesap yanlış görünüyor.
+// Kapalı kartta gösterilen en fazla durak sayısı.
+const ZINCIR_TAVANI = 3;
+
 const BILET_NOTU = {
   "sure-asimi": "90 dakikalık aktarma hakkı bu yolculuğa yetmiyor; süre dolduktan sonraki binişler yeni bilet sayılır.",
   "binis-basi": "Kredi/banka kartında aktarma hakkı yok; her biniş ayrı ücretlenir.",
@@ -138,7 +141,11 @@ export default function RoutePanel({ routes, selectedIdx, onSelect, loading, err
       {sirali.map(({ rota: r, idx: i }) => {
         const expanded = selectedIdx === i;
         const bikeLegs = r.legs.filter((l) => l.mode === "BICYCLE" || l.mode === "BICYCLE_RENTAL");
-        const zincir = guzergahZinciri(r.legs);
+        // Uzun yolculukta zincir kapalı kartta iki satır kaplıyor ve paneli
+        // haritanın üstüne taşırıyordu; açık kartta tamamı zaten duruyor.
+        const zincirTam = guzergahZinciri(r.legs);
+        const zincir = expanded ? zincirTam : zincirTam.slice(0, ZINCIR_TAVANI);
+        const gizliDurak = zincirTam.length - zincir.length;
 
         return (
           <TouchableOpacity
@@ -208,6 +215,9 @@ export default function RoutePanel({ routes, selectedIdx, onSelect, loading, err
                     </Text>
                   </React.Fragment>
                 ))}
+                {gizliDurak > 0 && (
+                  <Text style={[s.zincirAd, { color: theme.muted }]}>+{gizliDurak} durak</Text>
+                )}
               </View>
             )}
 
@@ -365,16 +375,16 @@ const s = StyleSheet.create({
 
 
   // Sıralama tercihleri
-  tercihSatir: { flexDirection: "row", gap: 4, marginBottom: 7 },
+  tercihSatir: { flexDirection: "row", gap: 4, marginBottom: 6 },
   tercihCip: {
     flexDirection: "row", alignItems: "center", justifyContent: "center",
     gap: 3, borderWidth: 1, borderRadius: 8,
-    paddingHorizontal: 6, paddingVertical: 5, flex: 1,
+    paddingHorizontal: 6, paddingVertical: 4, flex: 1,
   },
   tercihMetin: { fontSize: 10, fontWeight: "700", flexShrink: 1 },
 
-  // Ana scroll
-  scroll:      { maxHeight: 260 },
+  // Ana scroll — panel ekranın yarısını geçmesin diye ölçülü tutuluyor
+  scroll:      { maxHeight: 200 },
   timeTipTop: {
     fontSize: 10, borderRadius: 7,
     padding: 6, marginBottom: 6, lineHeight: 14,

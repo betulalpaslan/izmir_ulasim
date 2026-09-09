@@ -326,3 +326,28 @@ describe("sıralama çipleri", () => {
     expect(sureler()[0]).toBe("25 dk");          // En Hızlı başa geçti
   });
 });
+
+describe("kapalı kart yüksekliği", () => {
+  const uzunRota = rota({
+    legs: [
+      bacak("WALK", "Başlangıç", "Bornova Metro", { icon: "walk", label: "Yürüyüş" }),
+      bacak("BUS", "Bornova Metro", "Bölge istasyonu", { routeName: "368" }),
+      bacak("BUS", "Bölge istasyonu", "Bölge", { routeName: "800" }),
+      bacak("SUBWAY", "Bölge", "Fahrettin Altay", { routeName: "M1" }),
+      bacak("BUS", "Fahrettin Altay", "Sığacık Yol Ayrımı", { routeName: "675" }),
+      bacak("BUS", "Sığacık Yol Ayrımı", "Sığacık Pazarı", { routeName: "640" }),
+    ],
+  });
+
+  test("kapalı kartta zincir kısaltılır", () => {
+    const t = tumMetin(ciz({ routes: [uzunRota], selectedIdx: -1 }));
+    expect(t).toContain("+3 durak");
+    expect(t).not.toContain("Sığacık Pazarı");
+  });
+
+  test("kart açılınca zincirin tamamı görünür", () => {
+    const t = tumMetin(ciz({ routes: [uzunRota], selectedIdx: 0 }));
+    expect(t).toContain("Sığacık Pazarı");
+    expect(t).not.toContain("durak");
+  });
+});
