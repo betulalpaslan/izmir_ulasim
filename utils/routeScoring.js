@@ -340,6 +340,7 @@ export const ADAY_OLCULERI = [
   { tag: "Önerilen",   tagColor: "#60a5fa", olcu: null },   // sıralamanın birincisi
   { tag: "En Hızlı",   tagColor: "#f59e0b", olcu: (c) => c.walk.duration },
   { tag: "Az Aktarma", tagColor: "#a78bfa", olcu: (c) => c.walk.transfers },
+  { tag: "Az Yürüyüş", tagColor: "#34d399", olcu: (c) => c.walk.total },
 ];
 
 
@@ -466,9 +467,47 @@ export function ucretYazi(tutar) {
   return Number.isInteger(v) ? String(v) : v.toFixed(2).replace(".", ",");
 }
 
-export function calcJourneyFare(transitLegCount, fareBase, farePerBoarding) {
+// İzmirim Kart'ın aktarma hakkı ilk binişten 90 dk sonra düşer; sonraki biniş
+// yeni bir bilettir. Bu sınır olmadan 3 saatlik bir yolculuk da tek bilet
+// görünüyordu.
+export const AKTARMA_PENCERESI_SN = 90 * 60;
+
+// Binişlerin ilk binişe göre saniyesi. OTP sorgusu bacak saatlerini
+// döndürmüyor, o yüzden bacak süreleri toplanır: duraktaki bekleme sayılmaz,
+// hesap kullanıcı lehine (daha ucuz) yanılır.
+export function binisSaniyeleri(legs) {
+  const transit = legs.filter((l) => !NON_TRANSIT_MODES.includes(l.mode));
+  if (transit.length > 0 && transit.every((l) => l.startTime != null)) {
+    return transit.map((l) => (l.startTime - transit[0].startTime) / 1000);
+  }
+  const zamanlar = [];
+  let gecen = 0;
+  for (const leg of legs) {
+    if (!NON_TRANSIT_MODES.includes(leg.mode)) zamanlar.push(gecen);
+    gecen += leg.duration || 0;
+  }
+  return zamanlar;
+}
+
+// Pencere dolunca yeni bilet başlar ve pencere o binişten yeniden işler.
+export function biletAdedi(binisler) {
+  if (!binisler?.length) return 1;
+  let adet = 1;
+  let pencereBasi = binisler[0];
+  for (const t of binisler.slice(1)) {
+    if (t - pencereBasi > AKTARMA_PENCERESI_SN) {
+      adet += 1;
+      pencereBasi = t;
+    }
+  }
+  return adet;
+}
+
+// binisler verilmezse tek bilet varsayılır — eski çağrılar (web) bozulmasın.
+export function calcJourneyFare(transitLegCount, fareBase, farePerBoarding, binisler = null) {
   if (transitLegCount === 0) return 0;
-  return farePerBoarding ? transitLegCount * fareBase : fareBase;
+  if (farePerBoarding) return transitLegCount * fareBase;
+  return kurusYuvarla(biletAdedi(binisler) * fareBase);
 }
 
 export function buildRouteResult(candidate, fareBase, farePerBoarding, profileKey) {
@@ -519,7 +558,13 @@ export function buildRouteResult(candidate, fareBase, farePerBoarding, profileKe
     .filter((l) => l.mode === "BICYCLE_RENTAL")
     .reduce((s, l) => s + l.duration, 0);
   const bisimUcreti  = calcBisimFare(bisimSaniye);
-  const biletUcreti  = calcJourneyFare(transitLegs.length, fareBase, farePerBoarding);
+  const binisler     = binisSaniyeleri(itin.legs);
+  const biletUcreti  = calcJourneyFare(transitLegs.length, fareBase, farePerBoarding, binisler);
+  // Kredi kartında aktarma hakkı yok: her biniş ayrı bilet.
+  const biletSayisi  = transitLegs.length === 0
+    ? 0
+    : farePerBoarding ? transitLegs.length : biletAdedi(binisler);
+  const biletSebebi  = biletSayisi > 1 ? (farePerBoarding ? "binis-basi" : "sure-asimi") : null;
 
   const maxWalk = WALK_LEG_TARGET[profileKey] ?? 2000;
   const walkWarning = yuruyusZorunlu
@@ -536,11 +581,15 @@ export function buildRouteResult(candidate, fareBase, farePerBoarding, profileKe
     transfers: Math.max(0, transitLegs.length - 1),
     totalDistance: (totalDistance / 1000).toFixed(1),
     walkDistance: (walkDistance / 1000).toFixed(1),
+    walkMeters: Math.round(walkDistance),
     walkWarning,
     yuruyusZorunlu: !!yuruyusZorunlu,
     cost: kurusYuvarla(biletUcreti + bisimUcreti),
     ucretDetay: {
       bilet: kurusYuvarla(biletUcreti),
+      biletAdedi: biletSayisi,
+      biletBirim: kurusYuvarla(fareBase),
+      biletSebebi,
       bisim: kurusYuvarla(bisimUcreti),
       bisimDakika: bisimSaniye > 0 ? Math.ceil(bisimSaniye / 60) : 0,
       provizyon: bisimSaniye > 0 ? BISIM_TARIFESI.provizyon : 0,
@@ -550,4 +599,20 @@ export function buildRouteResult(candidate, fareBase, farePerBoarding, profileKe
     etiketler: etiketler || [tag],
     parkingPoint,
   };
+}
+
+// Rota listesi sıralama tercihleri — web arayüzündeki pref-btn'lerin karşılığı.
+// Ölçüler buildRouteResult çıktısı üzerinden okunur.
+export const SIRALAMA_TERCIHLERI = [
+  { id: "recommended",    label: "Önerilen",   icon: "star",     olcu: null },
+  { id: "fastest",        label: "En Hızlı",   icon: "fast",     olcu: (r) => r.totalDuration },
+  { id: "leastTransfers", label: "Az Aktarma", icon: "transfer", olcu: (r) => r.transfers },
+  { id: "leastWalking",   label: "Az Yürüyüş", icon: "walk",     olcu: (r) => r.walkMeters },
+];
+
+// Kartların yerini değiştirir ama seçimi bozmaz: harita orijinal indekse bakıyor.
+export function siralamayaGore(routes, tercihId) {
+  const olcu = SIRALAMA_TERCIHLERI.find((t) => t.id === tercihId)?.olcu;
+  const liste = routes.map((r, i) => ({ rota: r, idx: i }));
+  return olcu ? liste.sort((a, b) => olcu(a.rota) - olcu(b.rota)) : liste;
 }

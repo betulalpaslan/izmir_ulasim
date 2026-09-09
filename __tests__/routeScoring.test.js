@@ -3,6 +3,7 @@ import {
   rankItineraries, selectCandidates, buildRouteResult, candidateKey, BIKE_LEG_MIN,
   oneriSinirinaUydur, ayniHattiTekilleştir, ONERI_TOLERANSI, ADAY_OLCULERI,
   calcBisimFare, BISIM_TARIFESI, BILET_TARIFESI, biletTarifesi, ucretYazi,
+  binisSaniyeleri, biletAdedi, AKTARMA_PENCERESI_SN, SIRALAMA_TERCIHLERI, siralamayaGore,
 } from "../utils/routeScoring";
 
 // OTP'nin döndürdüğü biçime yakın sahte güzergâh üretici.
@@ -674,8 +675,147 @@ describe("aday etiketleri", () => {
 
   test("etiket listesi tektir — moda göre elle tutulan tablo yok", () => {
     expect(ADAY_OLCULERI.map((x) => x.tag)).toEqual(
-      ["Önerilen", "En Hızlı", "Az Aktarma"]
+      ["Önerilen", "En Hızlı", "Az Aktarma", "Az Yürüyüş"]
     );
     expect(ADAY_OLCULERI[0].olcu).toBeNull();
+  });
+});
+
+describe("90 dakikalık aktarma hakkı", () => {
+  // Bacak saatleri OTP'den gelmiyor; binişler süre toplamından çıkar.
+  const binisler = (dakikalar) => dakikalar.map((d) => d * 60);
+
+  it("pencere içinde kalan aktarmalar tek bilettir", () => {
+    expect(biletAdedi(binisler([0, 40, 85]))).toBe(1);
+  });
+
+  it("pencere dolduktan sonraki biniş yeni bilettir", () => {
+    expect(biletAdedi(binisler([0, 40, 95]))).toBe(2);
+  });
+
+  it("pencere yeni biletin ilk binişinden yeniden işler", () => {
+    // 0 · 95 · 180 → üçüncü biniş ikinci bilete 85 dk uzaklıkta, dahil.
+    expect(biletAdedi(binisler([0, 95, 180]))).toBe(2);
+    expect(biletAdedi(binisler([0, 95, 190]))).toBe(3);
+  });
+
+  it("sınırın tam üstü hâlâ tek bilettir", () => {
+    expect(biletAdedi([0, AKTARMA_PENCERESI_SN])).toBe(1);
+    expect(biletAdedi([0, AKTARMA_PENCERESI_SN + 1])).toBe(2);
+  });
+
+  it("biniş zamanlarını yürüyüş bacaklarını atlayarak kümüle eder", () => {
+    const rota = [
+      bacak("WALK", 180, 200),
+      bacak("BUS", 2400, 9000, "368"),
+      bacak("WALK", 120, 150),
+      bacak("SUBWAY", 1800, 7000, "M1"),
+    ];
+    expect(binisSaniyeleri(rota)).toEqual([180, 2700]);
+  });
+
+  it("bacak saatleri varsa onları kullanır", () => {
+    const t0 = 1_700_000_000_000;
+    const rota = [
+      { ...bacak("WALK", 180, 200), startTime: t0 },
+      { ...bacak("BUS", 2400, 9000, "368"), startTime: t0 + 180_000 },
+      { ...bacak("BUS", 1800, 7000, "800"), startTime: t0 + 6_600_000 },
+    ];
+    expect(binisSaniyeleri(rota)).toEqual([0, 6420]);
+  });
+
+  it("uzun yolculukta bilet ikiye katlanır — 158 dk / 5 biniş", () => {
+    const uzun = guzergah(9480, [
+      bacak("WALK", 180, 210),
+      bacak("BUS", 2400, 9000, "368"),
+      bacak("BUS", 1800, 7000, "800"),
+      bacak("SUBWAY", 1500, 8000, "M1"),
+      bacak("BUS", 1200, 5000, "675"),
+      bacak("BUS", 1400, 6000, "640"),
+      bacak("WALK", 300, 350),
+    ]);
+    const [siralanan] = rankItineraries([uzun], "transit");
+    const aday = { ...siralanan, tag: "Önerilen", tagColor: "#60a5fa" };
+
+    // Genç Kart: 90 dk aşıldığı için iki bilet.
+    const genc = buildRouteResult(aday, 17.5, false, "transit");
+    expect(genc.ucretDetay.biletAdedi).toBe(2);
+    expect(genc.cost).toBe(35);
+    expect(genc.ucretDetay.biletSebebi).toBe("sure-asimi");
+
+    // Kredi kartında aktarma hakkı yok: her biniş ayrı.
+    const kredi = buildRouteResult(aday, 39, true, "transit");
+    expect(kredi.ucretDetay.biletAdedi).toBe(5);
+    expect(kredi.cost).toBe(195);
+    expect(kredi.ucretDetay.biletSebebi).toBe("binis-basi");
+  });
+
+  it("kısa yolculukta tek bilet kalır", () => {
+    const kisa = guzergah(2700, [
+      bacak("WALK", 300, 350),
+      bacak("BUS", 1200, 5000, "169"),
+      bacak("SUBWAY", 1200, 6000, "M1"),
+    ]);
+    const [siralanan] = rankItineraries([kisa], "transit");
+    const sonuc = buildRouteResult({ ...siralanan, tag: "Önerilen", tagColor: "#60a5fa" }, 17.5, false, "transit");
+    expect(sonuc.ucretDetay.biletAdedi).toBe(1);
+    expect(sonuc.cost).toBe(17.5);
+    expect(sonuc.ucretDetay.biletSebebi).toBeNull();
+  });
+
+  it("biniş zamanı verilmezse eski davranışı korur", () => {
+    // Web arayüzü calcJourneyFare'i üç argümanla çağırıyor.
+    expect(calcJourneyFare(5, 17.5, false)).toBe(17.5);
+  });
+});
+
+describe("sıralama tercihleri", () => {
+  const rota = (over) => ({ totalDuration: 1800, transfers: 1, walkMeters: 900, ...over });
+  const liste = [
+    rota({ totalDuration: 2400, transfers: 0, walkMeters: 1500 }),   // 0
+    rota({ totalDuration: 1500, transfers: 3, walkMeters: 1200 }),   // 1
+    rota({ totalDuration: 1800, transfers: 2, walkMeters: 400 }),    // 2
+  ];
+
+  it("web ile aynı dört tercihi sunar", () => {
+    expect(SIRALAMA_TERCIHLERI.map((t) => t.id)).toEqual(
+      ["recommended", "fastest", "leastTransfers", "leastWalking"]
+    );
+  });
+
+  it("Önerilen listeyi olduğu gibi bırakır", () => {
+    expect(siralamayaGore(liste, "recommended").map((x) => x.idx)).toEqual([0, 1, 2]);
+  });
+
+  it("her ölçü kendi en iyisini başa alır", () => {
+    expect(siralamayaGore(liste, "fastest")[0].idx).toBe(1);
+    expect(siralamayaGore(liste, "leastTransfers")[0].idx).toBe(0);
+    expect(siralamayaGore(liste, "leastWalking")[0].idx).toBe(2);
+  });
+
+  it("orijinal indeksi taşır — harita doğru rotayı çizsin", () => {
+    const sirali = siralamayaGore(liste, "leastWalking");
+    expect(sirali.map((x) => x.idx)).toEqual([2, 1, 0]);
+    expect(sirali[0].rota).toBe(liste[2]);
+  });
+});
+
+describe("Az Yürüyüş adayı", () => {
+  it("en az yürüten güzergâhı ayrı kart olarak çıkarır", () => {
+    const cokYuruyus = guzergah(1500, [bacak("WALK", 900, 1100), bacak("BUS", 600, 6000, "169")]);
+    const azYuruyus  = guzergah(2100, [bacak("WALK", 200, 220), bacak("BUS", 1900, 9000, "12")]);
+
+    const adaylar = selectCandidates(rankItineraries([cokYuruyus, azYuruyus], "transit"), "transit");
+    const kart = adaylar.find((a) => a.etiketler.includes("Az Yürüyüş"));
+    expect(kart).toBeDefined();
+    expect(kart.walk.total).toBe(Math.min(...adaylar.map((a) => a.walk.total)));
+  });
+
+  it("rota sonucunda sayısal yürüyüş alanı taşır", () => {
+    const rota = guzergah(1500, [bacak("WALK", 300, 900), bacak("BUS", 1200, 6000, "169")]);
+    const [siralanan] = rankItineraries([rota], "transit");
+    const sonuc = buildRouteResult({ ...siralanan, tag: "Önerilen", tagColor: "#60a5fa" }, 35, false, "transit");
+    expect(sonuc.walkMeters).toBe(900);
+    expect(sonuc.walkDistance).toBe("0.9");
   });
 });

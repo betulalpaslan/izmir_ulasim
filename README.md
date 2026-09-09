@@ -24,7 +24,7 @@ React Native (Expo) · OpenTripPlanner 2.8.1 · Node.js/Express
 |---|---|
 | **5 ulaşım profili** | Toplu taşıma · BİSİM + aktarma · Bisikletim + aktarma · Araba · Park & Ride |
 | **Canlı navigasyon** | Konum takibi, takip kamerası, adım adım yönlendirme, rota dışı algılama ve yeniden hesaplama |
-| **Akıllı rota sıralama** | Süre, yürüyüş mesafesi ve aktarma sayısını profil bazlı ağırlıklarla puanlar; Önerilen / En Hızlı / Az Aktarma olarak etiketler |
+| **Akıllı rota sıralama** | Süre, yürüyüş mesafesi ve aktarma sayısını profil bazlı ağırlıklarla puanlar; Önerilen / En Hızlı / Az Aktarma / Az Yürüyüş olarak etiketler, liste aynı ölçülerle sıralanabilir |
 | **Gerçek ücret hesabı** | İzmirim Kart'ın 90 dakikalık aktarma hakkı ile kredi kartı tarifesi ayrı modellenir; 5 bilet türü, üstüne BİSİM'in dakikalık kiralama tarifesi |
 | **Harita katmanları** | BİSİM istasyonları, bisiklet parkları, kapalı/yeraltı otoparklar, doluluk oranına göre renklenen P+R noktaları |
 | **Adres arama** | Photon + Nominatim paralel sorgu, 250 ms bekleme, yakın sonuçların tekilleştirilmesi |
@@ -182,6 +182,15 @@ sorgudan gelir; sorgu başarısızsa alan boş bırakılır, tahmin üretilmez.
 kartında aktarma hakkı yoktur, her biniş ayrı ücretlenir. Bu fark
 `farePerBoarding` ile modellenir.
 
+Aktarma hakkı **ilk binişten 90 dakika sonra düşer** (`AKTARMA_PENCERESI_SN`):
+süre dolduktan sonraki biniş yeni bir bilettir ve pencere o binişten yeniden
+işler. Bu sınır olmadan 158 dakikalık, 5 binişlik bir yolculuk da tek bilet
+görünüyordu. Biniş saatleri OTP sorgusunda istenmediğinden bacak süreleri
+toplanarak bulunur — duraktaki bekleme sayılmaz, yani hesap kullanıcı lehine
+yanılır; `binisSaniyeleri` bacaklarda `startTime` varsa onu tercih eder.
+Kaç bilet ödendiği ve sebebi karta yazılır (`ucretDetay.biletAdedi`,
+`biletSebebi`).
+
 Kiralamada bloke edilen **47,50 ₺ ön provizyon toplama dahil edilmez** — tahsilat
 değil, iade edilen bir blokedir; toplama eklemek kısa bir sürüşü kat kat pahalı
 gösterirdi. Ayrı bir not olarak taşınır.
@@ -255,7 +264,7 @@ saat bağlamı, hata sınırı.
 
 Testler saf mantığa odaklanır; ağ, harita ve depolama katmanları kapsam dışıdır.
 Gerçek graph'a soran davranış matrisi ayrıdır ve backend deposunda yaşar
-(`node senaryolar/kosu.js` — 7 rota × 6 mod, ayakta backend + OTP ister).
+(backend deposunda `npm test` — 7 rota × 6 mod; OTP ayakta değilse atlanır).
 
 Yukarıdaki ölçülmüş kararların çoğu teste bağlanmıştır — örneğin BİSİM tarifesinin
 "1 saat 92,50 ₺" değeri, açılış bloğunun ilk 5 dakikayı kapsadığını doğrulayan bir

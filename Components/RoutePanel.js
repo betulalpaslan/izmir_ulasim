@@ -1,13 +1,21 @@
-import React from "react";
+import React, { useState } from "react";
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, StyleSheet } from "react-native";
 import AppIcon from "./AppIcon";
 import { useTheme } from "../utils/ThemeContext";
 import { getLegInstruction, guzergahZinciri } from "../utils/routeInstructions";
-import { NON_TRANSIT_MODES, ucretYazi } from "../utils/routeScoring";
+import { NON_TRANSIT_MODES, ucretYazi, SIRALAMA_TERCIHLERI, siralamayaGore } from "../utils/routeScoring";
 import { formatDistance } from "../utils/geo";
+
+// Birden fazla bilet çıktığında sebebini yazar; "neden 35 ₺?" sorusu kartta
+// cevaplanmazsa hesap yanlış görünüyor.
+const BILET_NOTU = {
+  "sure-asimi": "90 dakikalık aktarma hakkı bu yolculuğa yetmiyor; süre dolduktan sonraki binişler yeni bilet sayılır.",
+  "binis-basi": "Kredi/banka kartında aktarma hakkı yok; her biniş ayrı ücretlenir.",
+};
 
 export default function RoutePanel({ routes, selectedIdx, onSelect, loading, error, notice, timeTip, origin, destination, originName, destName, onReset, bikeType, modBos, onAlternative }) {
   const { theme } = useTheme();
+  const [tercih, setTercih] = useState("recommended");
 
   // Bacak metinleri "Başlangıç"/"Varış" yerine gerçek adı yazsın diye.
   // Ayrı bir uç şeridi YOK: aynı adlar arama kutularında ve kapalı panel
@@ -80,7 +88,45 @@ export default function RoutePanel({ routes, selectedIdx, onSelect, loading, err
     );
   }
 
+  const sirali = siralamayaGore(routes, tercih);
+
+  // Tercihe dokununca o ölçünün en iyisi seçilsin: harita da onu çizer.
+  const tercihSec = (id) => {
+    setTercih(id);
+    const [ilk] = siralamayaGore(routes, id);
+    if (ilk) onSelect(ilk.idx);
+  };
+
   return (
+    <View>
+      {routes.length > 1 && (
+        <View style={s.tercihSatir}>
+          {SIRALAMA_TERCIHLERI.map((t) => {
+            const secili = tercih === t.id;
+            return (
+              <TouchableOpacity
+                key={t.id}
+                onPress={() => tercihSec(t.id)}
+                activeOpacity={0.75}
+                style={[
+                  s.tercihCip,
+                  { backgroundColor: theme.input, borderColor: theme.border },
+                  secili && { borderColor: theme.active, backgroundColor: theme.active + "18" },
+                ]}
+              >
+                <AppIcon name={t.icon} size={11} color={secili ? theme.active : theme.muted} />
+                <Text
+                  style={[s.tercihMetin, { color: secili ? theme.active : theme.muted }]}
+                  numberOfLines={1}
+                >
+                  {t.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      )}
+
     <ScrollView style={s.scroll} showsVerticalScrollIndicator={false} nestedScrollEnabled>
       {bilgiSeridi}
       {timeTip ? (
@@ -89,7 +135,7 @@ export default function RoutePanel({ routes, selectedIdx, onSelect, loading, err
         </Text>
       ) : null}
 
-      {routes.map((r, i) => {
+      {sirali.map(({ rota: r, idx: i }) => {
         const expanded = selectedIdx === i;
         const bikeLegs = r.legs.filter((l) => l.mode === "BICYCLE" || l.mode === "BICYCLE_RENTAL");
         const zincir = guzergahZinciri(r.legs);
@@ -185,25 +231,38 @@ export default function RoutePanel({ routes, selectedIdx, onSelect, loading, err
                 </View>
 
         
-                {r.ucretDetay?.bisim > 0 && (
+                {(r.ucretDetay?.bisim > 0 || r.ucretDetay?.biletAdedi > 1) && (
                   <View style={[s.ucretKutu, { backgroundColor: theme.input, borderColor: theme.border }]}>
                     <View style={s.ucretSatir}>
-                      <Text style={[s.ucretEtiket, { color: theme.muted }]}>Toplu taşıma bileti</Text>
+                      <Text style={[s.ucretEtiket, { color: theme.muted }]}>
+                        {r.ucretDetay.biletAdedi > 1
+                          ? `Toplu taşıma bileti · ${r.ucretDetay.biletAdedi} × ${ucretYazi(r.ucretDetay.biletBirim)} ₺`
+                          : "Toplu taşıma bileti"}
+                      </Text>
                       <Text style={[s.ucretDeger, { color: theme.text }]}>{ucretYazi(r.ucretDetay.bilet)} ₺</Text>
                     </View>
-                    <View style={s.ucretSatir}>
-                      <Text style={[s.ucretEtiket, { color: theme.muted }]}>
-                        BİSİM · {r.ucretDetay.bisimDakika} dk
-                      </Text>
-                      <Text style={[s.ucretDeger, { color: theme.text }]}>{ucretYazi(r.ucretDetay.bisim)} ₺</Text>
-                    </View>
+                    {r.ucretDetay.bisim > 0 && (
+                      <View style={s.ucretSatir}>
+                        <Text style={[s.ucretEtiket, { color: theme.muted }]}>
+                          BİSİM · {r.ucretDetay.bisimDakika} dk
+                        </Text>
+                        <Text style={[s.ucretDeger, { color: theme.text }]}>{ucretYazi(r.ucretDetay.bisim)} ₺</Text>
+                      </View>
+                    )}
                     <View style={[s.ucretSatir, s.ucretToplam, { borderTopColor: theme.border }]}>
                       <Text style={[s.ucretEtiket, { color: theme.text, fontWeight: "800" }]}>Toplam</Text>
                       <Text style={[s.ucretDeger, { color: "#f97316", fontSize: 15 }]}>{ucretYazi(r.cost)} ₺</Text>
                     </View>
-                    <Text style={[s.ucretNot, { color: theme.muted }]}>
-                      Kiralamada kartından {ucretYazi(r.ucretDetay.provizyon)} ₺ ön provizyon bloke edilir; iade edilir.
-                    </Text>
+                    {BILET_NOTU[r.ucretDetay.biletSebebi] && (
+                      <Text style={[s.ucretNot, { color: theme.muted }]}>
+                        {BILET_NOTU[r.ucretDetay.biletSebebi]}
+                      </Text>
+                    )}
+                    {r.ucretDetay.bisim > 0 && (
+                      <Text style={[s.ucretNot, { color: theme.muted }]}>
+                        Kiralamada kartından {ucretYazi(r.ucretDetay.provizyon)} ₺ ön provizyon bloke edilir; iade edilir.
+                      </Text>
+                    )}
                   </View>
                 )}
 
@@ -279,6 +338,7 @@ export default function RoutePanel({ routes, selectedIdx, onSelect, loading, err
         );
       })}
     </ScrollView>
+    </View>
   );
 }
 
@@ -303,6 +363,15 @@ const s = StyleSheet.create({
   actionContent: { flexDirection: "row", alignItems: "center", gap: 6 },
   actionText:    { fontSize: 12, fontWeight: "700" },
 
+
+  // Sıralama tercihleri
+  tercihSatir: { flexDirection: "row", gap: 4, marginBottom: 7 },
+  tercihCip: {
+    flexDirection: "row", alignItems: "center", justifyContent: "center",
+    gap: 3, borderWidth: 1, borderRadius: 8,
+    paddingHorizontal: 6, paddingVertical: 5, flex: 1,
+  },
+  tercihMetin: { fontSize: 10, fontWeight: "700", flexShrink: 1 },
 
   // Ana scroll
   scroll:      { maxHeight: 260 },

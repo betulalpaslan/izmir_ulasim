@@ -241,3 +241,88 @@ describe("kart seçimi", () => {
     expect(secilen).toEqual([0, -1]);
   });
 });
+
+describe("ücret dökümü — bilet adedi", () => {
+  const acikKart = (over) =>
+    ciz({ routes: [rota(over)], selectedIdx: 0 });
+
+  test("90 dk aşılınca kaç bilet ödendiği yazılır", () => {
+    const t = tumMetin(acikKart({
+      cost: 35,
+      ucretDetay: { bilet: 35, biletAdedi: 2, biletBirim: 17.5, biletSebebi: "sure-asimi",
+                    bisim: 0, bisimDakika: 0, provizyon: 0 },
+    }));
+    expect(t).toContain("2 × 17,50 ₺");
+    expect(t).toContain("90 dakikalık aktarma hakkı");
+    expect(t).not.toContain("ön provizyon");
+  });
+
+  test("kredi kartında sebep biniş başına ücrettir", () => {
+    const t = tumMetin(acikKart({
+      cost: 195,
+      ucretDetay: { bilet: 195, biletAdedi: 5, biletBirim: 39, biletSebebi: "binis-basi",
+                    bisim: 0, bisimDakika: 0, provizyon: 0 },
+    }));
+    expect(t).toContain("5 × 39 ₺");
+    expect(t).toContain("her biniş ayrı ücretlenir");
+  });
+
+  test("tek bilette döküm kutusu açılmaz", () => {
+    const t = tumMetin(acikKart({
+      ucretDetay: { bilet: 17.5, biletAdedi: 1, biletBirim: 17.5, biletSebebi: null,
+                    bisim: 0, bisimDakika: 0, provizyon: 0 },
+    }));
+    expect(t).not.toContain("Toplu taşıma bileti");
+  });
+});
+
+describe("sıralama çipleri", () => {
+  const Touchable = require("react-native").TouchableOpacity;
+  const liste = [
+    rota({ kimlik: "r0", totalDuration: 2400, transfers: 0, walkMeters: 1500 }),
+    rota({ kimlik: "r1", totalDuration: 1500, transfers: 3, walkMeters: 1200 }),
+    rota({ kimlik: "r2", totalDuration: 1800, transfers: 2, walkMeters: 400 }),
+  ];
+
+  test("dört tercih de görünür", () => {
+    const t = tumMetin(ciz({ routes: liste, selectedIdx: 0 }));
+    ["Önerilen", "En Hızlı", "Az Aktarma", "Az Yürüyüş"].forEach((etiket) =>
+      expect(t).toContain(etiket)
+    );
+  });
+
+  test("tek rotada çip satırı çıkmaz", () => {
+    const agac = ciz({ routes: [rota()], selectedIdx: -1 });
+    expect(tumMetin(agac)).not.toContain("Az Yürüyüş");
+  });
+
+  test("çipe basınca o ölçünün en iyisi orijinal indeksle seçilir", () => {
+    const secilen = [];
+    let agac;
+    act(() => {
+      agac = create(
+        <RoutePanel routes={liste} selectedIdx={0} onSelect={(i) => secilen.push(i)} onReset={() => {}} />
+      );
+    });
+    const cipler = agac.root.findAllByType(Touchable).slice(0, 4);
+
+    act(() => { cipler[1].props.onPress(); });   // En Hızlı → 1. rota
+    act(() => { cipler[3].props.onPress(); });   // Az Yürüyüş → 2. rota
+    expect(secilen).toEqual([1, 2]);
+  });
+
+  test("seçilen tercihe göre kartların sırası değişir", () => {
+    let agac;
+    act(() => {
+      agac = create(
+        <RoutePanel routes={liste} selectedIdx={0} onSelect={() => {}} onReset={() => {}} />
+      );
+    });
+    const sureler = () =>
+      metinler(agac).filter((m) => m.endsWith(" dk") && !m.includes("·"));
+
+    expect(sureler()[0]).toBe("40 dk");          // Önerilen: liste sırası
+    act(() => { agac.root.findAllByType(Touchable)[1].props.onPress(); });
+    expect(sureler()[0]).toBe("25 dk");          // En Hızlı başa geçti
+  });
+});
