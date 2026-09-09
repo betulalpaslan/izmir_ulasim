@@ -1,5 +1,6 @@
 // Ekranın üst paneli: profil sekmeleri, alt mod seçenekleri, adres alanları,
 // kayıtlı adresler ve arama önerileri. Durum HomeScreen'de tutulur; burası yalnızca sunum.
+import { useState } from "react";
 import { View, Text, TouchableOpacity, FlatList, StyleSheet } from "react-native";
 import ProfileTabs from "./ProfileTabs";
 import SearchBar from "./SearchBar";
@@ -33,11 +34,42 @@ export default function SearchPanel({
   savedPlaces, savedPlacesOpen, onToggleSavedPlaces, onUsePlace, onSavePlace,
 }) {
   const { theme } = useTheme();
+  // Kapalıyken panel ~100 px kısalıyor (alt mod satırı olan modlarda ~125).
+  // Durum burada duruyor: HomeScreen'in hiçbir kararı buna bakmıyor.
+  const [kapali, setKapali] = useState(false);
+
+  const aktifProfil = profiles.find((p) => p.id === profile);
+  const ozet =
+    originText || destText
+      ? `${originText || "Başlangıç"} → ${destText || "Varış"}`
+      : "Nereden nereye?";
 
   return (
     <View style={[s.panel, { backgroundColor: theme.surface, shadowColor: theme.shadow }]}>
-      <Text style={[s.appTitle, { color: theme.muted }]}>İZMİR ULAŞIM</Text>
+      <TouchableOpacity
+        style={s.baslikSatir}
+        onPress={() => setKapali((v) => !v)}
+        activeOpacity={0.8}
+      >
+        <Text style={[s.appTitle, { color: theme.muted }]}>İZMİR ULAŞIM</Text>
+        <AppIcon name={kapali ? "chevronDown" : "chevronUp"} size={13} color={theme.muted} />
+      </TouchableOpacity>
 
+      {/* Kapalıyken tek satır: hangi mod, nereden nereye. Dokunuş paneli açar. */}
+      {kapali ? (
+        <TouchableOpacity
+          style={[s.kapaliSatir, { backgroundColor: theme.input, borderColor: theme.border }]}
+          onPress={() => setKapali(false)}
+          activeOpacity={0.8}
+        >
+          {aktifProfil && (
+            <AppIcon name={aktifProfil.icon} size={14} color={aktifProfil.color} />
+          )}
+          <Text style={[s.kapaliOzet, { color: theme.text }]} numberOfLines={1}>{ozet}</Text>
+          <AppIcon name="search" size={13} color={theme.muted} />
+        </TouchableOpacity>
+      ) : (
+      <>
       <ProfileTabs profiles={profiles} activeProfile={profile} onSelect={onSelectProfile} />
 
       {profile === "bicycle" && (
@@ -165,6 +197,8 @@ export default function SearchPanel({
           )}
         />
       )}
+      </>
+      )}
     </View>
   );
 }
@@ -177,7 +211,17 @@ const s = StyleSheet.create({
     shadowOpacity: 0.3, shadowRadius: 8, shadowOffset: { height: 3 },
     elevation: 8,
   },
-  appTitle: { fontSize: 10, fontWeight: "700", letterSpacing: 2, marginBottom: 4 },
+  appTitle: { fontSize: 10, fontWeight: "700", letterSpacing: 2 },
+  baslikSatir: {
+    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+    marginBottom: 4, paddingVertical: 2,
+  },
+  kapaliSatir: {
+    flexDirection: "row", alignItems: "center", gap: 8,
+    borderWidth: 1, borderRadius: 10,
+    paddingHorizontal: 12, paddingVertical: 9, marginTop: 2,
+  },
+  kapaliOzet: { flex: 1, fontSize: 12, fontWeight: "700" },
   searchFields: { position: "relative" },
   swapBtn: {
     position: "absolute", right: 10, top: "50%", marginTop: -14, zIndex: 5,
