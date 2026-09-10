@@ -25,7 +25,7 @@ export async function fetchRoute(from, to, profile, bikeType = null) {
 
 export async function fetchBisimZones() {
   const data = await apiGet(`${API_URL}/bisim/stations`, { timeoutMs: 10000 });
-  return { bolgeler: data.bolgeler || [], hizmetAlani: data.hizmetAlani || null };
+  return { bolgeler: data.bolgeler || [], hizmetAgi: data.hizmetAgi || [] };
 }
 
 export async function fetchOsmParkingSpots() {

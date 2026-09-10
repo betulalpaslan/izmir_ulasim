@@ -47,5 +47,5 @@ describe("katmanPlani", () => {
 
 test("BİSİM boş hâli iki geometriyi de sıfırlar", () => {
   // `[]` bırakan bir temizlik hizmet alanını haritada asılı bırakıyordu.
-  expect(BISIM_BOS).toEqual({ bolgeler: [], hizmetAlani: null });
+  expect(BISIM_BOS).toEqual({ bolgeler: [], hizmetAgi: [] });
 });

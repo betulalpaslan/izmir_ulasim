@@ -8,7 +8,7 @@ import RoutePanel from "../Components/RoutePanel";
 import NavigationOverlay from "../Components/NavigationOverlay";
 import AppIcon from "../Components/AppIcon";
 import {
-  BisimMarkers, BikeParkingMarkers, yakindakiParklar,
+  BisimMarkers, BikeParkingMarkers, yakindakiParklar, guzergahtakiParklar,
   ParkAndRideMarkers, ActiveParkingMarker, RouteOverlay, UserPuck,
 } from "../Components/MapLayers";
 import { useTheme } from "../utils/ThemeContext";
@@ -62,12 +62,6 @@ export default function HomeScreen() {
   const { bisim, parkingStations, prStations, layerError, clearLayerError } =
     useMapLayers(profile, bikeType, carMode);
 
-  // Katman şehir çapında geliyor; haritaya yalnız varış çevresindekiler çıkar.
-  const bisikletParklari = useMemo(
-    () => yakindakiParklar(parkingStations, destination),
-    [parkingStations, destination]
-  );
-
   const { fareBase, farePerBoarding, profiles, savedPlaces, savePlace } = useSettings();
   const { routes, loading, error, notice, modBos, fetchRoute, clearRoute } = useRouteSearch(fareBase, farePerBoarding);
   const [selectedRouteIdx, setSelectedRouteIdx] = useState(0);
@@ -86,6 +80,15 @@ export default function HomeScreen() {
   const displayRoute = routes[selectedRouteIdx] ?? null;
   const navRoute = navActive ? routes[navRouteIdx] ?? null : null;
   const mapRoute = navRoute ?? routes[selectedRouteIdx >= 0 ? selectedRouteIdx : 0] ?? null;
+
+  // Katman şehir çapında geliyor. Rota varsa güzergâh koridoru, yoksa varış
+  // çevresi gösterilir — ikisi de yoksa hiç çizilmez.
+  const bisikletParklari = useMemo(
+    () => (mapRoute
+      ? guzergahtakiParklar(parkingStations, mapRoute)
+      : yakindakiParklar(parkingStations, destination)),
+    [parkingStations, mapRoute, destination]
+  );
 
   const { progress, offRoute } = useNavigationMode(navRoute, userLocation, navActive);
 
@@ -293,7 +296,7 @@ export default function HomeScreen() {
         {origin && <Marker coordinate={origin} pinColor={theme.accentBike} title="Başlangıç" />}
         {destination && <Marker coordinate={destination} pinColor={theme.danger} title="Varış" />}
 
-        <BisimMarkers stations={bisim.bolgeler} hizmetAlani={bisim.hizmetAlani} />
+        <BisimMarkers stations={bisim.bolgeler} hizmetAgi={bisim.hizmetAgi} />
         {/* "Park + Taşıma" ile "Kendi Bisikletim" farklı kaynaklardan beslenir;
             ayırt edilebilmeleri için ayrı renkle çizilirler. */}
         <BikeParkingMarkers stations={bisikletParklari} variant={bikeType === "PARK" ? "pr" : "own"} />

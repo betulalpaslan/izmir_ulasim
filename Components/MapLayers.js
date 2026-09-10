@@ -3,7 +3,7 @@
 import { Alert, View, Text, StyleSheet } from "react-native";
 import { Callout, Circle, Marker, Polygon, Polyline } from "react-native-maps";
 import AppIcon from "./AppIcon";
-import { haversineMeters } from "../utils/geo";
+import { haversineMeters, projectOnSegment } from "../utils/geo";
 
 // Doluluk oranına göre otopark rengi: yeşil < %50, turuncu < %80, kırmızı üstü.
 // Doluluk BİLİNMİYORSA gri — kırmızı değil. 82 otoparkın yalnız 14'ünde sensör
@@ -37,29 +37,30 @@ export function parkingOccupancyText(st) {
 // Bu yüzden nokta değil ALAN çiziliyor: bisiklet hizmet alanı içinde her yere
 // bırakılabilir, bu bölgelere bırakılırsa bonus kazanılır. Tek bir pin
 // göstermek kullanıcıya "yalnız buraya bırakabilirsin" derdi — yanlış olurdu.
-export function BisimMarkers({ stations, hizmetAlani }) {
-  // Alan bonus dairelerinin ALTINDA çizilir: üstte olsaydı dolgusu daireleri
+export function BisimMarkers({ stations, hizmetAgi }) {
+  // Alan bonus ikonlarının ALTINDA çizilir: üstte olsaydı dolgusu ikonları
   // soluklaştırıp "bonus" ile "sıradan bırakma alanı" ayrımını siliyordu.
   //
-  // Sınır YAKLAŞIKTIR — bisiklet yolu geometrisinin tamponlu dışbükey kabuğu
-  // (backend: BisimBolgeService.hizmetAlani). Dışbükey olduğu için körfezin
-  // suyunu da kapsıyor; bu yüzden dokununca ne olduğunu söyleyen bir callout
-  // var. Etiketsiz çizmek kullanıcıyı hizmet dışı bir noktaya bırakmaya ve
-  // ceza yemeye götürebilir.
-  const alan = (hizmetAlani?.parcalar || []).map((halka, i) => (
+  // Sınır YAKLAŞIKTIR — açık verideki bisiklet koridorlarının tamponlanmış
+  // hâli (backend: BisimBolgeService.hizmetAgi), resmî hizmet sınırı değil.
+  // Dokununca bunu söyleyen bir callout var; etiketsiz çizmek kullanıcıyı
+  // hizmet dışı bir noktaya bırakmaya ve ceza yemeye götürebilir.
+  const cevir = (halka) => halka.map(([lon, lat]) => ({ latitude: lat, longitude: lon }));
+  const alan = (hizmetAgi || []).map((parca, i) => (
     <Polygon
       key={`bisim-alan-${i}`}
-      coordinates={halka.map(([lon, lat]) => ({ latitude: lat, longitude: lon }))}
+      coordinates={cevir(parca[0])}
+      holes={parca.length > 1 ? parca.slice(1).map(cevir) : undefined}
       strokeColor="rgba(74,222,128,0.7)"
       strokeWidth={2}
-      fillColor="rgba(74,222,128,0.06)"
+      fillColor="rgba(74,222,128,0.10)"
       tappable
       onPress={() =>
         Alert.alert(
           "BİSİM hizmet alanı",
           "Bisikleti bu alanın içinde her yere bırakabilirsin.\n\n" +
-            "Bu sınır yaklaşıktır: bisiklet yolu ağından türetilmiştir, " +
-            "resmî hizmet sınırı değildir."
+            "Bu sınır yaklaşıktır: açık verideki bisiklet yolu ağının " +
+            "çevresinden türetilmiştir, resmî hizmet sınırı değildir."
         )
       }
     />
@@ -72,7 +73,7 @@ export function BisimMarkers({ stations, hizmetAlani }) {
       radius={z.yaricapM ?? 300}
       strokeColor="#22c55e"
       strokeWidth={1.5}
-      fillColor="rgba(74,222,128,0.12)"
+      fillColor="rgba(74,222,128,0.18)"
     />,
     <Marker
       key={`bisim-${z.id}`}
@@ -80,10 +81,13 @@ export function BisimMarkers({ stations, hizmetAlani }) {
       anchor={{ x: 0.5, y: 0.5 }}
       title={z.ad}
       description={`${z.ilce} · bırakınca bonus kazandıran bölge`}
-      tracksViewChanges={false}
+      tracksViewChanges={true}
     >
-      <View style={s.bisimMarker}>
-        <AppIcon name="bike" size={13} color="#22c55e" />
+      <View style={s.bisimBonusMarker}>
+        <Text style={s.bisimBonusLabel}>P</Text>
+        <View style={s.bisimBonusStar}>
+          <AppIcon name="star" size={8} color="#14532d" />
+        </View>
       </View>
     </Marker>,
   ]));
@@ -111,6 +115,37 @@ export function yakindakiParklar(stations, merkez, yaricap = BISIKLET_PARK_YARIC
   );
 }
 
+// Bisiklet güzergâh üzerinde de bırakılabilir; yalnız varışa bakmak yol
+// kenarındaki parkları gizliyordu.
+export const BISIKLET_PARK_KORIDOR_M = 150;
+
+export function guzergahtakiParklar(stations, rota, koridor = BISIKLET_PARK_KORIDOR_M) {
+  const yol = (rota?.legs || []).flatMap((l) => l.coords || []);
+  if (yol.length < 2) return [];
+
+  // Kaba eleme: rotanın sınır kutusu + koridor payı. Yüzlerce parkı binlerce
+  // köşeyle karşılaştırmadan önce çoğu nokta burada eleniyor.
+  let minLat = Infinity, maxLat = -Infinity, minLon = Infinity, maxLon = -Infinity;
+  for (const p of yol) {
+    if (p.latitude < minLat) minLat = p.latitude;
+    if (p.latitude > maxLat) maxLat = p.latitude;
+    if (p.longitude < minLon) minLon = p.longitude;
+    if (p.longitude > maxLon) maxLon = p.longitude;
+  }
+  const payLat = koridor / 111320;
+  const payLon = payLat / Math.max(0.2, Math.cos(yol[0].latitude * Math.PI / 180));
+
+  return (stations || []).filter((st) => {
+    if (st.lat < minLat - payLat || st.lat > maxLat + payLat) return false;
+    if (st.lon < minLon - payLon || st.lon > maxLon + payLon) return false;
+    const nokta = { latitude: st.lat, longitude: st.lon };
+    for (let i = 1; i < yol.length; i++) {
+      if (projectOnSegment(nokta, yol[i - 1], yol[i]).distance <= koridor) return true;
+    }
+    return false;
+  });
+}
+
 export function BikeParkingMarkers({ stations, variant = "own" }) {
   const style = BIKE_PARK_VARIANT[variant] ?? BIKE_PARK_VARIANT.own;
   return stations.map((st) => (
@@ -120,7 +155,7 @@ export function BikeParkingMarkers({ stations, variant = "own" }) {
       anchor={{ x: 0.5, y: 0.5 }}
       title={st.name || style.title}
       description={parkingOccupancyText(st)}
-      tracksViewChanges={false}
+      tracksViewChanges={true}
     >
       <View style={[s.parkingMarker, { borderColor: style.color }]}>
         <AppIcon name="bike" size={13} color={style.color} />
@@ -148,7 +183,7 @@ export function OsmParkingMarkers({ spots }) {
         st.capacity ? `${st.capacity} araçlık` : null,
         st.fee ? "Ücretli" : st.fee === false ? "Ücretsiz" : null,
       ].filter(Boolean).join(" · ")}
-      tracksViewChanges={false}
+      tracksViewChanges={true}
     >
       <View style={[s.osmPMarker, st.type === "underground" && s.osmPMarkerUnderground]}>
         <Text style={s.osmPLabel}>P</Text>
@@ -167,7 +202,7 @@ export function ParkAndRideMarkers({ stations }) {
         anchor={{ x: 0.5, y: 0.5 }}
         title={st.name}
         description={parkingOccupancyText(st)}
-        tracksViewChanges={false}
+        tracksViewChanges={true}
       >
         <View style={[s.prMarker, { borderColor: color }]}>
           <Text style={[s.prMarkerLabel, { color }]}>P</Text>
@@ -203,7 +238,7 @@ export function ActiveParkingMarker({ point }) {
       coordinate={{ latitude: point.lat, longitude: point.lon }}
       anchor={{ x: 0.5, y: 0.5 }}
       title={point.name}
-      tracksViewChanges={false}
+      tracksViewChanges={true}
     >
       <View style={s.activeParkMarker}>
         <Text style={s.activeParkLabel}>P</Text>
@@ -260,7 +295,7 @@ export function RouteOverlay({ route }) {
         if (!mid) return null;
         const color = isWalk(leg) ? WALK_MAP_COLOR : leg.color;
         return (
-          <Marker key={`marker-${i}`} coordinate={mid} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={false}>
+          <Marker key={`marker-${i}`} coordinate={mid} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={true}>
             <View style={[s.routeIconBadge, { borderColor: color }]}>
               <AppIcon name={leg.icon} size={15} color={color} strokeWidth={2.5} />
             </View>
@@ -289,7 +324,7 @@ export function UserPuck({ point, heading = 0, offRoute = false }) {
       anchor={{ x: 0.5, y: 0.5 }}
       flat
       rotation={heading}
-      tracksViewChanges={false}
+      tracksViewChanges={true}
       zIndex={99}
     >
       <View style={s.puckWrap}>
@@ -303,10 +338,19 @@ export function UserPuck({ point, heading = 0, offRoute = false }) {
 }
 
 const s = StyleSheet.create({
-  bisimMarker: {
-    width: 22, height: 22, borderRadius: 11, borderWidth: 1.5,
+  // BİSİM uygulamasındaki yeşil "P" + yıldız: bonus bölgeyi sıradan bırakma
+  // alanından ayıran işaret bu, o yüzden bisiklet gliflerinden ayrıştı.
+  bisimBonusMarker: {
+    width: 24, height: 24, borderRadius: 7, borderWidth: 2,
     alignItems: "center", justifyContent: "center",
-    backgroundColor: "#14111f", borderColor: "#22c55e",
+    backgroundColor: "#ffffff", borderColor: "#22c55e",
+  },
+  bisimBonusLabel: { fontSize: 13, fontWeight: "800", color: "#16a34a", lineHeight: 15 },
+  bisimBonusStar: {
+    position: "absolute", right: -3, bottom: -3,
+    width: 12, height: 12, borderRadius: 6,
+    alignItems: "center", justifyContent: "center",
+    backgroundColor: "#4ade80",
   },
   parkingMarker: {
     width: 22, height: 22, borderRadius: 11, borderWidth: 1.5,

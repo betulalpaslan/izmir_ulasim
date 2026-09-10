@@ -11,7 +11,7 @@ import { describeLayerError } from "../utils/layerStatus";
 // BİSİM katmanı İKİ geometri taşır: bonus bölgeleri ve hizmet alanı. Boş
 // hâli de aynı biçimde olmalı — `[]` bırakan bir temizlik hizmet alanını
 // haritada asılı bırakıyordu.
-export const BISIM_BOS = { bolgeler: [], hizmetAlani: null };
+export const BISIM_BOS = { bolgeler: [], hizmetAgi: [] };
 
 // Saf kural: (profil, bisiklet modu, araba modu) → hangi katman, hangi adla.
 //

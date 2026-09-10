@@ -1,5 +1,6 @@
 import {
-  prMarkerColor, parkingOccupancyText, yakindakiParklar, BISIKLET_PARK_YARICAP_M,
+  prMarkerColor, parkingOccupancyText, yakindakiParklar, guzergahtakiParklar,
+  BISIKLET_PARK_YARICAP_M,
 } from "../Components/MapLayers";
 
 // İki saf fonksiyon: harita, react-native-maps, render gerekmiyor.
@@ -92,5 +93,46 @@ describe("yakindakiParklar", () => {
   test("boş liste ve tanımsız girdi patlamıyor", () => {
     expect(yakindakiParklar([], KONAK)).toEqual([]);
     expect(yakindakiParklar(undefined, KONAK)).toEqual([]);
+  });
+});
+
+describe("guzergahtakiParklar", () => {
+  // Konak'tan kuzeye düz bir hat: 38.4189 → 38.4389, sabit boylam.
+  const rota = {
+    legs: [{ coords: [
+      { latitude: 38.4189, longitude: 27.1287 },
+      { latitude: 38.4289, longitude: 27.1287 },
+      { latitude: 38.4389, longitude: 27.1287 },
+    ] }],
+  };
+  const koridorda = { id: "k", lat: 38.4289, lon: 27.1297 };  // hatta ~87 m
+  const uzakta    = { id: "u", lat: 38.4289, lon: 27.1387 };  // hatta ~870 m
+  const otesinde  = { id: "o", lat: 38.4600, lon: 27.1287 };  // hattın kuzey ucundan sonra
+
+  test("rota yoksa hiç pin çıkmıyor", () => {
+    expect(guzergahtakiParklar([koridorda], null)).toEqual([]);
+    expect(guzergahtakiParklar([koridorda], { legs: [] })).toEqual([]);
+  });
+
+  test("yalnız koridora düşenler kalıyor", () => {
+    expect(guzergahtakiParklar([koridorda, uzakta], rota)).toEqual([koridorda]);
+  });
+
+  test("rotanın ötesindeki nokta koridorda sayılmıyor", () => {
+    // Sınır kutusu elemesi burada devreye giriyor: hat boyunca değil, ucunun
+    // ilerisinde kalan park içeri alınmamalı.
+    expect(guzergahtakiParklar([otesinde], rota)).toEqual([]);
+  });
+
+  test("koridor genişliği ayarlanabiliyor", () => {
+    expect(guzergahtakiParklar([uzakta], rota, 1000)).toEqual([uzakta]);
+  });
+
+  test("bacaklar birleştiriliyor", () => {
+    const ikiBacak = { legs: [
+      { coords: rota.legs[0].coords.slice(0, 2) },
+      { coords: rota.legs[0].coords.slice(1) },
+    ] };
+    expect(guzergahtakiParklar([koridorda], ikiBacak)).toEqual([koridorda]);
   });
 });
