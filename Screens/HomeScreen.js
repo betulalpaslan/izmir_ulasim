@@ -8,11 +8,10 @@ import RoutePanel from "../Components/RoutePanel";
 import NavigationOverlay from "../Components/NavigationOverlay";
 import AppIcon from "../Components/AppIcon";
 import {
-  BisimMarkers, BikeParkingMarkers,
+  BisimMarkers, BikeParkingMarkers, yakindakiParklar,
   ParkAndRideMarkers, ActiveParkingMarker, RouteOverlay, UserPuck,
 } from "../Components/MapLayers";
 import { useTheme } from "../utils/ThemeContext";
-import { getTimeContext } from "../utils/timeContext";
 import { useSettings } from "../hooks/useSettings";
 import { useLocationService } from "../hooks/useLocationService";
 import { useRouteSearch } from "../hooks/useRouteSearch";
@@ -20,7 +19,10 @@ import { useNavigationMode } from "../hooks/useNavigationMode";
 import { useMapLayers } from "../hooks/useMapLayers";
 import { useRouteTargets } from "../hooks/useRouteTargets";
 
-const IZMIR_REGION = { latitude: 38.428, longitude: 27.16, latitudeDelta: 0.08, longitudeDelta: 0.08 };
+// Açılış kadrajı: körfez + Karşıyaka/Bornova/Balçova bir arada görünsün.
+// 0.08 yalnız Konak çevresini gösteriyordu; otopark/BİSİM katmanları
+// kadrajın dışında kalıyordu.
+const IZMIR_REGION = { latitude: 38.428, longitude: 27.16, latitudeDelta: 0.20, longitudeDelta: 0.20 };
 const MAP_PADDING = { top: 120, right: 60, bottom: 300, left: 60 };
 
 export default function HomeScreen() {
@@ -60,10 +62,11 @@ export default function HomeScreen() {
   const { bisim, parkingStations, prStations, layerError, clearLayerError } =
     useMapLayers(profile, bikeType, carMode);
 
-  // Saat ipucu her aramada tazeleniyor. Bir kez hesaplanıp donuyordu:
-  // uygulama arka planda kalıp saatler sonra açıldığında "yoğun saat"
-  // uyarısı hâlâ ekranda duruyordu.
-  const [timeTip, setTimeTip] = useState(getTimeContext);
+  // Katman şehir çapında geliyor; haritaya yalnız varış çevresindekiler çıkar.
+  const bisikletParklari = useMemo(
+    () => yakindakiParklar(parkingStations, destination),
+    [parkingStations, destination]
+  );
 
   const { fareBase, farePerBoarding, profiles, savedPlaces, savePlace } = useSettings();
   const { routes, loading, error, notice, modBos, fetchRoute, clearRoute } = useRouteSearch(fareBase, farePerBoarding);
@@ -138,7 +141,6 @@ export default function HomeScreen() {
 
   const doFetchRoute = (from, to, prof, fromName = "", toName = "", bType = bikeType, cMode = carMode) => {
     setPanelCollapsed(false);
-    setTimeTip(getTimeContext());
     return fetchRoute(from, to, prof, fromName, toName, bType, cMode).then((result) => {
       if (result?.[0] && !navActive) fitToRoute(result[0]);
       return result;
@@ -294,7 +296,7 @@ export default function HomeScreen() {
         <BisimMarkers stations={bisim.bolgeler} hizmetAlani={bisim.hizmetAlani} />
         {/* "Park + Taşıma" ile "Kendi Bisikletim" farklı kaynaklardan beslenir;
             ayırt edilebilmeleri için ayrı renkle çizilirler. */}
-        <BikeParkingMarkers stations={parkingStations} variant={bikeType === "PARK" ? "pr" : "own"} />
+        <BikeParkingMarkers stations={bisikletParklari} variant={bikeType === "PARK" ? "pr" : "own"} />
         <ParkAndRideMarkers stations={prStations} />
         <ActiveParkingMarker point={mapRoute?.parkingPoint} />
         <RouteOverlay route={mapRoute} />
@@ -405,7 +407,6 @@ export default function HomeScreen() {
                   notice={notice}
                   modBos={modBos}
                   onAlternative={handleAlternative}
-                  timeTip={timeTip}
                   origin={origin}
                   destination={destination}
                   originName={originText}

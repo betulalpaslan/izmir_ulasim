@@ -1,4 +1,6 @@
-import { prMarkerColor, parkingOccupancyText } from "../Components/MapLayers";
+import {
+  prMarkerColor, parkingOccupancyText, yakindakiParklar, BISIKLET_PARK_YARICAP_M,
+} from "../Components/MapLayers";
 
 // İki saf fonksiyon: harita, react-native-maps, render gerekmiyor.
 const GRI = "#6b7280", YESIL = "#22c55e", TURUNCU = "#f97316", KIRMIZI = "#f87171";
@@ -63,5 +65,32 @@ describe("parkingOccupancyText", () => {
     const bilinmeyen = { capacity: 40 };
     expect(prMarkerColor(bilinmeyen)).toBe(GRI);
     expect(parkingOccupancyText(bilinmeyen)).not.toMatch(/^Dolu/);
+  });
+});
+
+describe("yakindakiParklar", () => {
+  // Konak çevresi; ~111 m = 0.001 derece enlem.
+  const KONAK = { latitude: 38.4189, longitude: 27.1287 };
+  const yakin = { id: "y", lat: 38.4207, lon: 27.1287 };   // ~200 m
+  const uzak  = { id: "u", lat: 38.4639, lon: 27.2168 };   // Bornova, ~9 km
+
+  test("varış yoksa hiç pin çıkmıyor", () => {
+    // Şehrin tamamını pinlemek haritayı okunmaz hâle getiriyordu.
+    expect(yakindakiParklar([yakin, uzak], null)).toEqual([]);
+  });
+
+  test("yalnız varış çevresindekiler kalıyor", () => {
+    expect(yakindakiParklar([yakin, uzak], KONAK)).toEqual([yakin]);
+  });
+
+  test("yarıçap sınırı dahil", () => {
+    const sinirda = { id: "s", lat: 38.4189 + BISIKLET_PARK_YARICAP_M / 111320, lon: 27.1287 };
+    expect(yakindakiParklar([sinirda], KONAK)).toHaveLength(1);
+    expect(yakindakiParklar([sinirda], KONAK, 100)).toHaveLength(0);
+  });
+
+  test("boş liste ve tanımsız girdi patlamıyor", () => {
+    expect(yakindakiParklar([], KONAK)).toEqual([]);
+    expect(yakindakiParklar(undefined, KONAK)).toEqual([]);
   });
 });

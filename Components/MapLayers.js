@@ -3,6 +3,7 @@
 import { Alert, View, Text, StyleSheet } from "react-native";
 import { Callout, Circle, Marker, Polygon, Polyline } from "react-native-maps";
 import AppIcon from "./AppIcon";
+import { haversineMeters } from "../utils/geo";
 
 // Doluluk oranına göre otopark rengi: yeşil < %50, turuncu < %80, kırmızı üstü.
 // Doluluk BİLİNMİYORSA gri — kırmızı değil. 82 otoparkın yalnız 14'ünde sensör
@@ -98,6 +99,17 @@ const BIKE_PARK_VARIANT = {
   own: { color: "#94a3b8", title: "Bisiklet parkı",        hint: "Bisikletinizi kilitleyebilirsiniz" },
   pr:  { color: "#a78bfa", title: "Bisiklet park + aktarma", hint: "Buraya park edip toplu taşımaya geçebilirsiniz" },
 };
+
+// Park varış noktasında yapılır; şehrin tamamını pinlemek haritayı okunmaz
+// hâle getiriyordu. Varış seçilmemişse katman hiç çizilmez.
+export const BISIKLET_PARK_YARICAP_M = 400;
+
+export function yakindakiParklar(stations, merkez, yaricap = BISIKLET_PARK_YARICAP_M) {
+  if (!merkez) return [];
+  return (stations || []).filter(
+    (st) => haversineMeters({ latitude: st.lat, longitude: st.lon }, merkez) <= yaricap
+  );
+}
 
 export function BikeParkingMarkers({ stations, variant = "own" }) {
   const style = BIKE_PARK_VARIANT[variant] ?? BIKE_PARK_VARIANT.own;

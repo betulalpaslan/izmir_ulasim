@@ -16,7 +16,7 @@ const BILET_NOTU = {
   "binis-basi": "Kredi/banka kartında aktarma hakkı yok; her biniş ayrı ücretlenir.",
 };
 
-export default function RoutePanel({ routes, selectedIdx, onSelect, loading, error, notice, timeTip, origin, destination, originName, destName, onReset, bikeType, modBos, onAlternative }) {
+export default function RoutePanel({ routes, selectedIdx, onSelect, loading, error, notice, origin, destination, originName, destName, onReset, bikeType, modBos, onAlternative }) {
   const { theme } = useTheme();
   const [tercih, setTercih] = useState("recommended");
 
@@ -82,11 +82,6 @@ export default function RoutePanel({ routes, selectedIdx, onSelect, loading, err
             ? "Varış noktasını girin"
             : ""}
         </Text>
-        {timeTip ? (
-          <Text style={[s.timeTip, { color: theme.active, backgroundColor: theme.active + "12", borderColor: theme.active + "30" }]}>
-            {timeTip}
-          </Text>
-        ) : null}
       </View>
     );
   }
@@ -132,11 +127,6 @@ export default function RoutePanel({ routes, selectedIdx, onSelect, loading, err
 
     <ScrollView style={s.scroll} showsVerticalScrollIndicator={false} nestedScrollEnabled>
       {bilgiSeridi}
-      {timeTip ? (
-        <Text style={[s.timeTipTop, { color: theme.active, backgroundColor: theme.active + "12" }]}>
-          {timeTip}
-        </Text>
-      ) : null}
 
       {sirali.map(({ rota: r, idx: i }) => {
         const expanded = selectedIdx === i;
@@ -362,10 +352,6 @@ const s = StyleSheet.create({
                  paddingHorizontal: 11, paddingVertical: 8, marginBottom: 8,
                  borderRadius: 8, borderWidth: 1 },
   noticeText:  { flex: 1, fontSize: 12, fontWeight: "600", lineHeight: 16 },
-  timeTip: {
-    fontSize: 12, borderWidth: 1,
-    borderRadius: 8, padding: 8, lineHeight: 16,
-  },
   actionBtn: {
     borderWidth: 1, borderRadius: 9,
     paddingVertical: 8, alignItems: "center",
@@ -385,10 +371,6 @@ const s = StyleSheet.create({
 
   // Ana scroll — panel ekranın yarısını geçmesin diye ölçülü tutuluyor
   scroll:      { maxHeight: 200 },
-  timeTipTop: {
-    fontSize: 10, borderRadius: 7,
-    padding: 6, marginBottom: 6, lineHeight: 14,
-  },
 
   // Kart
   card: {
