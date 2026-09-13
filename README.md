@@ -26,8 +26,8 @@ React Native (Expo) · OpenTripPlanner 2.8.1 · Node.js/Express
 | **Canlı navigasyon** | Konum takibi, takip kamerası, adım adım yönlendirme, rota dışı algılama ve yeniden hesaplama |
 | **Akıllı rota sıralama** | Süre, yürüyüş mesafesi ve aktarma sayısını profil bazlı ağırlıklarla puanlar; Önerilen / En Hızlı / Az Aktarma / Az Yürüyüş olarak etiketler, liste aynı ölçülerle sıralanabilir |
 | **Gerçek ücret hesabı** | İzmirim Kart'ın 90 dakikalık aktarma hakkı ile kredi kartı tarifesi ayrı modellenir; 5 bilet türü, üstüne BİSİM'in dakikalık kiralama tarifesi |
-| **Harita katmanları** | BİSİM istasyonları, bisiklet parkları, kapalı/yeraltı otoparklar, doluluk oranına göre renklenen P+R noktaları |
-| **Adres arama** | Photon + Nominatim paralel sorgu, 250 ms bekleme, yakın sonuçların tekilleştirilmesi |
+| **Harita katmanları** | BİSİM hizmet alanı ve bonus bölgeleri, bisiklet parkları, kapalı/yeraltı otoparklar, doluluk oranına göre renklenen P+R noktaları |
+| **Adres arama** | Backend üzerinden Photon, sonuç yoksa Nominatim; 250 ms bekleme, İzmir'e ve duraklara yakınlığa göre sıralama, yakın sonuçların tekilleştirilmesi |
 | **Kişiselleştirme** | Kayıtlı adresler (Ev/İş/Okul/Alışveriş), son 20 rota geçmişi, açık/koyu tema, saat bağlamına göre ipuçları |
 
 Aynı puanlama ve ücret mantığını kullanan bir web arayüzü de var: [web/index.html](web/index.html).
@@ -107,18 +107,22 @@ Uygulama (Expo)                    Backend (Railway)
 ┌──────────────────────┐          ┌─────────────────────────┐
 │ Screens/  Components/│          │ Express :3000           │
 │ hooks/    utils/     │──REST───▶│  ├─ /get-route          │
-│ Services/            │          │  ├─ /bisim/gbfs/*       │
-└──────────┬───────────┘          │  └─ /parking/feed       │
-           │                      │         │ GraphQL       │
-           │ Photon / Nominatim   │  OpenTripPlanner :8080  │
-           └─ (doğrudan geocoding)│  (İzmir GTFS + graph)   │
+│ Services/            │          │  ├─ /bisim/stations     │
+└──────────────────────┘          │  ├─ /parking/*          │
+                                  │  └─ /geocode            │
+                                  │      ▲          │       │
+                                  │ feed'ler     GraphQL    │
+                                  │      │          ▼       │
+                                  │  OpenTripPlanner :8080  │
+                                  │  (İzmir GTFS + graph)   │
                                   └─────────────────────────┘
 ```
 
-Uygulama yalnızca REST konuşur; OTP'nin GraphQL katmanı backend'in içinde kalır.
-Backend, BİSİM verisini **GBFS 2.3** feed'ine, otopark verisini OTP'nin **PARK_API**
-biçimine çevirir; OTP bu feed'leri dakikada bir çekerek graph'ını canlı doluluk
-bilgisiyle günceller. P+R ve bisiklet-park güzergâhları bu sayede mümkün olur.
+Uygulama yalnızca backend'le REST konuşur; OTP'nin GraphQL katmanı, açık veri
+kaynakları ve adres araması backend'in arkasında kalır. Backend BİSİM bölge modelini
+**GBFS 2.3** feed'ine, otopark verisini OTP'nin **ParkAPI** biçimine çevirir; OTP bu
+feed'leri 1–5 dakikada bir kendisi çekerek graph'ını canlı doluluk bilgisiyle
+günceller. P+R ve bisiklet + toplu taşıma güzergâhları bu sayede mümkün olur.
 
 ### Katmanlar
 
@@ -127,7 +131,7 @@ bilgisiyle günceller. P+R ve bisiklet-park güzergâhları bu sayede mümkün o
 | `Screens/` | Ekranlar — durum yönetimi ve orkestrasyon |
 | `Components/` | Sunum bileşenleri: arama paneli, rota kartları, harita katmanları, navigasyon paneli |
 | `hooks/` | Yan etkiler: rota arama, konum takibi, navigasyon ilerlemesi, ayarlar |
-| `Services/` | Ağ çağrıları: backend, Overpass, geocoding |
+| `Services/` | Backend istemcisi: rota, BİSİM, otopark ve adres araması; hata sınıflandırması (`apiClient`) |
 | `utils/` | **Saf mantık** — rota puanlama, ücret, navigasyon matematiği, geometri, tema |
 | `__tests__/` | Jest testleri |
 
@@ -256,11 +260,11 @@ artık *erişim aracıdır*, yolculuğun kendisi değil.
 npm test
 ```
 
-**260 test, 18 paket:** geometri ve biçimlendirme, polyline çözümleme, navigasyon
+**335 test, 20 paket:** geometri ve biçimlendirme, polyline çözümleme, navigasyon
 ilerlemesi ve rota dışı algılama, rota puanlama/eleme/ücret, rota arama akışı,
 başlangıç/varış yönetimi, geocoding servisi, API istemcisi ve hata sınıflandırması,
-ikon sözlüğü, harita katmanları ve işaretçileri, tema, ayarlar, kayıtlı yerler,
-saat bağlamı, hata sınırı.
+ikon sözlüğü, arama paneli, rota kartları, harita katmanları ve işaretçileri, tema,
+ayarlar, kayıtlı yerler, saat bağlamı, hata sınırı.
 
 Testler saf mantığa odaklanır; ağ, harita ve depolama katmanları kapsam dışıdır.
 Gerçek graph'a soran davranış matrisi ayrıdır ve backend deposunda yaşar
@@ -270,19 +274,21 @@ Yukarıdaki ölçülmüş kararların çoğu teste bağlanmıştır — örneği
 "1 saat 92,50 ₺" değeri, açılış bloğunun ilk 5 dakikayı kapsadığını doğrulayan bir
 testtir; blok üstüne 60 dakika sayılsaydı 100,00 ₺ çıkardı.
 
-Manuel test senaryoları için: [STD_İzmir_Ulasim.md](STD_İzmir_Ulasim.md) (Yazılım Test Belgesi,
-17 işlevsel özellik grubu için kara kutu senaryoları).
-
 ---
 
 ## Veri kaynakları
 
+Uygulama bu kaynaklara doğrudan değil, backend üzerinden erişir (web arayüzünde
+haritaya tıklanınca adres gösteren ters arama hariç).
+
 | Kaynak | Kullanım |
 |--------|----------|
 | İzmir GTFS | OTP graph'ı — hat, durak ve sefer verisi |
-| İZULAŞ BİSİM API | Bisiklet paylaşım istasyonları ve doluluk (GBFS'e çevrilir) |
-| İZELMAN / İZUM API | Otopark kapasitesi ve doluluk (PARK_API'ye çevrilir) |
+| BİSİM bölge verisi ve açık veri bisiklet yolları | BİSİM hizmet alanı ve bonus bölgeleri (GBFS'e çevrilir) |
+| İzmir Açık Veri (CKAN) | Otopark envanteri: konum ve kapasite |
+| İZELMAN / İZUM API | Otopark doluluğu (ParkAPI'ye çevrilir) |
 | OpenStreetMap (Overpass) | Bisiklet parkları, kapalı/yeraltı otoparklar |
 | Photon / Nominatim | Adres arama ve otomatik tamamlama |
 
-Tüm kaynaklar herkese açık ve kimlik doğrulaması gerektirmez.
+Tüm kaynaklar herkese açık ve kimlik doğrulaması gerektirmez. Tek anahtar, Android'de
+harita çizimi için gereken Google Maps anahtarıdır (bkz. Ortam değişkenleri).
