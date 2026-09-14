@@ -6,6 +6,8 @@ güzergâhlarını tek arayüzde birleştirir; BİSİM bisiklet paylaşım siste
 
 React Native (Expo) · OpenTripPlanner 2.8.1 · Node.js/Express
 
+Backend ayrı bir depodadır: [izmir_ulasim_backend](https://github.com/betulalpaslan/izmir_ulasim_backend).
+
 <!-- EKRAN GÖRÜNTÜLERİ
      docs/ekran-goruntuleri/ altına üç PNG koyup aşağıdaki tabloyu yorumdan
      çıkarın. Önerilen üçlü: (1) rota sonuç kartları, (2) harita üzerinde
