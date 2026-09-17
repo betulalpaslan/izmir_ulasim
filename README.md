@@ -17,13 +17,13 @@ Backend ayrı bir depodadır: [izmir_ulasim_backend](https://github.com/betulalp
   </tr>
   <tr>
     <td><img width="220" alt="BİSİM modunda hizmet alanı ve Konak İskele bonus bölgesi" src="https://github.com/user-attachments/assets/3a4f88c3-36f8-444f-b761-2dfa57116dff"></td>
-    <td><img width="220" alt="Etiketli rota kartı; bilet ve BİSİM kiralaması ayrı kalem" src="https://github.com/user-attachments/assets/35060c7d-8532-403a-a4e7-fdf68c44a1e8"></td>
-    <td><img width="220" alt="Kendi bisikletiyle M1 metroya binen güzergâhın bacakları" src="https://github.com/user-attachments/assets/646808ec-792c-4762-b3cc-971e874f7355"></td>
+    <td><img width="220" alt="Etiketli rota kartı; bilet ve BİSİM kiralaması" src="https://github.com/user-attachments/assets/35060c7d-8532-403a-a4e7-fdf68c44a1e8"></td>
+    <td><img width="220" alt="Kişisel bisikletle M1 metroya binilen güzergâh" src="https://github.com/user-attachments/assets/646808ec-792c-4762-b3cc-971e874f7355"></td>
   </tr>
   <tr>
     <td><sub>Hizmet alanı ve bırakınca bonus<br>kazandıran bölgeler</sub></td>
-    <td><sub>Etiketler, özet ve kalem kalem ücret:<br>bilet + BİSİM kiralaması</sub></td>
-    <td><sub>Bisiklet yanına alınarak M1'e binilen<br>güzergâh, bacak bacak</sub></td>
+    <td><sub>Etiketler, özet ve ücret:<br>bilet + BİSİM kiralaması</sub></td>
+    <td><sub>Bisikletle metroya binilebilnen<br>güzergâh</sub></td>
   </tr>
 </table>
 <table>
@@ -37,7 +37,7 @@ Backend ayrı bir depodadır: [izmir_ulasim_backend](https://github.com/betulalp
   </tr>
   <tr>
     <td><sub>Otoparkın canlı doluluğu ve yakınındaki<br>metro, tramvay, tren bağlantısı</sub></td>
-    <td><sub>Sıradaki adım, sonraki bacak<br>ve kalan süre</sub></td>
+    <td><sub>Navigasyon Ekranı</sub></td>
   </tr>
 </table>
 </div>
