@@ -1,6 +1,3 @@
-
-
-
 # İzmir Ulaşım
 
 İzmir için çok modlu ulaşım navigasyon uygulaması. Toplu taşıma, bisiklet ve araç
@@ -11,13 +8,41 @@ React Native (Expo) · OpenTripPlanner 2.8.1 · Node.js/Express
 
 Backend ayrı bir depodadır: [izmir_ulasim_backend](https://github.com/betulalpaslan/izmir_ulasim_backend).
 
-<img width="233" height="491" alt="Ekran görüntüsü 2026-09-16 224526" src="https://github.com/user-attachments/assets/35060c7d-8532-403a-a4e7-fdf68c44a1e8" />
-<img width="230" height="491" alt="Ekran görüntüsü 2026-09-16 224348" src="https://github.com/user-attachments/assets/646808ec-792c-4762-b3cc-971e874f7355" />
-<img width="230" height="491" alt="Ekran görüntüsü 2026-09-16 231117" src="https://github.com/user-attachments/assets/3a4f88c3-36f8-444f-b761-2dfa57116dff" />
-<img width="230" height="494" alt="Ekran görüntüsü 2026-09-16 231009" src="https://github.com/user-attachments/assets/21c34fc1-0d6e-4630-85be-e0e4061515f6" />
-<img width="233" height="490" alt="Ekran görüntüsü 2026-09-16 230946" src="https://github.com/user-attachments/assets/8c2e4f67-c3b1-4593-b339-267ae9ee4b8b" />
+<div align="center">
+<table>
+  <tr>
+    <th>BİSİM bonus bölgeleri</th>
+    <th>Rota kartı ve ücret</th>
+    <th>Bisiklet metroda</th>
+  </tr>
+  <tr>
+    <td><img width="220" alt="BİSİM modunda hizmet alanı ve Konak İskele bonus bölgesi" src="https://github.com/user-attachments/assets/3a4f88c3-36f8-444f-b761-2dfa57116dff"></td>
+    <td><img width="220" alt="Etiketli rota kartı; bilet ve BİSİM kiralaması ayrı kalem" src="https://github.com/user-attachments/assets/35060c7d-8532-403a-a4e7-fdf68c44a1e8"></td>
+    <td><img width="220" alt="Kendi bisikletiyle M1 metroya binen güzergâhın bacakları" src="https://github.com/user-attachments/assets/646808ec-792c-4762-b3cc-971e874f7355"></td>
+  </tr>
+  <tr>
+    <td><sub>Hizmet alanı ve bırakınca bonus<br>kazandıran bölgeler</sub></td>
+    <td><sub>Etiketler, özet ve kalem kalem ücret:<br>bilet + BİSİM kiralaması</sub></td>
+    <td><sub>Bisiklet yanına alınarak M1'e binilen<br>güzergâh, bacak bacak</sub></td>
+  </tr>
+</table>
+<table>
+  <tr>
+    <th>Park & Ride</th>
+    <th>Canlı navigasyon</th>
+  </tr>
+  <tr>
+    <td><img width="220" alt="Park+Taşı modunda otopark doluluğu ve yakın raylı sistemler" src="https://github.com/user-attachments/assets/8c2e4f67-c3b1-4593-b339-267ae9ee4b8b"></td>
+    <td><img width="220" alt="Otoparka sürüş adımında navigasyon paneli" src="https://github.com/user-attachments/assets/21c34fc1-0d6e-4630-85be-e0e4061515f6"></td>
+  </tr>
+  <tr>
+    <td><sub>Otoparkın canlı doluluğu ve yakınındaki<br>metro, tramvay, tren bağlantısı</sub></td>
+    <td><sub>Sıradaki adım, sonraki bacak<br>ve kalan süre</sub></td>
+  </tr>
+</table>
+</div>
 
-
+---
 
 ## Özellikler
 
