@@ -21,9 +21,9 @@ Backend ayrı bir depodadır: [izmir_ulasim_backend](https://github.com/betulalp
     <td><img width="220" alt="Kişisel bisikletle M1 metroya binilen güzergâh" src="https://github.com/user-attachments/assets/646808ec-792c-4762-b3cc-971e874f7355"></td>
   </tr>
   <tr>
-    <td><sub>Hizmet alanı ve bırakınca bonus<br>kazandıran bölgeler</sub></td>
+    <td><sub>Hizmet alanı ve bisim bisikletini bırakınca bonus<br>kazandıran bölgeler</sub></td>
     <td><sub>Etiketler, özet ve ücret:<br>bilet + BİSİM kiralaması</sub></td>
-    <td><sub>Bisikletle metroya binilebilnen<br>güzergâh</sub></td>
+    <td><sub>Bisikletle metroya binilebilen<br>güzergâh</sub></td>
   </tr>
 </table>
 <table>
