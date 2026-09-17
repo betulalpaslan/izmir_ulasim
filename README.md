@@ -1,3 +1,6 @@
+
+
+
 # İzmir Ulaşım
 
 İzmir için çok modlu ulaşım navigasyon uygulaması. Toplu taşıma, bisiklet ve araç
@@ -8,17 +11,13 @@ React Native (Expo) · OpenTripPlanner 2.8.1 · Node.js/Express
 
 Backend ayrı bir depodadır: [izmir_ulasim_backend](https://github.com/betulalpaslan/izmir_ulasim_backend).
 
-<!-- EKRAN GÖRÜNTÜLERİ
-     docs/ekran-goruntuleri/ altına üç PNG koyup aşağıdaki tabloyu yorumdan
-     çıkarın. Önerilen üçlü: (1) rota sonuç kartları, (2) harita üzerinde
-     çizili çok modlu güzergâh, (3) BİSİM hizmet alanı katmanı.
+<img width="233" height="491" alt="Ekran görüntüsü 2026-09-16 224526" src="https://github.com/user-attachments/assets/35060c7d-8532-403a-a4e7-fdf68c44a1e8" />
+<img width="230" height="491" alt="Ekran görüntüsü 2026-09-16 224348" src="https://github.com/user-attachments/assets/646808ec-792c-4762-b3cc-971e874f7355" />
+<img width="230" height="491" alt="Ekran görüntüsü 2026-09-16 231117" src="https://github.com/user-attachments/assets/3a4f88c3-36f8-444f-b761-2dfa57116dff" />
+<img width="230" height="494" alt="Ekran görüntüsü 2026-09-16 231009" src="https://github.com/user-attachments/assets/21c34fc1-0d6e-4630-85be-e0e4061515f6" />
+<img width="233" height="490" alt="Ekran görüntüsü 2026-09-16 230946" src="https://github.com/user-attachments/assets/8c2e4f67-c3b1-4593-b339-267ae9ee4b8b" />
 
-| Rota seçenekleri | Harita | BİSİM katmanı |
-|---|---|---|
-| <img src="docs/ekran-goruntuleri/rotalar.png" width="240"> | <img src="docs/ekran-goruntuleri/harita.png" width="240"> | <img src="docs/ekran-goruntuleri/bisim.png" width="240"> |
--->
 
----
 
 ## Özellikler
 
@@ -29,7 +28,7 @@ Backend ayrı bir depodadır: [izmir_ulasim_backend](https://github.com/betulalp
 | **Akıllı rota sıralama** | Süre, yürüyüş mesafesi ve aktarma sayısını profil bazlı ağırlıklarla puanlar; Önerilen / En Hızlı / Az Aktarma / Az Yürüyüş olarak etiketler, liste aynı ölçülerle sıralanabilir |
 | **Gerçek ücret hesabı** | İzmirim Kart'ın 90 dakikalık aktarma hakkı ile kredi kartı tarifesi ayrı modellenir; 5 bilet türü, üstüne BİSİM'in dakikalık kiralama tarifesi |
 | **Harita katmanları** | BİSİM hizmet alanı ve bonus bölgeleri, bisiklet parkları, kapalı/yeraltı otoparklar, doluluk oranına göre renklenen P+R noktaları |
-| **Adres arama** | Backend üzerinden Photon, sonuç yoksa Nominatim; 250 ms bekleme, İzmir'e ve duraklara yakınlığa göre sıralama, yakın sonuçların tekilleştirilmesi |
+| **Adres arama** | Backend üzerinden Photon, sonuç yoksa Nominatim, İzmir'e ve duraklara yakınlığa göre sıralama, yakın sonuçların tekilleştirilmesi |
 | **Kişiselleştirme** | Kayıtlı adresler (Ev/İş/Okul/Alışveriş), son 20 rota geçmişi, açık/koyu tema, saat bağlamına göre ipuçları |
 
 Aynı puanlama ve ücret mantığını kullanan bir web arayüzü de var: [web/index.html](web/index.html).
@@ -66,7 +65,7 @@ derleme istemez. Mobil ile aynı puanlamayı ve aynı tarifeyi kullanır.
 python -m http.server 8000        # DEPO KÖKÜNDEN, web/ içinden değil
 ```
 
-Sonra `http://localhost:8000/web/` adresini aç.
+Sonra `http://localhost:8000/web/` adresini açın.
 
 **Sunucu kökü depo kökü olmalı.** Sayfa `../utils/routeScoring.js`'i import
 ediyor; `-d web` ile açarsan `utils/` sunucunun dışında kalır ve modüller 404
@@ -236,23 +235,6 @@ geçiyor ve gerçek P+R güzergâhlarını eliyordu (Narlıdere → Çiğli 200 
 reddediliyordu). Transit ≥ 2 km olan 30 güzergâhın transit/araç oranı sıralandığında
 0,17 ile 0,38 arasında boşluk var; eşik o boşluğun ortasına (0,3) kondu. Boş sonuç
 veren senaryo 5'ten 4'e indi, çalışan senaryolarda hiçbir hızlı kart kaybolmadı.
-
-**Karbon etiketi ölçülemediği için kaldırıldı.** "Çevreci" etiketi işini
-görüyordu — 31 senaryonun 17'sinde göründü, 12'sinde Önerilen'den farklı bir kart
-işaret etti (ortanca kazanç 490 g CO₂, bedeli ortanca +8 dk). Sorun ayırt etmesi
-değil, neye dayanarak ayırt ettiğiydi: `CARBON_G_PER_KM` bu depodaki tek kaynaksız
-sabit grubuydu. İzmir Büyükşehir'in açık verisi yalnız metro ve tramvayı kapsıyor,
-üstelik güzergâhlarda en az geçen ikisi onlar (otobüs n=90, İZBAN n=60'a karşı
-metro n=27, tramvay n=22) — yani karttaki gramın büyük kısmının dayanağı yoktu.
-Kaynaklı iki mod da 2023-05'teki yeşil elektrik geçişiyle 405 → 1,4 g/yolculuk'a
-düştü, yani ölçülebilen her şey bugün ≈ 0 ve ayrımı yapan sayıların tamamı
-tahminiydi. Hesap (`calcCarbonGrams`) kodda duruyor; eksik olan otobüs, İZBAN ve
-otomobil için kaynaklı katsayı.
-
-**Düz bisiklet modu ölçümle kaldırıldı.** Baştan sona sürüş, Narlıdere → Çiğli'de
-tek kart üretiyordu: 137 dakika, 33,5 km kesintisiz. Ayrıca `direct` bacaklar
-aktarmalı adayları listeden dışarı itiyordu. Her iki bisiklet modunda da bisiklet
-artık *erişim aracıdır*, yolculuğun kendisi değil.
 
 ---
 
