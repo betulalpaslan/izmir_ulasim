@@ -1225,9 +1225,38 @@
 
     LucideIkon.ciz(document);
 
-    const API_BASE = new URLSearchParams(location.search).get("api")
-      || "http://localhost:3000";
+    // ?api= sayfanın TÜM verisini o adresten almasını sağlıyor: keyfi bir
+    // adrese izin vermek, bağlantıyı açan kişiye saldırganın döndürdüğü
+    // içeriği göstermek demek (adlar aşağıda HTML'e giriyor). Bu yüzden
+    // yalnız canlı arka uç ve yerel geliştirme adresleri kabul edilir.
+    const VARSAYILAN_API = "http://localhost:3000";
+    const CANLI_API = "https://izmirbackend-production.up.railway.app";
+
+    function apiAdresi() {
+      const istenen = (new URLSearchParams(location.search).get("api") || "").replace(/\/+$/, "");
+      if (!istenen) return VARSAYILAN_API;
+      try {
+        const u = new URL(istenen);
+        const yerel = u.hostname === "localhost" || u.hostname === "127.0.0.1";
+        if (istenen === CANLI_API || yerel) return istenen;
+      } catch {
+        // Adres ayrıştırılamadı (ör. "javascript:...") — varsayılana düş.
+      }
+      console.warn("?api= yok sayıldı, izin listesinde değil:", istenen);
+      return VARSAYILAN_API;
+    }
+
+    const API_BASE = apiAdresi();
     const API_URL = `${API_BASE}/get-route`;
+
+    // Dış kaynaklı metin HTML'e gömülmeden önce buradan geçer. Yer adları
+    // OSM'den geliyor (Photon/Nominatim, OSM bisiklet parkları) ve OSM'i
+    // herkes düzenleyebilir: kaçışsız yazıldığında bir yer adı
+    // <img src=x onerror=...> olabilir ve bu sayfada çalışır. Geçmiş
+    // localStorage'a yazıldığı için de sayfa her açıldığında tekrarlardı.
+    // İKON çıktısı (ikon(...)) kasten kaçışsız kalır: o bizim ürettiğimiz SVG.
+    const KACIS_TABLOSU = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
+    const kacis = (deger) => String(deger ?? "").replace(/[&<>"']/g, (k) => KACIS_TABLOSU[k]);
 
     // ── HARİTA ──
     const map = L.map("map").setView([38.4189, 27.1287], 13);
@@ -1380,8 +1409,8 @@
         div.innerHTML = `
           <span class="ac-icon">${getPlaceIcon()}</span>
           <div>
-            <div class="ac-name">${name}</div>
-            <div class="ac-detail">${detail}</div>
+            <div class="ac-name">${kacis(name)}</div>
+            <div class="ac-detail">${kacis(detail)}</div>
           </div>
         `;
         div.onclick = () => onSelect(item);
@@ -1915,9 +1944,9 @@
         card.innerHTML = `
           <div class="leg-icon" style="background:${color}22; color:${color}; font-size:16px;">${icon}</div>
           <div class="leg-content">
-            <div class="leg-mode" style="color:${color};">${label}${routeName}</div>
-            <div class="leg-route">${akis}</div>
-            <div class="leg-hint">${adim.detail}</div>
+            <div class="leg-mode" style="color:${color};">${kacis(label)}${kacis(routeName)}</div>
+            <div class="leg-route">${kacis(akis)}</div>
+            <div class="leg-hint">${kacis(adim.detail)}</div>
           </div>
           <div class="leg-dur">${legMins}dk</div>
         `;
@@ -1955,8 +1984,8 @@
           car: `${ikon("car")} Araba`, park_and_ride: `${ikon("parking")} Park + Devam`,
         };
         el.innerHTML = `<div class="hist-section"><div class="hist-title">Son Rotalar</div>` +
-          hist.map(h => `<div class="hcard"><span class="hroute">${h.orig} → ${h.dest}</span>` +
-            `<br><span class="hmeta">${h.dur} dk · ${MODLAR[h.mode] || h.mode} · ${h.date}</span></div>`).join("") +
+          hist.map(h => `<div class="hcard"><span class="hroute">${kacis(h.orig)} → ${kacis(h.dest)}</span>` +
+            `<br><span class="hmeta">${kacis(h.dur)} dk · ${MODLAR[h.mode] || kacis(h.mode)} · ${kacis(h.date)}</span></div>`).join("") +
           `</div>`;
       } catch { el.innerHTML = ""; }
     }
@@ -2150,7 +2179,7 @@
         const dolulukSatiri = dolulukVar
           ? `<div class="bp-row">
                <span class="bp-label">Boş yer</span>
-               <span class="bp-val" style="color:${color}">${p.free} / ${p.capacity}</span>
+               <span class="bp-val" style="color:${color}">${kacis(p.free)} / ${kacis(p.capacity)}</span>
              </div>
              <div class="bp-bar"><div class="bp-fill" style="width:${pct}%; background:${color}"></div></div>`
           : `<div class="bp-row">
@@ -2158,12 +2187,12 @@
                <span class="bp-val" style="opacity:.7">yayınlanmıyor</span>
              </div>` +
           (p.capacity
-            ? `<div class="bp-row"><span class="bp-label">Kapasite</span><span class="bp-val">${p.capacity}</span></div>`
+            ? `<div class="bp-row"><span class="bp-label">Kapasite</span><span class="bp-val">${kacis(p.capacity)}</span></div>`
             : "");
         return L.marker([p.lat, p.lon], { icon: parkingIcon(p.free, p.capacity) })
           .bindPopup(`
             <div class="bisim-popup">
-              <div class="bp-name">${ikon("parking")} ${p.name}</div>
+              <div class="bp-name">${ikon("parking")} ${kacis(p.name)}</div>
               <div class="bp-row">
                 <span class="bp-label">Tip</span>
                 <span class="bp-val">${p.type === "OffStreet" ? "Katlı" : "Yol kenarı"}</span>
@@ -2248,8 +2277,8 @@
           nesneler.push(
             L.marker([b.lat, b.lon], { icon: noktaIkonu(BISIM_YESIL, ikon("bike"), 22, "#ffffff") }).bindPopup(
               `<div class="bisim-popup">
-                 <div class="bp-name">${ikon("bike")} ${b.ad}</div>
-                 <div class="bp-row"><span class="bp-label">İlçe</span><span class="bp-val">${b.ilce}</span></div>
+                 <div class="bp-name">${ikon("bike")} ${kacis(b.ad)}</div>
+                 <div class="bp-row"><span class="bp-label">İlçe</span><span class="bp-val">${kacis(b.ilce)}</span></div>
                  <div style="font-size:12px; color:#7a739a; margin-top:6px; line-height:1.5">
                    Bırakınca <b>bonus</b> kazandıran bölge.
                    ${yaklasikKonum ? "<br><span style='opacity:.7'>Konumu yaklaşık.</span>" : ""}
@@ -2280,7 +2309,7 @@
         .map((x) =>
           L.marker([x.lat, x.lon], { icon: noktaIkonu("#f97316", ikon("parking")) }).bindPopup(
             `<div class="bisim-popup">
-               <div class="bp-name">${ikon("parking")} ${x.name || "Bisiklet parkı"}</div>
+               <div class="bp-name">${ikon("parking")} ${kacis(x.name || "Bisiklet parkı")}</div>
                <div style="font-size:12px; color:#7a739a; line-height:1.5">
                  Bisikletini buraya kilitleyip toplu taşımaya geçebilirsin.
                </div>
