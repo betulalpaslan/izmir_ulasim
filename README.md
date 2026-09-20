@@ -109,9 +109,20 @@ Güvenlik gereği `?api=` yalnız canlı adresi ve `localhost`/`127.0.0.1`
 kabul eder: sayfa dönen veriyi ekrana basıyor, keyfi bir adrese izin vermek
 bağlantıyı açan kişiye başkasının içeriğini göstermek olurdu.
 
+**Sunucu kapalıyken.** Sayfa açılışta arka ucu yokluyor; ulaşamazsa *örnek veri*
+moduna geçer ve [web/ornek-veri/](web/ornek-veri/) altındaki, daha önce gerçek
+sunucudan kaydedilmiş yanıtlarla dört hazır yolculuğu sunar (21 Eylül 2026
+Pazartesi 08:00 kaydı): BİSİM, bisikletim, Park & Ride ve düz toplu taşıma.
+Puanlama, eleme, ücret hesabı ve harita çizimi canlıdaki kodun **aynısıyla**
+çalışır — sabitlenen tek şey sunucunun döndürdüğü ham yanıttır.
+
+Bu modda serbest adres araması ve haritadan nokta seçme kapalıdır: rastgele iki
+nokta için kayıtlı bir cevabı çizmek kullanıcıya yalan olurdu. Ekranın üstünde
+durumu söyleyen bir şerit durur, yani örnek veri canlı veriyle karıştırılamaz.
+
 | Gereksinim | Neden |
 |------------|-------|
-| İnternet | Rota, BİSİM ve otopark verisi canlı backend'den; Leaflet ve polyline çözücü unpkg'den gelir |
+| İnternet | Leaflet ve polyline çözücü unpkg'den gelir. Canlı veri için ayrıca ayakta bir backend gerekir; yoksa sayfa örnek veri moduna düşer |
 | Depo kökünden sunucu | Sayfa `utils/`'i modül olarak çeker; `file://` ve `-d web` çalışmaz |
 
 > `npm run web` **bu sayfa değildir** — o komut Expo'nun React Native

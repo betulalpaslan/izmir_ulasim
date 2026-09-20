@@ -1013,6 +1013,17 @@
 
     <div class="sidebar-body">
 
+      <!-- ÖRNEK VERİ — canlı arka uca ulaşılamadığında görünür -->
+      <div id="ornekSerit" style="display:none; margin-bottom:12px; padding:10px 12px;
+           border:1px solid #f59e0b; border-radius:10px; background:rgba(245,158,11,0.10);
+           font-size:12px; line-height:1.5; color:var(--text);">
+        <b>Örnek veri</b> — canlı sunucuya ulaşılamadı. Aşağıdaki yolculuklar
+        21 Eylül 2026 Pazartesi 08:00'de gerçek sunucudan kaydedildi. Puanlama,
+        eleme ve ücret hesabı canlıdaki kodun aynısıyla çalışıyor; sabit olan
+        yalnız sunucunun döndürdüğü ham yanıt.
+      </div>
+      <div id="ornekSenaryolar" style="display:none; margin-bottom:16px;"></div>
+
       <!-- GÜZERGAH ARAMA -->
       <div>
         <div class="section-title">Güzergah</div>
@@ -1252,6 +1263,50 @@
     const API_BASE = apiAdresi();
     const API_URL = `${API_BASE}/get-route`;
 
+    // ── ÖRNEK VERİ MODU ───────────────────────────────────────────────
+    // Arka uç kapalıyken sayfa boş bir harita göstermek yerine, daha önce
+    // gerçek sunucudan kaydedilmiş yanıtlarla çalışır. Çizim, puanlama,
+    // eleme, ücret — hepsi canlıdaki kodun aynısı; sabitlenen tek şey
+    // sunucunun ham yanıtı. Bu yüzden serbest arama kapatılır: rastgele
+    // iki nokta için kayıtlı bir cevabı göstermek kullanıcıya yalan olurdu.
+    const ORNEK_DIZIN = "ornek-veri";
+    let ornekModu = false;
+    let aktifSenaryo = null;
+
+    const ORNEK_SENARYOLAR = [
+      { ad: "bisim", nereden: "Konak İskele", nereye: "Alsancak Garı",
+        etiket: "BİSİM + aktarma", profil: "bicycle", bisiklet: "RENT",
+        from: [38.4192, 27.1287], to: [38.4394, 27.1442] },
+      { ad: "bisikletim", nereden: "Narlıdere", nereye: "Çiğli",
+        etiket: "Bisikletim + aktarma", profil: "bicycle", bisiklet: "PARK",
+        from: [38.3936, 27.0055], to: [38.4950, 27.0700] },
+      { ad: "park-et-bin", nereden: "Karşıyaka", nereye: "Bornova",
+        etiket: "Park & Ride", profil: "car", araba: "PARK_RIDE",
+        from: [38.4560, 27.1180], to: [38.4680, 27.2200] },
+      { ad: "toplu-tasima", nereden: "Narlıdere", nereye: "Çiğli",
+        etiket: "Toplu taşıma", profil: "transit",
+        from: [38.3936, 27.0055], to: [38.4950, 27.0700] },
+    ];
+
+    const ORNEK_UCLAR = [
+      [/\/get-route$/,        () => `${ORNEK_DIZIN}/${aktifSenaryo || "toplu-tasima"}.json`],
+      [/\/bisim\/stations/,   () => `${ORNEK_DIZIN}/bisim-bolgeler.json`],
+      [/\/parking\/stations/, () => `${ORNEK_DIZIN}/otoparklar.json`],
+      [/\/parking\/otp-lots/, () => `${ORNEK_DIZIN}/bisiklet-park-otp.json`],
+    ];
+
+    // Tüm arka uç çağrıları buradan geçer. Örnek modda gerçek bir Response
+    // döndürdüğü için çağrı yerlerinin (res.ok / res.json) değişmesi gerekmez.
+    async function veriAl(url, secenekler) {
+      if (!ornekModu) return fetch(url, secenekler);
+      for (const [kalip, dosya] of ORNEK_UCLAR) {
+        if (kalip.test(url)) return fetch(dosya());
+      }
+      // Örnek veride karşılığı olmayan uç (ör. /geocode): uydurmak yerine hata.
+      return new Response(JSON.stringify({ error: "Bu uç örnek veride yok." }),
+        { status: 503, headers: { "Content-Type": "application/json" } });
+    }
+
     // Dış kaynaklı metin HTML'e gömülmeden önce buradan geçer. Yer adları
     // OSM'den geliyor (Photon/Nominatim, OSM bisiklet parkları) ve OSM'i
     // herkes düzenleyebilir: kaçışsız yazıldığında bir yer adı
@@ -1385,7 +1440,7 @@
     }
 
     async function searchAddress(query) {
-      const res = await fetch(`${GEOCODE_API}?q=${encodeURIComponent(query)}`);
+      const res = await veriAl(`${GEOCODE_API}?q=${encodeURIComponent(query)}`);
       if (!res.ok) throw new Error(`arama başarısız: HTTP ${res.status}`);
       const data = await res.json();
       // Backend {place_id, lat, lon, display_name} döndürüyor; bu arayüz
@@ -1502,6 +1557,12 @@
 
     // ── HARİTA TIKLAMA (fallback) ──
     map.on("click", async e => {
+      // Örnek modda yanıtlar sabit. Rastgele tıklanan iki nokta için başka
+      // bir yolculuğun kayıtlı cevabını çizmek kullanıcıya yalan olurdu.
+      if (ornekModu) {
+        setStatus("Örnek veri modunda harita seçimi kapalı — listeden bir yolculuk seçin.", "alert");
+        return;
+      }
       // Hangi alan boşsa onu doldur
       const idx = points[0] === null ? 0 : (points[1] === null ? 1 : -1);
       if (idx === -1) return; // ikisi de doluysa tıklama devre dışı
@@ -1702,7 +1763,7 @@
       };
 
       try {
-        const res = await fetch(API_URL, {
+        const res = await veriAl(API_URL, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload)
@@ -2065,6 +2126,68 @@
     updateProfileFlow();
     setStatus("Başlangıç ve varış noktası girin.", "mapPin");
 
+    // ── ÖRNEK VERİ MODUNU KUR ─────────────────────────────────────────
+    async function ornekModunuBaslat() {
+      try {
+        const iptal = new AbortController();
+        const zaman = setTimeout(() => iptal.abort(), 4000);
+        const r = await fetch(`${API_BASE}/health`, { signal: iptal.signal });
+        clearTimeout(zaman);
+        if (r.ok) return;              // canlı arka uç ayakta, değişen bir şey yok
+      } catch { /* ulaşılamadı — aşağıda örnek moda geçiliyor */ }
+
+      ornekModu = true;
+      document.getElementById("ornekSerit").style.display = "block";
+
+      // Serbest arama örnek veriyle karşılanamaz. Çalışmayan bir kutuyu açık
+      // bırakmaktansa kapatmak dürüst: kullanıcı neden olmadığını görüyor.
+      for (const id of ["fromInput", "toInput"]) {
+        const el = document.getElementById(id);
+        el.disabled = true;
+        el.placeholder = "Örnek modda adres araması kapalı";
+      }
+      document.getElementById("gpsBtn").disabled = true;
+      document.getElementById("searchBtn").disabled = true;
+
+      const kap = document.getElementById("ornekSenaryolar");
+      kap.style.display = "block";
+      kap.innerHTML = '<div class="section-title">Örnek yolculuklar</div>';
+      for (const senaryo of ORNEK_SENARYOLAR) {
+        const dugme = document.createElement("button");
+        dugme.className = "small-btn";
+        dugme.style.cssText =
+          "display:block; width:100%; text-align:left; margin-bottom:6px; padding:9px 11px;";
+        dugme.innerHTML =
+          `<b>${senaryo.nereden} &rarr; ${senaryo.nereye}</b>` +
+          `<br><span style="opacity:.7">${senaryo.etiket}</span>`;
+        dugme.addEventListener("click", () => senaryoyuUygula(senaryo));
+        kap.appendChild(dugme);
+      }
+      setStatus("Bir örnek yolculuk seçin.", "mapPin");
+    }
+
+    function senaryoyuUygula(senaryo) {
+      // Sıra önemli: profil sekmesi ve mod düğmeleri tıklanınca noktalar
+      // doluysa kendiliğinden yeniden arıyorlar. Bu yüzden önce senaryo ve
+      // işaretçiler yerine konur; ara istek de doğru yolculuğu çizer.
+      aktifSenaryo = senaryo.ad;
+      document.getElementById("fromInput").value = senaryo.nereden;
+      document.getElementById("toInput").value = senaryo.nereye;
+      placeMarker(0, L.latLng(senaryo.from[0], senaryo.from[1]));
+      placeMarker(1, L.latLng(senaryo.to[0], senaryo.to[1]));
+
+      document.querySelector(`.profile-tab[data-profile="${senaryo.profil}"]`)?.click();
+      if (senaryo.bisiklet)
+        document.querySelector(`.seg-btn[data-bike="${senaryo.bisiklet}"]`)?.click();
+      if (senaryo.araba)
+        document.querySelector(`.seg-btn.car-seg[data-cartype="${senaryo.araba}"]`)?.click();
+
+      map.fitBounds(L.latLngBounds([senaryo.from, senaryo.to]).pad(0.3));
+      fetchRoute();
+    }
+
+    ornekModunuBaslat();
+
     function noktaIkonu(renk, simge, boyut = 22, dolgu = "#1d1a33") {
       const simgeRengi = renk;
       return L.divIcon({
@@ -2166,7 +2289,7 @@
       dugme: "parkingToggle",
       sayac: "parkingCount",
       yukleyici: async () => {
-        const res = await fetch(PARKING_API + (otoparkKapsami === "tumu" ? "?kapsam=tumu" : ""));
+        const res = await veriAl(PARKING_API + (otoparkKapsami === "tumu" ? "?kapsam=tumu" : ""));
         if (!res.ok) throw new Error("HTTP " + res.status);
         return (await res.json()).stations || [];
       },
@@ -2239,7 +2362,7 @@
       sayac: "bisimCount",
       kapaninca: () => bisimEtiketiniAyarla(false),
       yukleyici: async () => {
-        const res = await fetch(BISIM_API);
+        const res = await veriAl(BISIM_API);
         if (!res.ok) throw new Error("HTTP " + res.status);
         const d = await res.json();
         return { bolgeler: d.bolgeler || [], hizmetAgi: d.hizmetAgi || [] };
@@ -2307,7 +2430,7 @@
       dugme: "bikeParkToggle",
       sayac: "bikeParkCount",
       yukleyici: async () => {
-        const res = await fetch(BIKEPARK_API);
+        const res = await veriAl(BIKEPARK_API);
         if (!res.ok) throw new Error("HTTP " + res.status);
         return (await res.json()).stations || [];
       },
