@@ -2242,16 +2242,21 @@
         const res = await fetch(BISIM_API);
         if (!res.ok) throw new Error("HTTP " + res.status);
         const d = await res.json();
-        return { bolgeler: d.bolgeler || [], hizmetAlani: d.hizmetAlani || null };
+        return { bolgeler: d.bolgeler || [], hizmetAgi: d.hizmetAgi || [] };
       },
       sayacMetni: (d) => `(${d.bolgeler.length} bonus bölgesi)`,
-      ciz: ({ bolgeler, hizmetAlani }) => {
+      ciz: ({ bolgeler, hizmetAgi }) => {
         const nesneler = [];
 
         // Alan önce çizilir ki bonus daireleri ve işaretleri üstünde kalsın.
-        for (const halka of hizmetAlani?.parcalar || []) {
+        // Backend alanı `hizmetAgi` adıyla veriyor: her parça bir çokgen,
+        // parca[0] dış halka, kalanlar delik. Burada bir süre `hizmetAlani`
+        // ve `.parcalar` okunuyordu — ikisi de yanıt gövdesinde yok, döngü
+        // hep boş dönüyor ve hizmet alanı hiç çizilmiyordu. Mobil taraf aynı
+        // okumayı doğru yapıyor: Components/MapLayers.js.
+        for (const parca of hizmetAgi || []) {
           nesneler.push(
-            L.polygon(halka.map(([lon, lat]) => [lat, lon]), {
+            L.polygon(parca.map((halka) => halka.map(([lon, lat]) => [lat, lon])), {
               color: BISIM_YESIL, weight: 2, opacity: 0.7,
               fillColor: BISIM_YESIL, fillOpacity: 0.06,
             }).bindPopup(
