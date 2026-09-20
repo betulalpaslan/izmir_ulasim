@@ -1,9 +1,15 @@
 // Harita üstündeki tüm işaretçi ve güzergâh katmanları.
 // HomeScreen yalnızca hangi katmanın görüneceğine karar verir; çizim burada yapılır.
-import { Alert, View, Text, StyleSheet } from "react-native";
+import { Alert, Platform, View, Text, StyleSheet } from "react-native";
 import { Callout, Circle, Marker, Polygon, Polyline } from "react-native-maps";
 import AppIcon from "./AppIcon";
 import { haversineMeters, projectOnSegment } from "../utils/geo";
+
+// Android'de özel <Callout tooltip> hiç çizilmiyor: işarete dokununca kamera
+// ona kayıyor ama pencere açılmıyor (Expo Go, react-native-maps 1.20.1) —
+// doluluk bilgisi bu yüzden görünmüyordu. Orada yerleşik bilgi penceresi
+// kullanılır; `title` + `description` aynı bilgiyi taşımalı.
+const OZEL_CALLOUT = Platform.OS !== "android";
 
 // Doluluk oranına göre otopark rengi: yeşil < %50, turuncu < %80, kırmızı üstü.
 // Doluluk BİLİNMİYORSA gri — kırmızı değil. 82 otoparkın yalnız 14'ünde sensör
@@ -154,19 +160,21 @@ export function BikeParkingMarkers({ stations, variant = "own" }) {
       coordinate={{ latitude: st.lat, longitude: st.lon }}
       anchor={{ x: 0.5, y: 0.5 }}
       title={st.name || style.title}
-      description={parkingOccupancyText(st)}
+      description={style.hint}
       tracksViewChanges={true}
     >
       <View style={[s.parkingMarker, { borderColor: style.color }]}>
         <AppIcon name="bike" size={13} color={style.color} />
       </View>
-      <Callout tooltip>
-        <View style={s.parkingCallout}>
-          <Text style={s.parkingCalloutTitle}>{st.name || style.title}</Text>
-          <Text style={s.parkingCalloutMeta}>{style.hint}</Text>
-          <Text style={s.parkingCalloutMeta}>{parkingOccupancyText(st)}</Text>
-        </View>
-      </Callout>
+      {OZEL_CALLOUT && (
+        <Callout tooltip>
+          <View style={s.parkingCallout}>
+            <Text style={s.parkingCalloutTitle}>{st.name || style.title}</Text>
+            <Text style={s.parkingCalloutMeta}>{style.hint}</Text>
+            <Text style={s.parkingCalloutMeta}>{parkingOccupancyText(st)}</Text>
+          </View>
+        </Callout>
+      )}
     </Marker>
   ));
 }
@@ -200,31 +208,39 @@ export function ParkAndRideMarkers({ stations }) {
         key={`pr-${st.id}`}
         coordinate={{ latitude: st.lat, longitude: st.lon }}
         anchor={{ x: 0.5, y: 0.5 }}
-        title={st.name}
-        description={parkingOccupancyText(st)}
+        title={st.name || "Otopark"}
+        description={[
+          parkingOccupancyText(st),
+          st.nearMetro && "Metro",
+          st.nearTram && "Tramvay",
+          st.nearTrain && "Tren",
+          st.isPaid != null && (st.isPaid ? "Ücretli" : "Ücretsiz"),
+        ].filter(Boolean).join(" · ")}
         tracksViewChanges={true}
       >
         <View style={[s.prMarker, { borderColor: color }]}>
           <Text style={[s.prMarkerLabel, { color }]}>P</Text>
         </View>
-        <Callout tooltip>
-          <View style={s.parkingCallout}>
-            <Text style={s.parkingCalloutTitle}>{st.name || "Otopark"}</Text>
-            <Text style={s.parkingCalloutMeta}>{parkingOccupancyText(st)}</Text>
-            {(st.nearMetro || st.nearTram || st.nearTrain) && (
-              <View style={s.parkingCalloutTags}>
-                {st.nearMetro && <Text style={s.parkingCalloutTag}>🚇 Metro</Text>}
-                {st.nearTram  && <Text style={s.parkingCalloutTag}>🚋 Tramvay</Text>}
-                {st.nearTrain && <Text style={s.parkingCalloutTag}>🚆 Tren</Text>}
-              </View>
-            )}
-            {st.isPaid != null && (
-              <Text style={[s.parkingCalloutMeta, { marginTop: 3 }]}>
-                {st.isPaid ? "💳 Ücretli" : "✅ Ücretsiz"}
-              </Text>
-            )}
-          </View>
-        </Callout>
+        {OZEL_CALLOUT && (
+          <Callout tooltip>
+            <View style={s.parkingCallout}>
+              <Text style={s.parkingCalloutTitle}>{st.name || "Otopark"}</Text>
+              <Text style={s.parkingCalloutMeta}>{parkingOccupancyText(st)}</Text>
+              {(st.nearMetro || st.nearTram || st.nearTrain) && (
+                <View style={s.parkingCalloutTags}>
+                  {st.nearMetro && <Text style={s.parkingCalloutTag}>🚇 Metro</Text>}
+                  {st.nearTram  && <Text style={s.parkingCalloutTag}>🚋 Tramvay</Text>}
+                  {st.nearTrain && <Text style={s.parkingCalloutTag}>🚆 Tren</Text>}
+                </View>
+              )}
+              {st.isPaid != null && (
+                <Text style={[s.parkingCalloutMeta, { marginTop: 3 }]}>
+                  {st.isPaid ? "💳 Ücretli" : "✅ Ücretsiz"}
+                </Text>
+              )}
+            </View>
+          </Callout>
+        )}
       </Marker>
     );
   });
