@@ -58,5 +58,3 @@ coverage/
 *.md
 !README.md
 
-# yerel araç ayarları — depoya ait değil
-.claude/
