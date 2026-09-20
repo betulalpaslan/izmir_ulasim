@@ -1229,8 +1229,11 @@
     // adrese izin vermek, bağlantıyı açan kişiye saldırganın döndürdüğü
     // içeriği göstermek demek (adlar aşağıda HTML'e giriyor). Bu yüzden
     // yalnız canlı arka uç ve yerel geliştirme adresleri kabul edilir.
-    const VARSAYILAN_API = "http://localhost:3000";
     const CANLI_API = "https://izmirbackend-production.up.railway.app";
+    // Varsayılan canlı arka uç: depoyu klonlayan kişi hiçbir parametre
+    // vermeden çalışan bir sayfa görsün. Yerelde backend çalıştıran
+    // geliştirici ?api=http://localhost:3000 ile oraya yönlendirir.
+    const VARSAYILAN_API = CANLI_API;
 
     function apiAdresi() {
       const istenen = (new URLSearchParams(location.search).get("api") || "").replace(/\/+$/, "");

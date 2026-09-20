@@ -97,18 +97,22 @@ ediyor; `-d web` ile açarsan `utils/` sunucunun dışında kalır ve modüller 
 alır. Aynı sebeple sayfa `file://` ile de açılmaz — ES modülleri güvenlik
 gereği sunucu ister. Yüklenemezse ekranda sebebi yazar, boş kalmaz.
 
-Sayfa varsayılan olarak `http://localhost:3000` backend'ine bakar. Başka bir
-adres `?api=` ile verilir:
+Sayfa varsayılan olarak **canlı backend'e** (Railway) bakar; yani `npm install`
+yapmadan, hiçbir parametre vermeden gerçek rota döner. Backend'i kendi
+makinenizde çalıştırıyorsanız `?api=` ile oraya yönlendirin:
 
 ```
-http://localhost:8000/web/?api=https://izmirbackend-production.up.railway.app
+http://localhost:8000/web/?api=http://localhost:3000
 ```
+
+Güvenlik gereği `?api=` yalnız canlı adresi ve `localhost`/`127.0.0.1`
+kabul eder: sayfa dönen veriyi ekrana basıyor, keyfi bir adrese izin vermek
+bağlantıyı açan kişiye başkasının içeriğini göstermek olurdu.
 
 | Gereksinim | Neden |
 |------------|-------|
-| Ayakta backend | Rota, BİSİM ve otopark uçları oradan gelir |
+| İnternet | Rota, BİSİM ve otopark verisi canlı backend'den; Leaflet ve polyline çözücü unpkg'den gelir |
 | Depo kökünden sunucu | Sayfa `utils/`'i modül olarak çeker; `file://` ve `-d web` çalışmaz |
-| İnternet | Leaflet ve polyline çözücü unpkg'den yüklenir |
 
 > `npm run web` **bu sayfa değildir** — o komut Expo'nun React Native
 > uygulamasını tarayıcıda çalıştırır. İkisi ayrı arayüzdür ve ayrı kod tabanı
