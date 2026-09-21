@@ -210,6 +210,21 @@ export function rankItineraries(itineraries, profileKey) {
   return [];
 }
 
+// Seçilen modun aracı HİÇ kullanılmadığında sebep "sürüş kısa" değildir:
+// ortada sürüş yoktur. Metin burada duruyor ki iki istemci aynı cümleyi
+// kullansın — mobil bunu kendi sabitinde tutarken web `bisim-kisa` dalına
+// düşüp "en uzun bacak 0 m (eşik 500 m)" diyordu, yani kullanıcıya sürüşün
+// kısa olduğunu ima ediyordu.
+export const ARAC_YOK_MESAJI = {
+  bicycle_rent:
+    "Bu yolculuk için BİSİM'li bir güzergâh kurulamadı — başlangıç ya da varış " +
+    "hizmet alanının dışında kalıyor, ya da bisiklet yolculuğa anlamlı bir katkı " +
+    "sağlamıyor olabilir. Hizmet alanı haritada görünmeye devam ediyor.",
+  bicycle_park:
+    "Bu yolculuk için bisikletli bir güzergâh kurulamadı — bisiklet yolculuğa " +
+    "anlamlı bir katkı sağlamıyor. Toplu taşıma seçeneğine bakabilirsiniz.",
+};
+
 export function modBosSebebi(itineraries, profileKey) {
   const bos = { kod: "bilinmiyor", mesaj: null, alternatifSn: null };
   if (!itineraries?.length) return bos;
@@ -218,6 +233,17 @@ export function modBosSebebi(itineraries, profileKey) {
   const alternatifSn = scored[0].walk.duzTransitEnIyiSn ?? null;
   const dk = (sn) => (sn / 60).toFixed(1).replace(".0", "");
   const km = (m) => (m / 1000).toFixed(1);
+
+  // Araç hiç kullanılmamışsa eşik karşılaştırması yanıltıcıdır; sebep eşik
+  // değil, aracın hiç kurulamamış olması. Ölçüldü (senaryo matrisi, BİSİM):
+  // 7 senaryonun 2'si (merkez-dogu, cevre-cevre) reluctance'tan bağımsız
+  // olarak sıfır bisikletli aday veriyor — aday elenmiyor, hiç üretilmiyor.
+  if (ARAC_YOK_MESAJI[profileKey]) {
+    const enUzunArac = Math.max(...scored.map((r) => r.walk.bikeMeters));
+    if (enUzunArac === 0) {
+      return { kod: "arac-yok", mesaj: ARAC_YOK_MESAJI[profileKey], alternatifSn };
+    }
+  }
 
   if (profileKey === "park_and_ride") {
     const ilk = itineraries[0].legs[0]?.from;

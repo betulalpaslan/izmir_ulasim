@@ -3,19 +3,15 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { fetchRoute as apiFetchRoute } from "../Services/routeService";
 import {
   resolveProfileKey, rankItineraries, modBosSebebi,
-  selectCandidates, buildRouteResult,
+  selectCandidates, buildRouteResult, ARAC_YOK_MESAJI,
 } from "../utils/routeScoring";
 
 // Mod seçimi bir vaattir: "BİSİM + Aktarma" seçene BİSİM'siz güzergâh
 // gösterilmez. Vaat tutulamıyorsa sebebi yazılır.
 const MOD_BOS_MESAJI = {
-  bicycle_rent:
-    "Bu yolculuk için BİSİM'li bir güzergâh kurulamadı — başlangıç ya da varış " +
-    "hizmet alanının dışında kalıyor, ya da bisiklet yolculuğa anlamlı bir katkı " +
-    "sağlamıyor olabilir. Hizmet alanı haritada görünmeye devam ediyor.",
-  bicycle_park:
-    "Bu yolculuk için bisikletli bir güzergâh kurulamadı — bisiklet yolculuğa " +
-    "anlamlı bir katkı sağlamıyor. Toplu taşıma seçeneğine bakabilirsiniz.",
+  // Bisiklet modlarinin metni routeScoring'de: web de ayni cumleyi oradan
+  // aliyor, iki istemci ayrismasin diye.
+  ...ARAC_YOK_MESAJI,
   park_and_ride:
     "Bu yolculuk için Park + Devam güzergâhı kurulamadı — araç ya da toplu taşıma " +
     "tarafı anlamlı bir mesafe tutmuyor.",
@@ -86,6 +82,12 @@ export function useRouteSearch(fareBase = 35, farePerBoarding = false) {
           const modlar = [...new Set(itineraries.flatMap((i) => i.legs.map((l) => l.mode)))];
           console.warn(`${profileKey}: OTP rota döndü ama araç yok. Modlar:`, modlar);
           setError(MOD_BOS_MESAJI[profileKey]);
+          // Çıkış teklifi BU yolda da gösterilmeli. Eskiden yalnız aşağıdaki
+          // sıralama-boş dalı setModBos çağırıyordu; burası kullanıcıyı
+          // mesajla baş başa bırakıp çıkmaza sokuyordu — üstelik taban çizgisi
+          // yanıtın içinde hazır geliyor. Ölçüldü: 7 BİSİM senaryosunun 2'si
+          // bu yola düşüyor.
+          setModBos({ kod: "arac-yok", alternatifSn: data.duzTransitEnIyiSn ?? null });
           return null;
         }
       }

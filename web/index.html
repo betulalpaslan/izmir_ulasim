@@ -109,6 +109,42 @@
       gap: 22px;
     }
 
+    /* KARAR MATRİSİ — "Karşılaştır" sekmesi.
+       Tek mod ekranı kullanıcıyı modları kafasında tutmaya zorluyordu;
+       burada aynı yolculuğun tüm modları aynı ölçütlerle yan yana. */
+    .sonuc-sekmeler {
+      display: flex; gap: 6px; margin: 12px 0 10px;
+      background: var(--surface2); border-radius: 999px; padding: 4px;
+    }
+    .sonuc-sekme {
+      flex: 1; text-align: center; padding: 8px 10px; border-radius: 999px;
+      font-size: 12px; font-weight: 700; color: var(--muted); cursor: pointer;
+      user-select: none; transition: background .15s, color .15s;
+    }
+    .sonuc-sekme.aktif { background: var(--surface); color: var(--accent); box-shadow: var(--shadow-sm); }
+
+    .krs-satir {
+      border: 1px solid var(--border); border-radius: 14px;
+      padding: 10px 12px; margin-bottom: 8px; cursor: pointer;
+      transition: border-color .15s, background .15s;
+    }
+    .krs-satir:hover { border-color: var(--accent); background: var(--surface2); }
+    .krs-satir.secili { border-color: var(--accent); background: var(--surface2); }
+    /* Çalışmayan mod tıklanabilir değil: o moda geçmek boş ekran demek. */
+    .krs-satir.yok { cursor: default; opacity: .72; }
+    .krs-satir.yok:hover { border-color: var(--border); background: transparent; }
+    .krs-bas { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .krs-ad { display: flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 700; color: var(--text); }
+    .krs-sure { font-size: 15px; font-weight: 800; color: var(--text); white-space: nowrap; }
+    .krs-alt { margin-top: 3px; font-size: 11.5px; color: var(--muted); }
+    .krs-rozetler { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 7px; }
+    .krs-rozet {
+      font-size: 10px; font-weight: 800; letter-spacing: .3px;
+      padding: 3px 8px; border-radius: 999px;
+      background: var(--transit-tint); color: var(--accent-transit);
+    }
+    .krs-not { margin-top: 8px; font-size: 11px; color: var(--muted); line-height: 1.5; }
+
     .section-title {
       font-size: 11px;
       font-weight: 800;
@@ -1190,6 +1226,13 @@
 
       <div id="modBosAksiyon" style="display:none; margin-top:8px;"></div>
 
+      <!-- SONUÇ SEKMELERİ: tek rota / karar matrisi -->
+      <div id="sonucSekmeleri" class="sonuc-sekmeler" style="display:none;">
+        <div class="sonuc-sekme aktif" data-sekme="rota">Rota</div>
+        <div class="sonuc-sekme" data-sekme="karsilastir">Karşılaştır</div>
+      </div>
+      <div id="karsilastirma" style="display:none;"></div>
+
       <!-- ÖZET -->
       <div id="summary"></div>
 
@@ -1228,6 +1271,7 @@
     import * as adimlar  from "../utils/routeInstructions.js";
     import * as geo      from "../utils/geo.js";
     import { decodePolyline } from "../utils/polyline.js";
+    import * as MC from "../utils/modeCompare.js";
 
     // `RS` adı korundu ki sayfadaki çağrı yerleri değişmesin.
     const RS = { ...puanlama, ...adimlar, ...geo, decodePolyline };
@@ -1592,6 +1636,9 @@
       document.getElementById("summary").innerHTML = "";
       document.getElementById("directions").innerHTML = "";
       cikisTeklifiniGoster(null);
+      // Rota yoksa karşılaştırılacak bir yolculuk da yok: sekmeler kapanır
+      // ve görünüm "Rota"ya döner, yoksa boş bir matris asılı kalıyordu.
+      sekmeleriGoster(false);
     }
 
 
@@ -1860,6 +1907,7 @@
         walkDist: s.walk.total,
         ucret: yolculukUcreti(s.itin.legs),
       });
+      sekmeleriGoster(true);
       return true;
     }
 
@@ -1910,6 +1958,136 @@
     biletCiz();
 
     // ── ROTA RENDER ──
+// ── KARAR MATRİSİ ────────────────────────────────────────────────
+    // Sayfa tek modun sonucunu gösteriyor; kullanıcı diğer modu merak
+    // edince seçip baştan arıyor ve ikisini kafasında tutmaya çalışıyordu.
+    // Bu sekme aynı yolculuğun tüm modlarını aynı ölçütlerle yan yana
+    // koyuyor. Satırlar ve "en iyi" rozetleri utils/modeCompare.js'den
+    // geliyor — yani matris ile rota ekranı aynı puanlama modelini
+    // kullanıyor, biri diğerinden farklı bir "en iyi" gösteremez.
+    const KRS_IKON = {
+      transit: "bus", bicycle_rent: "bike", bicycle_park: "bike",
+      car: "car", park_and_ride: "parking",
+    };
+    const KRS_ROZET = { sure: "En hızlı", yuruyus: "En az yürüyüş", aktarma: "En az aktarma" };
+
+    // Satıra tıklayınca o modu seçmek için gereken kontroller. Mevcut
+    // düğmeler .click()'leniyor; mod seçim mantığı tek yerde kalsın diye
+    // durum buradan doğrudan yazılmıyor.
+    const KRS_KONTROL = {
+      transit:       ['.profile-tab[data-profile="transit"]'],
+      bicycle_rent:  ['.profile-tab[data-profile="bicycle"]', '.seg-btn[data-bike="RENT"]'],
+      bicycle_park:  ['.profile-tab[data-profile="bicycle"]', '.seg-btn[data-bike="PARK"]'],
+      car:           ['.profile-tab[data-profile="car"]', '.seg-btn.car-seg[data-cartype="DIRECT"]'],
+      park_and_ride: ['.profile-tab[data-profile="car"]', '.seg-btn.car-seg[data-cartype="PARK_RIDE"]'],
+    };
+
+    let krsYukleniyor = false;
+
+    async function krsGetir() {
+      const dateTime = getDateTime();
+      const modes = getActiveModes();
+      const govde = (istek) => JSON.stringify({
+        from: { lat: points[0].lat, lon: points[0].lng },
+        to:   { lat: points[1].lat, lon: points[1].lng },
+        modes, numItineraries: 10,
+        ...(dateTime ? { dateTime } : {}),
+        ...istek,
+      });
+      // Modlar paralel gider: sırayla ~6 sn, paralel ~2.5 sn (ölçüldü).
+      // Biri düşerse diğerleri yine gösterilir; o satır sebebiyle görünür.
+      const cift = await Promise.all(MC.KARSILASTIRMA_MODLARI.map(async (m) => {
+        try {
+          const r = await veriAl(API_URL, {
+            method: "POST", headers: { "Content-Type": "application/json" }, body: govde(m.istek),
+          });
+          return [m.id, await r.json()];
+        } catch {
+          return [m.id, { error: "Sunucuya ulaşılamadı." }];
+        }
+      }));
+      return Object.fromEntries(cift);
+    }
+
+    function krsCiz(matris) {
+      const kap = document.getElementById("karsilastirma");
+      const secili = MC.KARSILASTIRMA_MODLARI.find((m) => {
+        const p = getProfile();
+        return m.istek.profile === p &&
+          (p !== "bicycle" || m.istek.bikeType === getBikeType());
+      });
+
+      kap.innerHTML = matris.map((r) => {
+        const ik = ikon(KRS_IKON[r.id] || "mapPin");
+        if (!r.calisti) {
+          return `<div class="krs-satir yok">
+            <div class="krs-bas"><span class="krs-ad">${ik} ${r.ad}</span><span class="krs-sure">—</span></div>
+            <div class="krs-alt">${kacis(r.sebep || "Güzergâh kurulamadı.")}</div>
+          </div>`;
+        }
+        const rozet = r.enIyiOlcutler.map((o) =>
+          `<span class="krs-rozet">${KRS_ROZET[o] || o}</span>`).join("");
+        // Ücreti olmayan mod için "0 TL" değil "—": bilinmeyen maliyet
+        // sıfır değildir (bkz. modeCompare.js, OLCUTLER yorumu).
+        const ucret = r.ucret == null ? "ücret —" : `${RS.ucretYazi(r.ucret)} TL`;
+        return `<div class="krs-satir ${secili && secili.id === r.id ? "secili" : ""}" data-mod="${r.id}">
+          <div class="krs-bas">
+            <span class="krs-ad">${ik} ${r.ad}</span>
+            <span class="krs-sure">${Math.round(r.sureSn / 60)} dk</span>
+          </div>
+          <div class="krs-alt">${r.yuruyusM} m yürüyüş · ${r.aktarma} aktarma · ${ucret}</div>
+          ${rozet ? `<div class="krs-rozetler">${rozet}</div>` : ""}
+        </div>`;
+      }).join("") + `<div class="krs-not">${ikon("info")} Araba için yakıt ve otopark ücreti
+        hesaplanmıyor, bu yüzden ücret karşılaştırmaya girmiyor. Bir satıra dokunarak o moda geçebilirsin.</div>`;
+
+      kap.querySelectorAll(".krs-satir[data-mod]").forEach((el) => {
+        el.onclick = () => {
+          (KRS_KONTROL[el.dataset.mod] || []).forEach((sec) =>
+            document.querySelector(sec)?.click());
+          krsSekmeSec("rota");
+          fetchRoute();
+        };
+      });
+    }
+
+    function krsSekmeSec(hangi) {
+      document.querySelectorAll(".sonuc-sekme").forEach((t) =>
+        t.classList.toggle("aktif", t.dataset.sekme === hangi));
+      const krs = hangi === "karsilastir";
+      document.getElementById("karsilastirma").style.display = krs ? "block" : "none";
+      document.getElementById("summary").style.display = krs ? "none" : "";
+      document.getElementById("directions").style.display = krs ? "none" : "";
+    }
+
+    function sekmeleriGoster(goster) {
+      // Örnek veri modunda kapalı: oradaki /get-route tüm modlara AYNI
+      // dosyayı döndürüyor, yani matris beş özdeş satır gösterirdi.
+      const acik = goster && !ornekModu;
+      document.getElementById("sonucSekmeleri").style.display = acik ? "flex" : "none";
+      if (!acik) krsSekmeSec("rota");
+    }
+
+    document.querySelectorAll(".sonuc-sekme").forEach((t) => {
+      t.onclick = async () => {
+        const hangi = t.dataset.sekme;
+        krsSekmeSec(hangi);
+        if (hangi !== "karsilastir" || krsYukleniyor) return;
+        krsYukleniyor = true;
+        const kap = document.getElementById("karsilastirma");
+        kap.innerHTML = `<div class="ac-loading">${ikon("search")} Tüm modlar deneniyor...</div>`;
+        try {
+          const b = bilet();
+          krsCiz(MC.karsilastirmaMatrisi(await krsGetir(), b.base, b.perBoarding));
+        } catch (e) {
+          kap.innerHTML = `<div class="ac-loading">${ikon("alert")} Karşılaştırma alınamadı.</div>`;
+          console.warn("Karşılaştırma hatası:", e);
+        } finally {
+          krsYukleniyor = false;
+        }
+      };
+    });
+
     function renderRoute(choice) {
       clearRoutesAndSteps();
       const mins = Math.round(choice.totalDur / 60);
