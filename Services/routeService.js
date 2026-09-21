@@ -1,7 +1,7 @@
 import { apiGet, apiPost } from "./apiClient";
 
 const API_URL =
-  process.env.EXPO_PUBLIC_API_URL || "https://izmirbackend-production.up.railway.app";
+  process.env.EXPO_PUBLIC_API_URL || "https://izmir-ulasim-backend-production.up.railway.app";
 
 
 const ROTA_TIMEOUT = 25000;
