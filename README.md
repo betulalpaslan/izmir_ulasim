@@ -113,8 +113,9 @@ Puanlama, eleme, ücret hesabı ve harita çizimi canlıdaki kodun **aynısıyla
 çalışır — sabitlenen tek şey sunucunun döndürdüğü ham yanıttır.
 
 Bu modda serbest adres araması ve haritadan nokta seçme kapalıdır: rastgele iki
-nokta için kayıtlı bir cevabı çizmek kullanıcıya yalan olurdu. Ekranın üstünde
-durumu söyleyen bir şerit durur, yani örnek veri canlı veriyle karıştırılamaz.
+nokta için kayıtlı bir cevabı çizmek kullanıcıya yalan olurdu. Arama kutuları
+"Örnek yolculuklardan seçiniz" der ve liste "Örnek yolculuklar" başlığıyla
+sunulur, yani verinin hazır olduğu arayüzden anlaşılır.
 
 | Gereksinim | Neden |
 |------------|-------|
