@@ -1053,11 +1053,8 @@
       <div id="ornekSerit" style="display:none; margin-bottom:12px; padding:10px 12px;
            border:1px solid #f59e0b; border-radius:10px; background:rgba(245,158,11,0.10);
            font-size:12px; line-height:1.5; color:var(--text);">
-        <b>Demo</b> — kurulum gerektirmeyen tanıtım sürümü. Aşağıdaki dört
-        yolculuk 21 Eylül 2026 Pazartesi 08:00'de gerçek sunucudan kaydedildi.
-        Rota puanlama, eleme, ücret hesabı ve harita çizimi uygulamanın kendi
-        kodu — sabit olan yalnız sunucunun döndürdüğü ham yanıt. Sunucu bağlıyken
-        aynı sayfa serbest adres aramasıyla, İzmir'in her noktası için çalışır.
+        <b>Demo</b> — dört hazır yolculuk, 21 Eylül 2026'da gerçek sunucudan
+        kaydedildi. Puanlama ve ücret hesabı uygulamanın kendi kodu.
       </div>
       <div id="ornekSenaryolar" style="display:none; margin-bottom:16px;"></div>
 
@@ -1605,7 +1602,7 @@
       // Örnek modda yanıtlar sabit. Rastgele tıklanan iki nokta için başka
       // bir yolculuğun kayıtlı cevabını çizmek kullanıcıya yalan olurdu.
       if (ornekModu) {
-        setStatus("Demoda harita seçimi kapalı — listeden bir yolculuk seçin.", "alert");
+        setStatus("Harita seçimi bu sürümde kapalı — listeden bir yolculuk seçin.", "alert");
         return;
       }
       // Hangi alan boşsa onu doldur
@@ -2323,14 +2320,14 @@
       for (const id of ["fromInput", "toInput"]) {
         const el = document.getElementById(id);
         el.disabled = true;
-        el.placeholder = "Demoda adres araması kapalı";
+        el.placeholder = "Adres araması bu sürümde kapalı";
       }
       document.getElementById("gpsBtn").disabled = true;
       document.getElementById("searchBtn").disabled = true;
 
       const kap = document.getElementById("ornekSenaryolar");
       kap.style.display = "block";
-      kap.innerHTML = '<div class="section-title">Demo yolculukları</div>';
+      kap.innerHTML = '<div class="section-title">Hazır yolculuklar</div>';
       for (const senaryo of ORNEK_SENARYOLAR) {
         const dugme = document.createElement("button");
         dugme.className = "small-btn";
@@ -2342,7 +2339,7 @@
         dugme.addEventListener("click", () => senaryoyuUygula(senaryo));
         kap.appendChild(dugme);
       }
-      setStatus("Bir demo yolculuğu seçin.", "mapPin");
+      setStatus("Listeden bir yolculuk seçin.", "mapPin");
     }
 
     function senaryoyuUygula(senaryo) {
