@@ -105,11 +105,7 @@ makinenizde çalıştırıyorsanız `?api=` ile oraya yönlendirin:
 http://localhost:8000/web/?api=http://localhost:3000
 ```
 
-Güvenlik gereği `?api=` yalnız canlı adresi ve `localhost`/`127.0.0.1`
-kabul eder: sayfa dönen veriyi ekrana basıyor, keyfi bir adrese izin vermek
-bağlantıyı açan kişiye başkasının içeriğini göstermek olurdu.
-
-**Sunucu kapalıyken.** Sayfa açılışta arka ucu yokluyor; ulaşamazsa *örnek veri*
+**Sunucu kapalıyken.** Sayfa açılışta backende bakar; ulaşamazsa *örnek veri*
 moduna geçer ve [web/ornek-veri/](web/ornek-veri/) altındaki, daha önce gerçek
 sunucudan kaydedilmiş yanıtlarla dört hazır yolculuğu sunar (21 Eylül 2026
 Pazartesi 08:00 kaydı): BİSİM, bisikletim, Park & Ride ve düz toplu taşıma.
@@ -270,7 +266,7 @@ Alsancak Garı'nda bisiklet en yakın istasyona bırakılıp kalan 1,3 km yürü
 `free_bike_status` + `return_constraint: free_floating` ile aynı yolculuk kapıya
 kadar sürülüyor — 19 dakika, kapanış yürüyüşü yok.
 
-**Park & Ride eşiği kalibre edildi.** "Transit ≥ araç" kuralı verinin ortasından
+**Park & Ride eşiği ayarlandı.** "Transit ≥ araç" kuralı verinin ortasından
 geçiyor ve gerçek P+R güzergâhlarını eliyordu (Narlıdere → Çiğli 200 metreyle
 reddediliyordu). Transit ≥ 2 km olan 30 güzergâhın transit/araç oranı sıralandığında
 0,17 ile 0,38 arasında boşluk var; eşik o boşluğun ortasına (0,3) kondu. Boş sonuç
