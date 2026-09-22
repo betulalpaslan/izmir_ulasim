@@ -1037,6 +1037,14 @@
       background: var(--border-strong);
       border-radius: 3px;
     }
+    /* Dar görüntü alanı: kenar çubuğu 400px'ten küçülmediği için yatay düzende
+       haritaya yer kalmıyordu. Telefonun yanı sıra tarayıcı yakınlaştırması da
+       CSS genişliğini düşürdüğü için aynı eşiğe takılıyor. Düzeni dikeye çevir. */
+    @media (max-width: 720px) {
+      body     { flex-direction: column; }
+      #sidebar { width: 100%; min-width: 0; max-height: 55vh; }
+      #map     { min-height: 45vh; }
+    }
   </style>
 </head>
 
